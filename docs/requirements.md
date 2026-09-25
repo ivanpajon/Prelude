@@ -4,7 +4,7 @@
 
 Use compatible stable releases, with React 19.x, Next.js 16.x, and Tailwind 4.x. Direct dependencies are pinned and one pnpm lockfile is committed. Node 24.19.0+ within 24.x and pnpm 11.19.0 are the runtime/tooling baseline. Upgrades must pass `pnpm verify` and a frozen-lockfile installation.
 
-TypeScript 6.0.3 satisfies the selected ESLint parser's `>=4.8.4 <6.1.0` peer range; TypeScript 7 is deferred until that integration supports it. oRPC packages share stable version 1.15.4; follow the [v1 documentation](https://v1.orpc.dev/docs/getting-started), rather than mixing newer prerelease APIs into this implementation.
+TypeScript remains pinned to the verified 6.0.3 baseline; compiler upgrades are separate from linting changes. oRPC packages share stable version 1.15.4; follow the [v1 documentation](https://v1.orpc.dev/docs/getting-started), rather than mixing newer prerelease APIs into this implementation.
 
 ## Stack
 
@@ -14,7 +14,7 @@ TypeScript 6.0.3 satisfies the selected ESLint parser's `>=4.8.4 <6.1.0` peer ra
 - TanStack Query 5.103.2 for client server data, nuqs 2.10.1 for URL state, and Zustand 5.0.15 for shared local UI state.
 - Serwist 9.5.12 for installability, static assets, an offline fallback, and user-controlled updates.
 - pnpm workspaces, Turborepo, and strict TypeScript.
-- Biome for general linting/formatting; `@shadcn/lint` through dedicated ESLint configuration.
+- Biome as the sole linter, formatter, and import organizer.
 - Husky pre-commit with lint-staged, preserving unstaged changes.
 - Vitest for unit/integration checks and Playwright for production browser checks.
 
@@ -24,9 +24,11 @@ Reproducible installation; passing formatting, linting, type checking, tests, an
 
 ## Development workflow
 
-Biome owns general linting, import organization, and formatting. Dedicated ESLint rules validate Tailwind classes throughout the app/UI package and require theme colors, token-based values, and statically readable classes in app components. Generated UI implementations retain their legitimate variant functions and arbitrary values.
+Biome owns linting, import organization, and formatting, with Tailwind CSS directive parsing enabled. Its opt-in `noTailwindArbitraryValue` rule rejects arbitrary values in application JSX/TSX, including `cn(...)`; generated shared UI components retain their required arbitrary values. This is a nursery rule in the pinned Biome release, so review its behavior during upgrades.
 
-Husky runs Biome safe fixes and Tailwind lint on staged files through lint-staged. Full checks, unit tests, production browser tests, and build-cache restoration are available separately and through `pnpm verify`. Delivery is organized into local commits for workspace, tooling/hooks, UI, API/state, PWA, and verification/documentation.
+`@shadcn/lint` was removed to keep one linter: it requires an ESLint or Oxlint host and cannot run inside Biome. There is no equivalent configured check for unknown Tailwind utilities, raw palette colors, or dynamically constructed classes. Prefer semantic tokens and complete literal class names; these remaining conventions require code review. See the [plugin's supported hosts](https://github.com/shadcn-ui/lint) and [Biome's arbitrary-value rule](https://biomejs.dev/linter/rules/no-tailwind-arbitrary-value/).
+
+Husky runs Biome safe fixes on staged files through lint-staged. Full checks, unit tests, production browser tests, and build-cache restoration are available separately and through `pnpm verify`. Delivery is organized into local commits for workspace, tooling/hooks, UI, API/state, PWA, and verification/documentation.
 
 ## Deferred
 

@@ -14,7 +14,7 @@ No CI provider is configured. A future CI job can run these commands; on Linux r
 
 | Command | Coverage |
 | --- | --- |
-| `pnpm check` | Biome, Tailwind ESLint, strict TypeScript, and compile-only negative contract checks. |
+| `pnpm check` | Biome, strict TypeScript, and compile-only negative contract checks. |
 | `pnpm test` | API input/output validation, title normalization, missing records, isolated request context/repositories, invalidation callback, query isolation, URL parsing, and independent Zustand stores. |
 | `pnpm build` | Production Turbopack compilation, Cache Components rendering, and Serwist generation. |
 | `pnpm test:e2e` | Build, then check production hydration, mutations, URL navigation, local state, offline fallback, and worker updates. |
@@ -40,3 +40,5 @@ Verified on 2026-09-25 with Node 24.19.0 and pnpm 11.19.0 on Windows:
 - The hook checks confirmed invalid staged code is rejected and unstaged changes survive safe fixes.
 
 The browser suite also verifies the application remains usable when service-worker registration is blocked. The server-rendering scenario checks task markup with JavaScript disabled; it does not promise an interactive application without JavaScript. Re-run these checks after changes or dependency upgrades.
+
+The subsequent Biome-only tooling change passed `pnpm check`, all 18 Vitest tests, `pnpm build`, and frozen-lockfile installation. Hook regression checks again confirmed safe fixes preserve unstaged edits and invalid staged code is rejected. Temporary application TSX fixtures confirmed that valid token classes pass and arbitrary values in both `className` and `cn(...)` fail Biome's native rule. Browser scenarios were not rerun for this tooling-only change.

@@ -30,7 +30,7 @@ Use separate development and production ports. A previously installed production
 | `pnpm dev` | Start Next.js with Turbopack. |
 | `pnpm build` | Build Next.js, then generate the Serwist worker. |
 | `pnpm start` | Serve an existing production build. |
-| `pnpm check` | Check Biome, Tailwind lint, and strict TypeScript. |
+| `pnpm check` | Check Biome and strict TypeScript. |
 | `pnpm fix` | Apply formatting and supported lint fixes. |
 | `pnpm test` | Run Vitest API, query, URL-state, and store tests. |
 | `pnpm test:e2e` | Build, then run production browser scenarios with Playwright. |
@@ -44,7 +44,7 @@ pnpm exec playwright install chromium
 pnpm verify
 ```
 
-Husky runs lint-staged before commits: Biome safe fixes first, then Tailwind ESLint checks. Unresolved errors block the commit; unstaged hunks are preserved. Full-repository checks remain necessary because hooks only inspect staged files. See [verification](docs/verification.md) for scenarios and generated-file handling.
+Biome is the only linter and formatter. Husky runs its safe fixes through lint-staged before commits. Unresolved errors block the commit; unstaged hunks are preserved. Full-repository checks remain necessary because hooks only inspect staged files. See [verification](docs/verification.md) for scenarios and generated-file handling.
 
 ## Make it yours
 

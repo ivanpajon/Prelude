@@ -8,5 +8,20 @@
   "javascript": { "formatter": { "quoteStyle": "double", "semicolons": "always" } },
   "css": { "parser": { "tailwindDirectives": true } },
   "linter": { "enabled": true, "rules": { "preset": "recommended" } },
-  "assist": { "actions": { "source": { "organizeImports": "on" } } }
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "overrides": [
+    {
+      "includes": ["apps/**/*.{jsx,tsx}"],
+      "linter": {
+        "rules": {
+          "nursery": {
+            "noTailwindArbitraryValue": {
+              "level": "error",
+              "options": { "functions": ["cn"] }
+            }
+          }
+        }
+      }
+    }
+  ]
 }
