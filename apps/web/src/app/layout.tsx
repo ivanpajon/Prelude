@@ -1,6 +1,7 @@
 import "@repo/ui/styles/globals.css";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { Providers } from "@/components/providers";
 
 export const metadata: Metadata = {
   title: "Next Template — Less setup. More building.",
@@ -19,7 +20,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         >
           Skip to content
         </a>
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

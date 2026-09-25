@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/ca
 import { ArrowDownIcon, ArrowUpRightIcon, CheckIcon } from "lucide-react";
 import { cacheLife } from "next/cache";
 import { Suspense } from "react";
-import { StarterInteraction } from "@/components/starter-interaction";
+import { TaskWorkbenchServer } from "@/components/task-workbench-server";
 
 const boundaries = [
   {
@@ -69,7 +69,11 @@ async function StackOverview() {
   );
 }
 
-export default function HomePage() {
+export default function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   return (
     <div className="mx-auto max-w-7xl px-6 sm:px-10 lg:px-16">
       <header className="flex h-24 items-center justify-between gap-4 border-b border-border">
@@ -152,7 +156,15 @@ export default function HomePage() {
             </div>
             <span className="font-mono text-xs text-muted-foreground">apps/web</span>
           </div>
-          <StarterInteraction />
+          <Suspense
+            fallback={
+              <p role="status" className="rounded-xl bg-card p-8 text-muted-foreground">
+                Loading your workspace…
+              </p>
+            }
+          >
+            <TaskWorkbenchServer searchParams={searchParams} />
+          </Suspense>
         </section>
 
         <section

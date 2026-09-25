@@ -10,9 +10,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@repo/contracts": "workspace:*"
+    "@orpc/server": "1.15.4",
+    "@repo/contracts": "workspace:*",
+    "server-only": "0.0.1"
   },
   "devDependencies": {
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "5.0.2"
   }
 }
