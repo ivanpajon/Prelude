@@ -5,10 +5,13 @@ import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent } from "@repo/ui/components/card";
 import { Input } from "@repo/ui/components/input";
+import { MorphIcon } from "@repo/ui/components/morph-icon";
 import { cn } from "@repo/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type } from "arktype";
-import { CheckIcon, LayoutListIcon, PlusIcon } from "lucide-react";
+import { LayoutList, List } from "lucide";
+import { CheckIcon, PlusIcon } from "lucide-react";
+import { motion } from "motion/react";
 import { useQueryState } from "nuqs";
 import { type FormEvent, useState } from "react";
 import { orpc } from "@/lib/orpc";
@@ -111,7 +114,7 @@ export function TaskWorkbench() {
             ))}
           </fieldset>
           <Button variant="ghost" onClick={toggleCompact} aria-pressed={compact}>
-            <LayoutListIcon aria-hidden="true" />
+            <MorphIcon icon={compact ? List : LayoutList} />
             Compact view
           </Button>
         </div>
@@ -131,8 +134,10 @@ export function TaskWorkbench() {
         ) : (
           <ul aria-label="Tasks" className="divide-y">
             {tasks.data.map((task) => (
-              <li
+              <motion.li
                 key={task.id}
+                layout="position"
+                initial={false}
                 className={cn("flex items-center gap-3", compact ? "py-2" : "py-5")}
               >
                 <Button
@@ -150,7 +155,7 @@ export function TaskWorkbench() {
                 >
                   {task.title}
                 </span>
-              </li>
+              </motion.li>
             ))}
           </ul>
         )}

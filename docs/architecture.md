@@ -7,7 +7,7 @@
 | `@repo/web` | Next.js routes, rendering, providers, HTTP adapter, framework caching, and PWA. |
 | `@repo/contracts` | Browser-safe ArkType input/output schemas, oRPC contracts, and client types. |
 | `@repo/api` | Server-only procedures, request context, and repository abstraction. |
-| `@repo/ui` | Shared Base UI components, Tailwind tokens, and the `cn` re-export. |
+| `@repo/ui` | Shared Base UI components, Tailwind tokens, Motion/Morphicons wrappers, and the `cn` re-export. |
 | `@repo/temporal` | Browser-safe standard Temporal API with native selection and polyfill fallback. |
 
 Next.js transpiles the private source packages directly. Dependencies are explicit and acyclic: shared packages do not import application code, and browser modules never import `@repo/api`.

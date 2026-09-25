@@ -20,6 +20,7 @@ TypeScript remains pinned to the verified 6.0.3 baseline; compiler upgrades are 
 - Testing Library with jsdom for component tests, plus Vitest coverage and its local UI.
 - Commitlint CLI and conventional configuration for commit-message checks.
 - Standard Temporal API with a native-first, full-calendar polyfill fallback.
+- Motion 13.4.4 and Morphicons 1.7.1 with shared reduced-motion defaults; Lucide 1.48.0 icon data matches the React icon package.
 
 ## Acceptance
 

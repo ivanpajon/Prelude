@@ -15,8 +15,8 @@ No CI provider is configured. A future CI job can run these commands; on Linux r
 | Command | Coverage |
 | --- | --- |
 | `pnpm check` | Biome, strict TypeScript, and compile-only negative contract checks. |
-| `pnpm test` | API input/output validation, title normalization, missing records, isolated request context/repositories, invalidation callback, query isolation, URL parsing, and independent Zustand stores. |
-| `pnpm test:coverage` | The same suite plus Temporal and Testing Library component scenarios, with V8 coverage reports in `coverage/`. |
+| `pnpm test` | API validation and procedure behavior, request/query/store isolation, URL parsing, native and fallback Temporal behavior, and Testing Library component scenarios. |
+| `pnpm test:coverage` | The same suite with V8 coverage reports in `coverage/`. |
 | `pnpm test:ui` | Local Vitest watch UI on `127.0.0.1`; exit with Ctrl+C. |
 | `pnpm build` | Production Turbopack compilation, Cache Components rendering, and Serwist generation. |
 | `pnpm test:e2e` | Build, then check production hydration, mutations, URL navigation, local state, offline fallback, and worker updates. |
@@ -51,4 +51,16 @@ The subsequent Biome-only tooling change passed `pnpm check`, all 18 Vitest test
 
 Vitest's `node` project discovers `.test.ts` files under applications and packages. Its `dom` project discovers `.test.tsx` files and supplies jsdom, Testing Library cleanup, and jest-dom matchers. The DOM setup stubs `matchMedia`; use Playwright for real layout, hydration, service workers, and browser preferences. Keep asynchronous Server Component tests in Playwright.
 
+Open the URL printed by `pnpm test:ui`, including its authentication token, to use the test explorer. The command stays in watch mode and binds its API to loopback.
+
 `pnpm verify` runs coverage rather than running the unit suite twice. Coverage is collected for contracts, API/repository logic, Temporal, state helpers, and the shared animation wrappers. Generated shadcn components and complete Next.js pages are not coverage targets; the form-controls tests exercise component composition, while Playwright owns integrated rendering. Reports start without percentage gates so projects can set meaningful thresholds for their own code. Vitest, its UI, and its coverage provider are pinned to the same version.
+
+## Node 26 and additional tooling acceptance
+
+Verified on 2026-09-25 with Node 26.10.0 and pnpm 11.19.0 on Windows:
+
+- Frozen-lockfile installation, Biome, and strict TypeScript passed.
+- All 25 Vitest tests passed with V8 coverage, including native Temporal identity, an isolated polyfill fallback, DST/calendar behavior, keyboard form interaction, and reduced-motion icon updates.
+- All 19 Chromium browser scenarios passed across desktop, mobile emulation, and PWA projects. These include server-rendered icons, hydration, keyboard density changes with reduced motion, mutations, URL history, offline fallback, and user-controlled worker updates.
+- The production Turbopack/Serwist build passed, and Turbo restored the generated service worker byte for byte.
+- The Vitest UI started in watch mode and ran the suite successfully. The actual Git `commit-msg` hook rejected an invalid message and accepted a Conventional Commit message.

@@ -16,6 +16,11 @@ test.describe("server rendering", () => {
     const tasks = page.getByRole("list", { name: "Tasks", includeHidden: true });
     await expect(tasks.getByText("Explore the workspace", { exact: true })).toHaveCount(1);
     await expect(tasks.getByText("Make this template yours", { exact: true })).toHaveCount(1);
+    const icon = page
+      .getByRole("button", { name: "Compact view", exact: true, includeHidden: true })
+      .locator("svg");
+    await expect(icon).toHaveAttribute("aria-hidden", "true");
+    await expect(icon.locator("path").first()).toHaveAttribute("d", /\S/);
   });
 });
 
@@ -134,6 +139,42 @@ test("keeps compact view local while filters change", async ({ page, browser }) 
   } finally {
     await isolated.close();
   }
+});
+
+test("supports keyboard density changes with reduced motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  const tasks = page.getByRole("list", { name: "Tasks" });
+  const compact = page.getByRole("button", { name: "Compact view", exact: true });
+  const icon = compact.locator("svg");
+  const path = icon.locator("path").first();
+  await expect(tasks).toBeVisible();
+  const originalText = await tasks.innerText();
+  const originalHeight = await tasks.evaluate((element) => element.getBoundingClientRect().height);
+  const originalPath = await path.getAttribute("d");
+  expect(originalPath).toBeTruthy();
+
+  await page.getByRole("button", { name: "Completed", exact: true }).focus();
+  await page.keyboard.press("Tab");
+  await expect(compact).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect(compact).toHaveAttribute("aria-pressed", "true");
+  await expect(compact).toBeFocused();
+  await expect(icon).toBeVisible();
+  await expect(icon).toHaveAttribute("aria-hidden", "true");
+  await expect.poll(() => path.getAttribute("d")).not.toBe(originalPath);
+  await expect
+    .poll(() => tasks.evaluate((element) => element.getBoundingClientRect().height))
+    .toBeLessThan(originalHeight);
+  expect(await tasks.innerText()).toBe(originalText);
+
+  await page.keyboard.press("Enter");
+  await expect(compact).toHaveAttribute("aria-pressed", "false");
+  await expect(compact).toBeFocused();
+  await expect.poll(() => path.getAttribute("d")).toBe(originalPath);
+  await expect
+    .poll(() => tasks.evaluate((element) => element.getBoundingClientRect().height))
+    .toBe(originalHeight);
 });
 
 test("recovers a failed query when the connection returns", async ({ page }) => {

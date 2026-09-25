@@ -1,5 +1,6 @@
 "use client";
 
+import { MotionProvider } from "@repo/ui/components/motion-provider";
 import { isServer, type QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import type { ReactNode } from "react";
@@ -16,7 +17,9 @@ function getQueryClient() {
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <NuqsAdapter>
-      <QueryClientProvider client={getQueryClient()}>{children}</QueryClientProvider>
+      <QueryClientProvider client={getQueryClient()}>
+        <MotionProvider>{children}</MotionProvider>
+      </QueryClientProvider>
     </NuqsAdapter>
   );
 }
