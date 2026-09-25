@@ -4,6 +4,26 @@ import { Button } from "@repo/ui/components/button";
 import { SerwistProvider, useSerwist } from "@serwist/next/react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
+type ServiceWorkerClient = NonNullable<ReturnType<typeof useSerwist>["serwist"]>;
+
+// Serwist keeps its client across mounts. Reuse its registration attempt across
+// Strict Mode effect replay and provider remounts, including failed attempts.
+const registrations = new WeakMap<
+  ServiceWorkerClient,
+  ReturnType<ServiceWorkerClient["register"]>
+>();
+
+function registerOnce(serwist: ServiceWorkerClient) {
+  const existing = registrations.get(serwist);
+  if (existing) return existing;
+
+  const registration = Promise.resolve()
+    .then(() => serwist.register())
+    .catch(() => undefined);
+  registrations.set(serwist, registration);
+  return registration;
+}
+
 function UpdateNotice() {
   const { serwist } = useSerwist();
   const [available, setAvailable] = useState(false);
@@ -34,6 +54,12 @@ function UpdateNotice() {
 
     serwist.addEventListener("waiting", onWaiting);
     serwist.addEventListener("controlling", onControlling);
+
+    // PWA registration is optional: denied or failed registration must not
+    // interrupt the application or produce an unhandled rejection.
+    void registerOnce(serwist).then((registration) => {
+      if (active && registration?.waiting) onWaiting();
+    });
 
     // The worker may already be waiting before this component subscribes.
     void navigator.serviceWorker
@@ -115,6 +141,7 @@ export function PwaProvider({ children }: { children: ReactNode }) {
     <SerwistProvider
       swUrl="/sw.js"
       disable={process.env.NODE_ENV !== "production"}
+      register={false}
       cacheOnNavigation={false}
       reloadOnOnline={false}
       options={{ scope: "/", type: "module", updateViaCache: "none" }}
