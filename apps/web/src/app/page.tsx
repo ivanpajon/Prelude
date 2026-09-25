@@ -2,6 +2,7 @@ import { Badge } from "@repo/ui/components/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
 import { ArrowDownIcon, ArrowUpRightIcon, CheckIcon } from "lucide-react";
 import { cacheLife } from "next/cache";
+import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 import { AnimationExamples } from "@/components/animation-examples";
@@ -79,14 +80,25 @@ export default function HomePage({
   return (
     <div className="mx-auto max-w-7xl px-6 sm:px-10 lg:px-16">
       <header className="flex h-24 items-center justify-between gap-4 border-b border-border">
-        <Link href="/" className="text-sm font-semibold tracking-widest" aria-label="Prelude home">
-          PRELUDE
+        <Link
+          href="/"
+          className="shrink-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+          aria-label="Prelude home"
+        >
+          <Image
+            src="/branding/prelude-logo.png"
+            alt="Prelude"
+            width={2027}
+            height={776}
+            className="h-12 w-36 object-cover sm:w-44"
+            preload
+          />
         </Link>
         <a
           href="https://nextjs.org/docs"
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-2 text-xs whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground sm:text-sm"
         >
           Next.js docs
           <ArrowUpRightIcon className="size-4" aria-hidden="true" />
