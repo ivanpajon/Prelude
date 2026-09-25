@@ -2,7 +2,7 @@
 
 ## Version policy
 
-Use compatible stable releases, with React 19.x, Next.js 16.x, and Tailwind 4.x. Direct dependencies are pinned and one pnpm lockfile is committed. Node 24.19.0+ within 24.x and pnpm 11.19.0 are the runtime/tooling baseline. Upgrades must pass `pnpm verify` and a frozen-lockfile installation.
+Use compatible stable releases, with React 19.x, Next.js 16.x, and Tailwind 4.x. Direct dependencies are pinned and one pnpm lockfile is committed. Node 26.10.0+ within 26.x and pnpm 11.19.0 are the runtime/tooling baseline. Node types track 26.x. Upgrades must pass `pnpm verify` and a frozen-lockfile installation.
 
 TypeScript remains pinned to the verified 6.0.3 baseline; compiler upgrades are separate from linting changes. oRPC packages share stable version 1.15.4; follow the [v1 documentation](https://v1.orpc.dev/docs/getting-started), rather than mixing newer prerelease APIs into this implementation.
 
@@ -17,6 +17,9 @@ TypeScript remains pinned to the verified 6.0.3 baseline; compiler upgrades are 
 - Biome as the sole linter, formatter, and import organizer.
 - Husky pre-commit with lint-staged, preserving unstaged changes.
 - Vitest for unit/integration checks and Playwright for production browser checks.
+- Testing Library with jsdom for component tests, plus Vitest coverage and its local UI.
+- Commitlint CLI and conventional configuration for commit-message checks.
+- Standard Temporal API with a native-first, full-calendar polyfill fallback.
 
 ## Acceptance
 

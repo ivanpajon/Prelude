@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
-  transpilePackages: ["@repo/ui", "@repo/contracts", "@repo/api"],
+  transpilePackages: ["@repo/ui", "@repo/contracts", "@repo/api", "@repo/temporal"],
   async headers() {
     return [
       {

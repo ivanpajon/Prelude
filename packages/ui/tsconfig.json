@@ -1,6 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "paths": { "@repo/ui/*": ["./src/*"] } },
+  "compilerOptions": {
+    "paths": { "@repo/ui/*": ["./src/*"] },
+    "types": ["@testing-library/jest-dom/vitest"]
+  },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["node_modules"]
 }
