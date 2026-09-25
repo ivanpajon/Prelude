@@ -79,12 +79,8 @@ export default function HomePage({
   return (
     <div className="mx-auto max-w-7xl px-6 sm:px-10 lg:px-16">
       <header className="flex h-24 items-center justify-between gap-4 border-b border-border">
-        <Link
-          href="/"
-          className="text-sm font-semibold tracking-widest"
-          aria-label="Next Template home"
-        >
-          NEXT <span className="px-1 text-muted-foreground">/</span> TEMPLATE
+        <Link href="/" className="text-sm font-semibold tracking-widest" aria-label="Prelude home">
+          PRELUDE
         </Link>
         <a
           href="https://nextjs.org/docs"

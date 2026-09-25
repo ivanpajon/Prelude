@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <title>Next Template</title>
+  <title>Prelude</title>
   <rect width="512" height="512" fill="#20382a"/>
-  <path d="M156 356V156h40l120 146V156h40v200h-40L196 210v146z" fill="#e1eda5"/>
+  <path d="M176 356V156h96c52 0 80 28 80 72s-28 72-80 72h-48v56zm48-100h46c27 0 38-10 38-28s-11-28-38-28h-46z" fill="#e1eda5"/>
 </svg>

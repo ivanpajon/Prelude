@@ -1,4 +1,4 @@
-# Next Template
+# Prelude
 
 A pnpm + Turborepo starter with React 19, Next.js 16, Base UI shadcn components, Tailwind 4, contract-first oRPC, ArkType, TanStack Query, nuqs, Zustand, and Serwist.
 

@@ -5,11 +5,11 @@ import { Providers } from "@/components/providers";
 import { PwaProvider } from "@/components/pwa-provider";
 
 export const metadata: Metadata = {
-  title: "Next Template — Less setup. More building.",
+  title: "Prelude — Less setup. More building.",
   description:
     "A considered foundation for your next project. React, Next.js, and a connected, type-safe application stack.",
-  applicationName: "Next Template",
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "Next Template" },
+  applicationName: "Prelude",
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Prelude" },
   icons: { icon: "/icons/icon.svg", apple: "/icons/apple-touch-icon.png" },
 };
 

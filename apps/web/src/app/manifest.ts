@@ -3,8 +3,8 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "Next Template",
-    short_name: "Next Template",
+    name: "Prelude",
+    short_name: "Prelude",
     description: "A connected starting point for your next project.",
     start_url: "/",
     scope: "/",
