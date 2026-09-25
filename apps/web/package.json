@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
+    "build": "next build --turbopack && serwist build",
     "start": "next start",
     "typecheck": "next typegen && tsc --noEmit"
   },
@@ -24,7 +24,8 @@
     "arktype": "2.2.5",
     "nuqs": "2.10.1",
     "zustand": "5.0.15",
-    "server-only": "0.0.1"
+    "server-only": "0.0.1",
+    "@serwist/next": "9.5.12"
   },
   "devDependencies": {
     "typescript": "6.0.3",
@@ -33,6 +34,9 @@
     "@types/react-dom": "19.3.0",
     "@tailwindcss/postcss": "4.3.3",
     "tailwindcss": "4.3.3",
-    "vitest": "5.0.2"
+    "vitest": "5.0.2",
+    "@serwist/cli": "9.5.12",
+    "serwist": "9.5.12",
+    "esbuild": "0.28.2"
   }
 }

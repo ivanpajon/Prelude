@@ -1,14 +1,19 @@
 import "@repo/ui/styles/globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Providers } from "@/components/providers";
+import { PwaProvider } from "@/components/pwa-provider";
 
 export const metadata: Metadata = {
   title: "Next Template — Less setup. More building.",
   description:
     "A considered foundation for your next project. React, Next.js, and a connected, type-safe application stack.",
   applicationName: "Next Template",
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Next Template" },
+  icons: { icon: "/icons/icon.svg", apple: "/icons/apple-touch-icon.png" },
 };
+
+export const viewport: Viewport = { themeColor: "#20382a" };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
@@ -20,7 +25,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         >
           Skip to content
         </a>
-        <Providers>{children}</Providers>
+        <PwaProvider>
+          <Providers>{children}</Providers>
+        </PwaProvider>
       </body>
     </html>
   );
