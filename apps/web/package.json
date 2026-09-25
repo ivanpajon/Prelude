@@ -1,0 +1,13 @@
+{
+  "name": "@repo/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "typecheck": "tsc --noEmit" },
+  "dependencies": {
+    "@repo/api": "workspace:*",
+    "@repo/contracts": "workspace:*",
+    "@repo/ui": "workspace:*"
+  },
+  "devDependencies": { "typescript": "6.0.3" }
+}
