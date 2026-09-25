@@ -86,3 +86,23 @@ Verified on 2026-09-25 with Node 26.10.0 and pnpm 11.19.0:
 - Browser checks cover both motion preferences, keyboard controls, tile movement, bookmark path changes, independent preview state, and duplicate-submission prevention.
 - The production build and byte-for-byte service-worker restoration passed. The homepage previews were also inspected in the browser.
 - React Doctor's human-readable and JSON commands completed with zero findings after the documented scoped exceptions. Both packages reported `complete: true` and no skipped checks.
+
+## Creating a project from the public template
+
+The [create-next-app example workflow](https://nextjs.org/docs/app/api-reference/cli/create-next-app#with-any-public-github-example) downloads public GitHub repositories. The initial test against private Prelude failed with “Could not locate the repository”; it downloaded successfully after the owner made Prelude public.
+
+For this monorepo, generate files first and install dependencies afterward:
+
+```sh
+pnpm dlx create-next-app@16.3.6 my-app --example https://github.com/ivanpajon/Prelude --use-pnpm --skip-install --yes
+cd my-app
+pnpm install --frozen-lockfile
+pnpm exec playwright install chromium
+pnpm verify
+```
+
+Without `--skip-install`, create-next-app 16.3.6 finishes successfully but attempts `next typegen` at the repository root, where the Next.js executable is not installed. It also runs the Husky install before creating `.git`. The two-step workflow avoids both warnings. The normal workspace type-check command generates the Next.js route types in `apps/web`.
+
+The generated copy has a new initial commit, no remote, the original workspace package names and Prelude branding, and an unchanged lockfile. After installation, `core.hooksPath` points to `.husky/_`. Rename the root package and application branding as part of customization; the folder name alone does not rename template content.
+
+On 2026-09-25, the two-step workflow was tested in a fresh Windows temporary directory against Prelude commit `71cf82b`, using Node 26.10.0, pnpm 11.19.0, and create-next-app 16.3.6. `pnpm verify` passed: Biome, TypeScript, 26 unit/component tests with coverage, one development browser scenario, 25 production browser scenarios, the production build, and service-worker cache restoration. The copied project used its own workspace dependencies and initially empty build caches.

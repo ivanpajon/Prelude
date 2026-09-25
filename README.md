@@ -9,6 +9,19 @@ The included task list connects the stack end to end. **It is public, shared, in
 - Node.js **26.10.0 or later within 26.x**; `.node-version` records the baseline.
 - pnpm **11.19.0**, matching `packageManager`.
 
+Create a new project from the public template:
+
+```sh
+pnpm dlx create-next-app@16.3.6 my-app --example https://github.com/ivanpajon/Prelude --use-pnpm --skip-install --yes
+cd my-app
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+Use `--skip-install` for this monorepo: Next.js lives in `apps/web`, while create-next-app's automatic type generation expects it at the root. Installing afterward also lets Husky configure hooks after Git initialization. The template files retain Prelude branding and the root package name; update those for your project. The generated project starts with new Git history and no remote.
+
+For an existing checkout:
+
 ```sh
 pnpm install --frozen-lockfile
 pnpm dev
