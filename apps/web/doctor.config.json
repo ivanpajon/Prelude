@@ -1,0 +1,19 @@
+{
+  "$schema": "https://react.doctor/schema/config.json",
+  "ignore": {
+    "overrides": [
+      {
+        "files": ["package.json"],
+        "rules": ["react-doctor/require-reduced-motion"]
+      },
+      {
+        "files": ["src/app/offline/page.tsx"],
+        "rules": ["react-doctor/nextjs-no-a-element"]
+      },
+      {
+        "files": ["src/components/pwa-provider.tsx"],
+        "rules": ["react-doctor/no-loading-flag-reset-outside-finally"]
+      }
+    ]
+  }
+}

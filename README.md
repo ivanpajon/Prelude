@@ -14,6 +14,8 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
+Check `node --version` in the shell that starts development; `.node-version` does not switch an already running shell or server. Installation enforces the Node 26 engine range. Stop development before changing dependencies, finish the installation, and then restart it.
+
 Open [localhost:3000](http://localhost:3000). To run the production build and PWA on a separate origin:
 
 ```sh
@@ -35,9 +37,12 @@ Use separate development and production ports. A previously installed production
 | `pnpm test` | Run Vitest server/utility tests and Testing Library component tests. |
 | `pnpm test:coverage` | Run tests with V8 coverage and HTML/LCOV reports. |
 | `pnpm test:ui` | Open Vitest's local test explorer in watch mode. |
+| `pnpm test:dev` | Check development rendering for Next.js console and overlay errors. |
 | `pnpm test:e2e` | Build, then run production browser scenarios with Playwright. |
 | `pnpm test:cache` | Verify generated worker artifacts restore from Turbo cache. |
 | `pnpm verify` | Run the complete verification sequence. |
+| `pnpm react-doctor` | Run optional React diagnostics with file locations. |
+| `pnpm --silent react-doctor:json` | Print a structured diagnostic report for agents. |
 
 Install the browser before running browser checks:
 
@@ -57,4 +62,4 @@ Biome handles source linting and formatting. Husky runs its safe fixes through l
 - Use the shared Motion provider and Morphicons wrapper for animations that honor reduced motion. The compact-view toggle demonstrates both; see [animation guidance](docs/motion.md).
 - Replace the task contracts, repository, and workbench with your feature, updating the corresponding tests. Keep the provider and transport infrastructure you need.
 
-See [architecture](docs/architecture.md) for data access, state, caching, and removing the demo; [requirements](docs/requirements.md) records the stack and deferred choices.
+See [architecture](docs/architecture.md) for data access, state, caching, and removing the demo; [requirements](docs/requirements.md) records the stack and deferred choices. [React diagnostics](docs/diagnostics.md) explains scanner results and scoped exceptions. [Candidate skills](docs/skills.md) lists reviewed project-local agent skills and installation commands; none are installed by default.

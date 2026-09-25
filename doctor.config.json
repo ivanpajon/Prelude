@@ -1,0 +1,8 @@
+{
+  "$schema": "https://react.doctor/schema/config.json",
+  "projects": ["@repo/web", "@repo/ui"],
+  "scope": "full",
+  "blocking": "none",
+  "adoptExistingLintConfig": false,
+  "supplyChain": { "enabled": false }
+}

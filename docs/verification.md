@@ -18,11 +18,14 @@ No CI provider is configured. A future CI job can run these commands; on Linux r
 | `pnpm test` | API validation and procedure behavior, request/query/store isolation, URL parsing, native and fallback Temporal behavior, and Testing Library component scenarios. |
 | `pnpm test:coverage` | The same suite with V8 coverage reports in `coverage/`. |
 | `pnpm test:ui` | Local Vitest watch UI on `127.0.0.1`; exit with Ctrl+C. |
+| `pnpm test:dev` | Fresh Turbopack development server, initial rendering, interactions, and reloads without console/overlay errors. |
 | `pnpm build` | Production Turbopack compilation, Cache Components rendering, and Serwist generation. |
 | `pnpm test:e2e` | Build, then check production hydration, mutations, URL navigation, local state, offline fallback, and worker updates. |
 | `pnpm test:cache` | Build, remove only generated worker artifacts, then confirm a Turbo cache hit restores identical bytes. |
 
 `pnpm test:e2e` builds automatically and starts its own production server at `http://127.0.0.1:3100`; leave that port free. Desktop and mobile app scenarios block service workers to isolate UI behavior, while the PWA project allows them. The tests detect hydration errors, verify initial data without an immediate duplicate RPC fetch, create/complete tasks, navigate filters with history, check failed-request recovery, and verify compact view stays local to its browser context. Reports, traces, and failure screenshots go to ignored test output directories.
+
+`pnpm test:dev` starts its own development server at `http://127.0.0.1:3102`. Stop ordinary `pnpm dev` first because both use the application's development output directory and lock. The smoke test captures all console errors and uncaught exceptions, exercises both animation previews, reloads, and checks Next.js's issues overlay. `pnpm verify` runs this check before building production; development-only validation errors can pass a production build.
 
 PWA scenarios inspect the manifest/icons, wait for a controlling worker, test a new navigation offline, and confirm RPC/RSC responses are absent from Cache Storage. The update scenario changes only the generated worker, verifies the waiting notice, and activates it through **Reload to update**. It restores the original worker in cleanup. If a run is forcibly interrupted, regenerate artifacts with `pnpm build --force` before retrying.
 
@@ -64,3 +67,22 @@ Verified on 2026-09-25 with Node 26.10.0 and pnpm 11.19.0 on Windows:
 - All 19 Chromium browser scenarios passed across desktop, mobile emulation, and PWA projects. These include server-rendered icons, hydration, keyboard density changes with reduced motion, mutations, URL history, offline fallback, and user-controlled worker updates.
 - The production Turbopack/Serwist build passed, and Turbo restored the generated service worker byte for byte.
 - The Vitest UI started in watch mode and ran the suite successfully. The actual Git `commit-msg` hook rejected an invalid message and accepted a Conventional Commit message.
+
+## Recovering development client-manifest errors
+
+The reported pair of errors on `/` had one underlying failure: Next.js could not find its internal `PlaceValidationBoundaryBelowThisLevel` component in the React Client Manifest. That blocked instant UI validation, producing the second diagnostic. The affected development session had experienced package resolution failures during dependency changes and was still running Node 22.22.2. A browser reload reproduced the errors; restarting after installation under Node 26.10.0 removed both errors without changing Next.js, Turbopack, Cache Components, or the validation settings.
+
+This indicates stale development bundler state, not a missing application component. Stop the development server before package/runtime upgrades, verify the shell's `node --version`, complete `pnpm install --frozen-lockfile`, start `pnpm dev`, and reload the browser. Runtime version files do not change existing processes. If a restart alone does not recover generated state, stop the server and remove only `apps/web/.next/dev` before retrying. Do not disable instant validation or Cache Components to hide an unexplained error.
+
+Next.js's installed [instant validation reference](https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config/instant) explains why these checks run in development. Use [React Doctor](diagnostics.md) for complementary source diagnostics, not as a substitute for this runtime check.
+
+## Homepage examples and diagnostic tooling acceptance
+
+Verified on 2026-09-25 with Node 26.10.0 and pnpm 11.19.0:
+
+- Frozen-lockfile installation, Biome, strict TypeScript, and all 26 Vitest tests with coverage passed.
+- The new development smoke test passed without console errors, uncaught exceptions, or a Next.js issues overlay.
+- All 25 production browser scenarios passed across desktop, mobile, and PWA. The two no-JavaScript HTML checks were rerun after adding `includeHidden` to inspect streamed controls; the remaining 23 scenarios passed in the full run.
+- Browser checks cover both motion preferences, keyboard controls, tile movement, bookmark path changes, independent preview state, and duplicate-submission prevention.
+- The production build and byte-for-byte service-worker restoration passed. The homepage previews were also inspected in the browser.
+- React Doctor's human-readable and JSON commands completed with zero findings after the documented scoped exceptions. Both packages reported `complete: true` and no skipped checks.

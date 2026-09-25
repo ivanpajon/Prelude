@@ -20,10 +20,13 @@
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui --watch --api.host 127.0.0.1",
     "commitlint": "commitlint",
+    "react-doctor": "react-doctor . --yes --no-score --verbose",
+    "react-doctor:json": "react-doctor . --yes --no-score --json",
     "start": "pnpm --filter @repo/web start",
     "test:e2e": "pnpm build && playwright test",
+    "test:dev": "playwright test --config playwright.dev.config.ts",
     "test:cache": "node scripts/verify-build-cache.mjs",
-    "verify": "pnpm check && pnpm test:coverage && pnpm test:e2e && pnpm test:cache"
+    "verify": "pnpm check && pnpm test:coverage && pnpm test:dev && pnpm test:e2e && pnpm test:cache"
   },
   "devDependencies": {
     "@types/node": "26.6.2",
@@ -43,6 +46,7 @@
     "@vitest/ui": "5.0.2",
     "@commitlint/cli": "21.2.3",
     "@commitlint/config-conventional": "21.2.3",
+    "react-doctor": "0.9.14",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   }

@@ -21,6 +21,12 @@ test.describe("server rendering", () => {
       .locator("svg");
     await expect(icon).toHaveAttribute("aria-hidden", "true");
     await expect(icon.locator("path").first()).toHaveAttribute("d", /\S/);
+    await expect(
+      page.getByRole("button", { name: "Start", exact: true, includeHidden: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      page.getByRole("button", { name: "Save idea", exact: true, includeHidden: true }),
+    ).toHaveAttribute("aria-pressed", "false");
   });
 });
 
@@ -58,6 +64,84 @@ test("hydrates without an immediate duplicate RPC or hydration errors", async ({
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
+});
+
+for (const reducedMotion of ["no-preference", "reduce"] as const) {
+  test(`animation previews respond to keyboard with motion preference ${reducedMotion}`, async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion });
+    await page.goto("/");
+    const preview = page.getByRole("region", { name: "Small details. More life." });
+    const start = preview.getByRole("button", { name: "Start", exact: true });
+    const end = preview.getByRole("button", { name: "End", exact: true });
+    const save = preview.getByRole("button", { name: "Save idea", exact: true });
+    const tile = preview.locator("[aria-hidden='true'] > div");
+    const bookmark = preview.locator("svg").last();
+    await expect(start).toHaveAttribute("aria-pressed", "true");
+    const initialX = await tile.evaluate((element) => element.getBoundingClientRect().x);
+    const initialPaths = await bookmark
+      .locator("path")
+      .evaluateAll((paths) => paths.map((path) => path.getAttribute("d")));
+
+    await start.focus();
+    await page.keyboard.press("Tab");
+    await expect(end).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(end).toHaveAttribute("aria-pressed", "true");
+    await expect
+      .poll(() => tile.evaluate((element) => element.getBoundingClientRect().x))
+      .toBeGreaterThan(initialX + 50);
+    await page.keyboard.press("Tab");
+    await expect(save).toBeFocused();
+    await page.keyboard.press("Space");
+    await expect(save).toHaveAttribute("aria-pressed", "true");
+    await expect
+      .poll(() =>
+        bookmark
+          .locator("path")
+          .evaluateAll((paths) => paths.map((path) => path.getAttribute("d"))),
+      )
+      .not.toEqual(initialPaths);
+    await expect(end).toHaveAttribute("aria-pressed", "true");
+
+    await start.click();
+    await expect
+      .poll(() => tile.evaluate((element) => element.getBoundingClientRect().x))
+      .toBeCloseTo(initialX, 0);
+    await save.click();
+    await expect(save).toHaveAttribute("aria-pressed", "false");
+    await expect
+      .poll(() =>
+        bookmark
+          .locator("path")
+          .evaluateAll((paths) => paths.map((path) => path.getAttribute("d"))),
+      )
+      .toEqual(initialPaths);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+  });
+}
+
+test("prevents duplicate creation when a form submits twice before rendering", async ({ page }) => {
+  const title = `Single submission ${crypto.randomUUID()}`;
+  const requests: string[] = [];
+  page.on("request", (request) => {
+    if (createRpc.test(request.url())) requests.push(request.url());
+  });
+  await page.goto("/");
+  await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
+  await page.getByRole("textbox", { name: "New task" }).fill(title);
+  await page.locator("form").evaluate((form: HTMLFormElement) => {
+    form.requestSubmit();
+    form.requestSubmit();
+  });
+  await expect(
+    page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
+  ).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Add task", exact: true })).toBeEnabled();
+  expect(requests).toHaveLength(1);
 });
 
 test("creates and completes a task that survives a hard reload", async ({ page }, testInfo) => {

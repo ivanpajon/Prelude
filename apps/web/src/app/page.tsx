@@ -2,7 +2,9 @@ import { Badge } from "@repo/ui/components/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
 import { ArrowDownIcon, ArrowUpRightIcon, CheckIcon } from "lucide-react";
 import { cacheLife } from "next/cache";
+import Link from "next/link";
 import { Suspense } from "react";
+import { AnimationExamples } from "@/components/animation-examples";
 import { TaskWorkbenchServer } from "@/components/task-workbench-server";
 
 const boundaries = [
@@ -77,13 +79,13 @@ export default function HomePage({
   return (
     <div className="mx-auto max-w-7xl px-6 sm:px-10 lg:px-16">
       <header className="flex h-24 items-center justify-between gap-4 border-b border-border">
-        <a
+        <Link
           href="/"
           className="text-sm font-semibold tracking-widest"
           aria-label="Next Template home"
         >
           NEXT <span className="px-1 text-muted-foreground">/</span> TEMPLATE
-        </a>
+        </Link>
         <a
           href="https://nextjs.org/docs"
           target="_blank"
@@ -166,6 +168,8 @@ export default function HomePage({
             <TaskWorkbenchServer searchParams={searchParams} />
           </Suspense>
         </section>
+
+        <AnimationExamples />
 
         <section
           className="mt-16 border-t border-border pt-10"

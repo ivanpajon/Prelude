@@ -11,9 +11,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type } from "arktype";
 import { LayoutList, List } from "lucide";
 import { CheckIcon, PlusIcon } from "lucide-react";
-import { motion } from "motion/react";
+import * as m from "motion/react-m";
 import { useQueryState } from "nuqs";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useRef, useState } from "react";
 import { orpc } from "@/lib/orpc";
 import { taskSearchParsers } from "@/lib/task-search";
 import { useWorkbenchStore } from "./workbench-store-provider";
@@ -31,6 +31,7 @@ export function TaskWorkbench() {
   );
   const [title, setTitle] = useState("");
   const [validationError, setValidationError] = useState<string>();
+  const submitting = useRef(false);
   const compact = useWorkbenchStore((state) => state.compact);
   const toggleCompact = useWorkbenchStore((state) => state.toggleCompact);
   const queryClient = useQueryClient();
@@ -43,6 +44,7 @@ export function TaskWorkbench() {
 
   async function submitTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitting.current) return;
     setValidationError(undefined);
     createTask.reset();
     const input = createTaskInput({ title: title.trim() });
@@ -50,11 +52,14 @@ export function TaskWorkbench() {
       setValidationError("Enter a task between 1 and 120 characters.");
       return;
     }
+    submitting.current = true;
     try {
       await createTask.mutateAsync(input);
       setTitle("");
     } catch {
       // Mutation state renders the error and retains the draft for retry.
+    } finally {
+      submitting.current = false;
     }
   }
 
@@ -134,7 +139,7 @@ export function TaskWorkbench() {
         ) : (
           <ul aria-label="Tasks" className="divide-y">
             {tasks.data.map((task) => (
-              <motion.li
+              <m.li
                 key={task.id}
                 layout="position"
                 initial={false}
@@ -155,7 +160,7 @@ export function TaskWorkbench() {
                 >
                   {task.title}
                 </span>
-              </motion.li>
+              </m.li>
             ))}
           </ul>
         )}
