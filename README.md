@@ -18,7 +18,7 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Use `--skip-install` for this monorepo: Next.js lives in `apps/web`, while create-next-app's automatic type generation expects it at the root. Installing afterward also lets Husky configure hooks after Git initialization. The template files retain Prelude branding and the root package name; update those for your project. The generated project starts with new Git history and no remote.
+Use `--skip-install` for this monorepo: Next.js lives in `apps/web`, while create-next-app's automatic type generation expects it at the root. Installing afterward also lets Husky configure hooks after Git initialization. The generated project starts with new Git history and no remote. Use `pnpm customize` below to change package names; customize application branding separately.
 
 For an existing checkout:
 
@@ -42,6 +42,7 @@ Use separate development and production ports. A previously installed production
 
 | Command | Purpose |
 | --- | --- |
+| `pnpm customize --name my-app --scope "@acme"` | Rename the root package and workspace scope, reinstall, and validate. |
 | `pnpm dev` | Start Next.js with Turbopack. |
 | `pnpm build` | Build Next.js, then generate the Serwist worker. |
 | `pnpm start` | Serve an existing production build. |
@@ -67,6 +68,19 @@ pnpm verify
 Biome handles source linting and formatting. Husky runs its safe fixes through lint-staged before commits. Commitlint checks Conventional Commit messages in the separate `commit-msg` hook, such as `feat: add profile settings` or `fix(api): reject invalid input`. Unresolved errors block the commit; unstaged hunks are preserved. Full-repository checks remain necessary because hooks only inspect staged files. See [verification](docs/verification.md) for scenarios and generated-file handling.
 
 ## Make it yours
+
+Keep the default `@repo` workspace scope, or optionally choose your own:
+
+```sh
+# Change only the root package name; keep @repo.
+pnpm customize --name my-app
+
+# Preview a scope change, then apply it.
+pnpm customize --name my-app --scope "@acme" --dry-run
+pnpm customize --name my-app --scope "@acme"
+```
+
+The command updates package names, workspace dependencies, imports, shadcn aliases, TypeScript paths, framework/tool configuration, and documentation references. It regenerates the lockfile, refreshes workspace links, formats changed source/configuration files, and runs `pnpm check` and `pnpm test`. Omitted options preserve the current value. See [customization](docs/customization.md) for requirements, reruns, and recovery.
 
 - Change application metadata and the manifest in `apps/web/src/app`, replace the icons in `apps/web/public/icons`, and customize `packages/ui/src/styles/globals.css`.
 - Add components with the pinned CLI from the workspace root: `pnpm --filter @repo/ui exec shadcn add dialog`. The UI package's `base-nova` configuration selects Base UI and writes shared components there.

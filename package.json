@@ -8,6 +8,7 @@
     "pnpm": "11.19.0"
   },
   "scripts": {
+    "customize": "node scripts/customize.mjs",
     "dev": "turbo run dev",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck && tsc --project tsconfig.tools.json",
