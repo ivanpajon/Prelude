@@ -1,0 +1,75 @@
+import "server-only";
+
+import { experimental_ArkTypeToJsonSchemaConverter as ArkTypeToJsonSchemaConverter } from "@orpc/arktype";
+import type { AnySchema } from "@orpc/contract";
+import {
+  OpenAPIGenerator,
+  type OpenAPIGeneratorGenerateOptions,
+  type SchemaConvertOptions,
+} from "@orpc/openapi";
+import { OpenAPIHandler } from "@orpc/openapi/fetch";
+import { ORPCError } from "@orpc/server";
+import { type Context, router } from "@repo/api";
+import type { Type } from "arktype";
+
+/** oRPC 1.15.4's converter does not select the input/output side of ArkType morphs. */
+export class DirectionalArkTypeConverter extends ArkTypeToJsonSchemaConverter {
+  override condition(schema: AnySchema | undefined) {
+    // Claim every defined schema so oRPC cannot silently fall back to an empty schema.
+    return schema !== undefined;
+  }
+
+  override convert(schema: AnySchema | undefined, options: SchemaConvertOptions) {
+    if (!super.condition(schema)) throw new TypeError("Expected an ArkType schema.");
+    const arkSchema = schema as Type;
+    return super.convert(options.strategy === "input" ? arkSchema.in : arkSchema.out, options);
+  }
+}
+
+const schemaConverters = [new DirectionalArkTypeConverter()];
+const specOptions: OpenAPIGeneratorGenerateOptions = {
+  info: {
+    title: "Prelude API",
+    version: "1.0.0",
+    description:
+      "Public, shared, in-memory demo tasks. Changes affect every visitor on this server instance and reset when it restarts. Reload or refetch the workbench to see changes made here.",
+  },
+  servers: [{ url: "/api" }],
+  tags: [{ name: "Tasks", description: "Read and update the shared demo task list." }],
+};
+const generator = new OpenAPIGenerator({ schemaConverters });
+const handler = new OpenAPIHandler(router, {
+  interceptors: [
+    async ({ request, next }) => {
+      if (request.method === "PATCH" && /^\/api\/v1\/tasks\/[^/]+\/?$/.test(request.url.pathname)) {
+        let body: unknown;
+        try {
+          body = await request.body();
+        } catch (cause) {
+          throw new ORPCError("BAD_REQUEST", { message: "Malformed request body.", cause });
+        }
+        // oRPC compact inputs merge the body over path params; IDs belong only in the URL.
+        if (body !== null && typeof body === "object" && Object.hasOwn(body, "id")) {
+          throw new ORPCError("BAD_REQUEST", { message: "Provide the task id only in the URL." });
+        }
+      }
+      return next();
+    },
+  ],
+});
+
+export function generateOpenApiSpec() {
+  return generator.generate(router, specOptions);
+}
+
+export async function handleOpenApiRequest(request: Request, context: Context): Promise<Response> {
+  let result: Response;
+  if (request.method === "GET" && new URL(request.url).pathname === "/api/openapi.json") {
+    result = Response.json(await generateOpenApiSpec());
+  } else {
+    const { response } = await handler.handle(request, { prefix: "/api", context });
+    result = response ?? new Response("Not found", { status: 404 });
+  }
+  result.headers.set("Cache-Control", "no-store");
+  return result;
+}
