@@ -151,7 +151,7 @@ export function TaskWorkbench() {
                 className={cn("flex items-center", compact ? "gap-2 py-1" : "gap-4 py-6")}
               >
                 <Button
-                  size="icon-sm"
+                  size={compact ? "icon-xs" : "icon-sm"}
                   variant={task.completed ? "default" : "outline"}
                   aria-label={`Mark ${task.title} as ${task.completed ? "active" : "completed"}`}
                   aria-pressed={task.completed}
