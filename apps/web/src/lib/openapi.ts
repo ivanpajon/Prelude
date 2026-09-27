@@ -8,6 +8,7 @@ import {
   type SchemaConvertOptions,
 } from "@orpc/openapi";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
+import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { ORPCError } from "@orpc/server";
 import { type Context, router } from "@repo/api";
 import type { Type } from "arktype";
@@ -39,6 +40,24 @@ const specOptions: OpenAPIGeneratorGenerateOptions = {
 };
 const generator = new OpenAPIGenerator({ schemaConverters });
 const handler = new OpenAPIHandler(router, {
+  plugins: [
+    new OpenAPIReferencePlugin({
+      schemaConverters,
+      specGenerateOptions: specOptions,
+      docsPath: "/docs",
+      specPath: "/openapi.json",
+      docsProvider: "scalar",
+      docsTitle: "Prelude API Reference",
+      // Pin the renderer separately: the oRPC package version does not pin this CDN asset.
+      docsScriptUrl:
+        "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.72.1/dist/browser/standalone.js",
+      docsConfig: {
+        withDefaultFonts: false,
+        telemetry: false,
+        agent: { disabled: true },
+      },
+    }),
+  ],
   interceptors: [
     async ({ request, next }) => {
       if (request.method === "PATCH" && /^\/api\/v1\/tasks\/[^/]+\/?$/.test(request.url.pathname)) {
@@ -63,13 +82,8 @@ export function generateOpenApiSpec() {
 }
 
 export async function handleOpenApiRequest(request: Request, context: Context): Promise<Response> {
-  let result: Response;
-  if (request.method === "GET" && new URL(request.url).pathname === "/api/openapi.json") {
-    result = Response.json(await generateOpenApiSpec());
-  } else {
-    const { response } = await handler.handle(request, { prefix: "/api", context });
-    result = response ?? new Response("Not found", { status: 404 });
-  }
+  const { response } = await handler.handle(request, { prefix: "/api", context });
+  const result = response ?? new Response("Not found", { status: 404 });
   result.headers.set("Cache-Control", "no-store");
   return result;
 }

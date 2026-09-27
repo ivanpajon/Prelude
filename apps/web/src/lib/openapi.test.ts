@@ -187,6 +187,24 @@ describe("generated OpenAPI specification", () => {
 });
 
 describe("OpenAPI HTTP adapter", () => {
+  it("serves public Scalar HTML with the pinned renderer and generated contract", async () => {
+    const response = await request({ repository: createDemoRepository([]) }, "/docs");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toContain("text/html");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    const html = await response.text();
+    expect(html).toContain("<title>Prelude API Reference</title>");
+    expect(html).toContain(
+      'src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.72.1/dist/browser/standalone.js"',
+    );
+    expect(html).toContain('"withDefaultFonts":false');
+    expect(html).toContain('"telemetry":false');
+    expect(html).toContain('"agent":{"disabled":true}');
+    expect(html).toContain("listTasks");
+    expect(html).toContain("createTask");
+    expect(html).not.toContain("proxy.scalar.com");
+  });
+
   it("creates normalized tasks, patches completion, and filters the shared RPC data", async () => {
     const context: Context = { repository: createDemoRepository([]), onTasksChanged: vi.fn() };
     const create = await request(context, "/v1/tasks", "POST", {

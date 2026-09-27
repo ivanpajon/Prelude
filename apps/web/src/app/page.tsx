@@ -95,16 +95,27 @@ export default function HomePage({
             preload
           />
         </Link>
-        <a
-          href="https://nextjs.org/docs"
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-2 text-xs whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground sm:text-sm"
+        <nav
+          aria-label="Documentation"
+          className="flex flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-6"
         >
-          Next.js docs
-          <ArrowUpRightIcon className="size-4" aria-hidden="true" />
-          <span className="sr-only">(opens in a new tab)</span>
-        </a>
+          <a
+            href="/api/docs"
+            className="rounded-sm py-1 text-xs whitespace-nowrap text-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring sm:text-sm"
+          >
+            API docs
+          </a>
+          <a
+            href="https://nextjs.org/docs"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 rounded-sm py-1 text-xs whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring sm:text-sm"
+          >
+            Next.js docs
+            <ArrowUpRightIcon className="size-4" aria-hidden="true" />
+            <span className="sr-only">(opens in a new tab)</span>
+          </a>
+        </nav>
       </header>
 
       <main id="main-content" className="pb-16">
