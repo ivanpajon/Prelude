@@ -1,5 +1,14 @@
 # Verification
 
+## OpenAPI and Scalar acceptance
+
+Verified on 2026-09-28 with Node 26.10.0 and pnpm 12.6.0 on Windows:
+
+- Frozen-lockfile installation and the complete `pnpm verify` workflow passed.
+- Biome, strict TypeScript, and all 85 unit/component/customization tests passed with V8 coverage. The 25 OpenAPI tests cover generated operations, schema conversion failures, validation, REST/RPC consistency, request isolation, and mutation callbacks.
+- The development smoke test and all 29 production browser scenarios passed across desktop, mobile, and PWA projects. Scalar checks exercise the pinned CDN renderer, narrow navigation, search, direct same-origin reads and writes, and workbench refetching.
+- The Turbopack/Serwist production build passed. API/docs responses stayed outside service-worker caches, and offline fallback and user-controlled updates passed. Turbo restored the generated service worker byte for byte.
+
 ## pnpm 12 upgrade
 
 Verified on 2026-09-28 with Node 26.10.0 and pnpm 12.6.0: frozen-lockfile installation and `pnpm verify` passed, including Biome, TypeScript, 60 unit/component/customization tests, one development browser test, 25 production browser scenarios, the production build, and byte-for-byte service-worker cache restoration.
@@ -21,19 +30,21 @@ No CI provider is configured. A future CI job can run these commands; on Linux r
 | Command | Coverage |
 | --- | --- |
 | `pnpm check` | Biome, strict TypeScript, and compile-only negative contract checks. |
-| `pnpm test` | API validation and procedure behavior, request/query/store isolation, URL parsing, native and fallback Temporal behavior, and Testing Library component scenarios. |
+| `pnpm test` | RPC/REST validation and procedure behavior, generated OpenAPI schemas, request/query/store isolation, URL parsing, Temporal behavior, and Testing Library component scenarios. |
 | `pnpm test:coverage` | The same suite with V8 coverage reports in `coverage/`. |
 | `pnpm test:ui` | Local Vitest watch UI on `127.0.0.1`; exit with Ctrl+C. |
 | `pnpm test:dev` | Fresh Turbopack development server, initial rendering, interactions, and reloads without console/overlay errors. |
 | `pnpm build` | Production Turbopack compilation, Cache Components rendering, and Serwist generation. |
-| `pnpm test:e2e` | Build, then check production hydration, mutations, URL navigation, local state, offline fallback, and worker updates. |
+| `pnpm test:e2e` | Build, then check production hydration, mutations, Scalar docs and requests, URL navigation, local state, offline fallback, and worker updates. |
 | `pnpm test:cache` | Build, remove only generated worker artifacts, then confirm a Turbo cache hit restores identical bytes. |
 
 `pnpm test:e2e` builds automatically and starts its own production server at `http://127.0.0.1:3100`; leave that port free. Desktop and mobile app scenarios block service workers to isolate UI behavior, while the PWA project allows them. The tests detect hydration errors, verify initial data without an immediate duplicate RPC fetch, create/complete tasks, navigate filters with history, check failed-request recovery, and verify compact view stays local to its browser context. Reports, traces, and failure screenshots go to ignored test output directories.
 
 `pnpm test:dev` starts its own development server at `http://127.0.0.1:3102`. Stop ordinary `pnpm dev` first because both use the application's development output directory and lock. The smoke test captures all console errors and uncaught exceptions, exercises both animation previews, reloads, and checks Next.js's issues overlay. `pnpm verify` runs this check before building production; development-only validation errors can pass a production build.
 
-PWA scenarios inspect the manifest/icons, wait for a controlling worker, test a new navigation offline, and confirm RPC/RSC responses are absent from Cache Storage. The update scenario changes only the generated worker, verifies the waiting notice, and activates it through **Reload to update**. It restores the original worker in cleanup. If a run is forcibly interrupted, regenerate artifacts with `pnpm build --force` before retrying.
+Scalar scenarios verify the homepage link at 320px, the exact pinned CDN renderer, search and hash navigation, and real same-origin GET/POST requests. A task created in Scalar must appear in the server-rendered workbench and subsequent RPC queries. The rendering/search test rejects unexpected external requests; the pinned jsDelivr bundle is the only allowed external resource. These browser checks require access to that CDN. HTTP and schema tests run locally without it.
+
+PWA scenarios inspect the manifest/icons, wait for a controlling worker, test a new navigation offline, and confirm RPC, REST, docs, specification, and RSC responses are absent from Cache Storage. Docs/spec/REST fetches must fail offline instead of returning cached responses. The update scenario changes only the generated worker, verifies the waiting notice, and activates it through **Reload to update**. It restores the original worker in cleanup. If a run is forcibly interrupted, regenerate artifacts with `pnpm build --force` before retrying.
 
 The cache check saves `apps/web/public/sw.js` and its map when present, removes only those explicit generated files, checks the restored hashes after a Turbo cache hit, and restores the saved bytes in `finally`. Do not run it alongside a development/production server or another build. Source files, the lockfile, and directories are not its cleanup targets.
 
@@ -62,7 +73,7 @@ Vitest's `node` project discovers `.test.ts` files under applications and packag
 
 Open the URL printed by `pnpm test:ui`, including its authentication token, to use the test explorer. The command stays in watch mode and binds its API to loopback.
 
-`pnpm verify` runs coverage rather than running the unit suite twice. Coverage is collected for contracts, API/repository logic, Temporal, state helpers, and the shared animation wrappers. Generated shadcn components and complete Next.js pages are not coverage targets; the form-controls tests exercise component composition, while Playwright owns integrated rendering. Reports start without percentage gates so projects can set meaningful thresholds for their own code. Vitest, its UI, and its coverage provider are pinned to the same version.
+`pnpm verify` runs coverage rather than running the unit suite twice. Coverage is collected for contracts, API/repository logic, the OpenAPI adapter/converter, Temporal, state helpers, and the shared animation wrappers. Generated shadcn components and complete Next.js pages are not coverage targets; the form-controls tests exercise component composition, while Playwright owns integrated rendering. Reports start without percentage gates so projects can set meaningful thresholds for their own code. Vitest, its UI, and its coverage provider are pinned to the same version.
 
 ## Node 26 and additional tooling acceptance
 

@@ -17,12 +17,12 @@ export default defineConfig({
   projects: [
     {
       name: "desktop",
-      testMatch: "app.spec.ts",
+      testMatch: ["app.spec.ts", "openapi.spec.ts"],
       use: { ...devices["Desktop Chrome"], serviceWorkers: "block" },
     },
     {
       name: "mobile",
-      testMatch: "app.spec.ts",
+      testMatch: ["app.spec.ts", "openapi.spec.ts"],
       use: { ...devices["Pixel 7"], serviceWorkers: "block" },
     },
     {

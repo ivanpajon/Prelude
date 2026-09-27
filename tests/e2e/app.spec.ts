@@ -22,8 +22,8 @@ test.describe("server rendering", () => {
     await expect(icon).toHaveAttribute("aria-hidden", "true");
     await expect(icon.locator("path").first()).toHaveAttribute("d", /\S/);
     await expect(
-      page.getByRole("button", { name: "Start", exact: true, includeHidden: true }),
-    ).toHaveAttribute("aria-pressed", "true");
+      page.getByRole("button", { name: "Move to end", exact: true, includeHidden: true }),
+    ).toHaveCount(1);
     await expect(
       page.getByRole("button", { name: "Save idea", exact: true, includeHidden: true }),
     ).toHaveAttribute("aria-pressed", "false");

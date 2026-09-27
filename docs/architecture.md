@@ -4,8 +4,8 @@
 
 | Package | Owns |
 | --- | --- |
-| `@repo/web` | Next.js routes, rendering, providers, HTTP adapter, framework caching, and PWA. |
-| `@repo/contracts` | Browser-safe ArkType input/output schemas, oRPC contracts, and client types. |
+| `@repo/web` | Next.js routes, rendering, providers, RPC/REST adapters, OpenAPI/Scalar configuration, framework caching, and PWA. |
+| `@repo/contracts` | Browser-safe ArkType input/output schemas, oRPC contracts, OpenAPI route metadata, and client types. |
 | `@repo/api` | Server-only procedures, request context, and repository abstraction. |
 | `@repo/ui` | Shared Base UI components, Tailwind tokens, Motion/Morphicons wrappers, and the `cn` re-export. |
 | `@repo/temporal` | Browser-safe standard Temporal API with native selection and polyfill fallback. |
@@ -14,7 +14,9 @@ Next.js transpiles the private source packages directly. Dependencies are explic
 
 ## Data flow
 
-Define ArkType schemas and `oc` contracts first, then implement them with `implement(contract).router(...)`. The same runtime-validated procedures serve the browser through `/api/rpc` and Server Components through `createApiClient(context)` without an internal HTTP round trip. RPC responses send `Cache-Control: no-store`.
+Define ArkType schemas and `oc` contracts first, then implement them with `implement(contract).router(...)`. The same runtime-validated procedures serve the browser through `/api/rpc`, REST clients through `/api/v1/tasks`, and Server Components through `createApiClient(context)` without an internal HTTP round trip. The more-specific RPC Route Handler remains separate from the REST catch-all.
+
+`OpenAPIReferencePlugin` generates `/api/openapi.json` and the public Scalar reference at `/api/docs` from the implemented contract. The renderer uses a pinned CDN asset; schemas and API calls stay on the application origin. RPC, REST, specification, and documentation responses send `Cache-Control: no-store`. See [OpenAPI](openapi.md) for schema conversion, endpoint metadata, and the REST path-ID guard.
 
 The workbench parses URL state on the server, fetches its initial query, and passes dehydrated state to TanStack Query. `React.cache` scopes the server QueryClient to a render request; the browser uses a stable client. A 60-second stale time avoids an immediate duplicate fetch. Successful mutations invalidate the task query family.
 
@@ -29,20 +31,20 @@ State ownership:
 
 `TaskRepository` currently has synchronous `list`, `create`, and `setCompleted` methods. `createDemoRepository()` produces isolated state for tests. The running app uses a **public process-global** instance so page and Route Handler bundles share the same demonstration list. It survives development reloads but not process restarts, provides no authorization, and does not synchronize across servers.
 
-For persistent data, inject an authorized repository into each request context in both the HTTP adapter and the server client. If the database adapter is asynchronous, change the repository signatures to promises and await writes before testing results or calling `onTasksChanged`. Never put request identity, credentials, or user-specific state in the demo global slot. Add authentication and authorization alongside the adapter; they are not supplied by this template.
+For persistent data, inject an authorized repository into each request context in **both HTTP adapters (RPC and REST) and the direct server client**. If the database adapter is asynchronous, change the repository signatures to promises and await writes before testing results or calling `onTasksChanged`. Never put request identity, credentials, or user-specific state in the demo global slot. Add authentication and authorization alongside the adapters; they are not supplied by this template. Protect the procedures consistently across transports, and decide which contracts belong in the public documentation.
 
-To remove the example, replace the task contract/router/repository and the workbench section in the home page. Remove its search parser and compact-view store if unused. Update or remove the matching unit and browser scenarios rather than leaving tests coupled to demonstration labels.
+To remove the example, replace the task contract/router/repository and the workbench section in the home page. Remove its search parser and compact-view store if unused. Update the OpenAPI metadata and the task-specific PATCH body guard, or remove the REST/docs adapter and homepage link if they are unnecessary. Update or remove the matching unit and browser scenarios rather than leaving tests coupled to demonstration labels. See the [OpenAPI removal checklist](openapi.md#replace-or-remove-the-demo).
 
 ## Cache ownership
 
 Cache Components is enabled. The public stack overview demonstrates `use cache` with `cacheLife("hours")`. The task workbench runs after `connection()` beneath Suspense and is deliberately not stored in the Next.js data cache. Its in-memory data must not become a build-time snapshot.
 
-The API context exposes optional `onTasksChanged: () => void | Promise<void>`, awaited after successful writes. It is unused by the uncached demo. When adding tagged server caching, provide invalidation through this callback and retain client query invalidation. Read request-specific information outside cached scopes.
+The API context exposes optional `onTasksChanged: () => void | Promise<void>`, awaited after successful writes through either transport or the direct client. It is unused by the uncached demo. When adding tagged server caching, provide invalidation in every context factory and retain client query invalidation. Scalar mutations do not notify an already-open workbench; reload or refetch it to see changes. Read request-specific information outside cached scopes.
 
 Inside an oRPC Route Handler, use `revalidateTag(tag, "max")` for stale-while-revalidate, or `revalidateTag(tag, { expire: 0 })` when the next read must be fresh. `updateTag` is available only in Server Actions, not Route Handlers. Choose user-scoped cache keys/tags if caching authorized data. Consult the installed Next.js guides when changing this behavior.
 
 ## PWA boundary
 
-Serwist configurator mode builds the worker after Next.js. The precache includes compiled static assets, icons, and the static `/offline` page. Other HTML navigations use the network and fall back offline only when the network strategy fails. RPC, RSC, and non-GET requests bypass worker handling; successful personalized HTML is never added to its cache. There is no offline data store or queued-write support.
+Serwist configurator mode builds the worker after Next.js. The precache includes compiled static assets, icons, and the static `/offline` page. Other HTML navigations use the network and fall back offline only when the network strategy fails. All `/api/` paths (including RPC, REST, docs, and the specification), external URLs (including Scalar's CDN), RSC, and non-GET requests bypass worker handling; successful personalized HTML is never added to its cache. There is no offline documentation, data store, or queued-write support.
 
 Worker registration is production-only. Installation requires a supported browser and HTTPS, with localhost usable for testing. Updates wait for the user's **Reload to update** click. Navigation caching and automatic reload on reconnect are disabled. Replace the manifest name/colors and 192px, 512px, and maskable icons for each new project.

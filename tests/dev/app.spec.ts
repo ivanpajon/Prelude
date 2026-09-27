@@ -9,10 +9,10 @@ test("development rendering and reloads have no framework errors", async ({ page
 
   await page.goto("/");
   await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
-  await page.getByRole("button", { name: "End", exact: true }).click();
+  await page.getByRole("button", { name: "Move to end", exact: true }).click();
   await expect(page.getByText("Tile at the end.", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Save idea", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Save idea", exact: true })).toHaveAttribute(
+  await expect(page.getByRole("button", { name: "Idea saved", exact: true })).toHaveAttribute(
     "aria-pressed",
     "true",
   );

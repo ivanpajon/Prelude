@@ -33,12 +33,31 @@ test("publishes an installable manifest and valid installation icons", async ({ 
   expect(worker.headers()["cache-control"]).toContain("no-store");
 });
 
-test("shows an offline fallback without caching application data or RSC", async ({
+test("shows an offline fallback without caching API docs, application data, or RSC", async ({
   page,
   context,
 }) => {
   await page.goto("/");
   await waitForWorker(page);
+  const apiPaths = ["/api/docs", "/api/openapi.json", "/api/v1/tasks?status=all"];
+  const apiResponses = await page.evaluate(
+    async (paths) =>
+      Promise.all(
+        paths.map(async (path) => {
+          const response = await fetch(path);
+          await response.text();
+          return {
+            path,
+            status: response.status,
+            cacheControl: response.headers.get("Cache-Control"),
+          };
+        }),
+      ),
+    apiPaths,
+  );
+  expect(apiResponses).toEqual(
+    apiPaths.map((path) => ({ path, status: 200, cacheControl: "no-store" })),
+  );
   await page.getByRole("button", { name: "Completed", exact: true }).click();
   await expect(page.getByRole("button", { name: "Completed", exact: true })).toHaveAttribute(
     "aria-pressed",
@@ -63,6 +82,21 @@ test("shows an offline fallback without caching application data or RSC", async 
     expect(url.searchParams.has("_rsc")).toBe(false);
   }
   await context.setOffline(true);
+  const offlineApiRejected = await page.evaluate(
+    async (paths) =>
+      Promise.all(
+        paths.map(async (path) => {
+          try {
+            await fetch(path);
+            return false;
+          } catch {
+            return true;
+          }
+        }),
+      ),
+    apiPaths,
+  );
+  expect(offlineApiRejected).toEqual(apiPaths.map(() => true));
   await page.goto("/never-visited-offline-page");
   await expect(page.getByRole("heading", { name: "You’re offline." })).toBeVisible();
   await expect(page.getByRole("link", { name: "Try again" })).toBeVisible();
