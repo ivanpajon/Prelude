@@ -1,6 +1,6 @@
 import { Badge } from "@repo/ui/components/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
-import { ArrowDownIcon, ArrowRightIcon, ArrowUpRightIcon, CheckIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpRightIcon, CheckIcon } from "lucide-react";
 import { cacheLife } from "next/cache";
 import Image from "next/image";
 import Link from "next/link";
@@ -65,12 +65,15 @@ async function StackOverview() {
         </dl>
         <a
           href="/api/docs"
+          target="_blank"
+          rel="noopener noreferrer"
           className="flex flex-wrap items-center justify-between gap-2 rounded-sm border-t border-border py-4 text-sm font-medium transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
         >
           <span>OpenAPI + Scalar</span>
           <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
             API docs
-            <ArrowRightIcon className="size-3.5" aria-hidden="true" />
+            <ArrowUpRightIcon className="size-3.5" aria-hidden="true" />
+            <span className="sr-only">(opens in a new tab)</span>
           </span>
         </a>
         <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
