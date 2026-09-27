@@ -77,7 +77,7 @@ function MorphiconsExample() {
           <MorphIcon icon={saved ? BookmarkCheck : Bookmark} className="size-12 text-primary" />
         </div>
         <Button variant="outline" aria-pressed={saved} onClick={() => setSaved(!saved)}>
-          Save idea
+          {saved ? "Idea saved" : "Save idea"}
         </Button>
         <p role="status" className="mt-3 text-xs text-muted-foreground">
           {saved ? "Idea saved in this preview." : "Try saving this idea."}

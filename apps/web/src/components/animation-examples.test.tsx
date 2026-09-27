@@ -31,10 +31,12 @@ it("keeps keyboard-operated animation previews independent", async () => {
   expect(save).toHaveFocus();
   await user.keyboard(" ");
   expect(save).toHaveAttribute("aria-pressed", "true");
+  expect(save).toHaveAccessibleName("Idea saved");
   expect(screen.getByText("Idea saved in this preview.")).toHaveAttribute("role", "status");
   expect(end).toHaveAttribute("aria-pressed", "true");
 
   await user.keyboard("{Enter}");
   expect(save).toHaveAttribute("aria-pressed", "false");
+  expect(save).toHaveAccessibleName("Save idea");
   expect(screen.getByText("Try saving this idea.")).toBeVisible();
 });

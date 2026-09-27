@@ -76,6 +76,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     const start = preview.getByRole("button", { name: "Start", exact: true });
     const end = preview.getByRole("button", { name: "End", exact: true });
     const save = preview.getByRole("button", { name: "Save idea", exact: true });
+    const saved = preview.getByRole("button", { name: "Idea saved", exact: true });
     const tile = preview.locator("[aria-hidden='true'] > div");
     const bookmark = preview.locator("svg").last();
     await expect(start).toHaveAttribute("aria-pressed", "true");
@@ -95,7 +96,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     await page.keyboard.press("Tab");
     await expect(save).toBeFocused();
     await page.keyboard.press("Space");
-    await expect(save).toHaveAttribute("aria-pressed", "true");
+    await expect(saved).toHaveAttribute("aria-pressed", "true");
     await expect
       .poll(() =>
         bookmark
@@ -109,7 +110,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     await expect
       .poll(() => tile.evaluate((element) => element.getBoundingClientRect().x))
       .toBeCloseTo(initialX, 0);
-    await save.click();
+    await saved.click();
     await expect(save).toHaveAttribute("aria-pressed", "false");
     await expect
       .poll(() =>

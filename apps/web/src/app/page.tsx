@@ -90,7 +90,8 @@ export default function HomePage({
             alt="Prelude"
             width={2027}
             height={776}
-            className="h-12 w-36 object-cover sm:w-44"
+            className="h-auto w-36 sm:w-44"
+            unoptimized
             preload
           />
         </Link>
