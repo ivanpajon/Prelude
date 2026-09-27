@@ -1,5 +1,11 @@
 # Verification
 
+## pnpm 12 upgrade
+
+Verified on 2026-09-28 with Node 26.10.0 and pnpm 12.6.0: frozen-lockfile installation and `pnpm verify` passed, including Biome, TypeScript, 60 unit/component/customization tests, one development browser test, 25 production browser scenarios, the production build, and byte-for-byte service-worker cache restoration.
+
+The package-manager pin and engine requirement now use 12.6.0. pnpm added its own package-manager integrity metadata to the lockfile; application dependency versions remain unchanged. The cache verification script supports both JavaScript entrypoints and native pnpm executables.
+
 Run from the workspace root with the documented Node and pnpm versions:
 
 ```sh

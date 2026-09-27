@@ -11,7 +11,7 @@ The included task list connects the stack end to end. **It is public, shared, in
 ## Start locally
 
 - Node.js **26.10.0 or later within 26.x**; `.node-version` records the baseline.
-- pnpm **11.19.0**, matching `packageManager`.
+- pnpm **12.6.0**, matching `packageManager`.
 
 Create a new project from the public template:
 

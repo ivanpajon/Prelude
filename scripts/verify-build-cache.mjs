@@ -11,7 +11,9 @@ const pnpm = process.env.npm_execpath;
 assert(pnpm, "Run this check with pnpm test:cache.");
 
 function build() {
-  const result = spawnSync(process.execPath, [pnpm, "exec", "turbo", "run", "build"], {
+  const args = ["exec", "turbo", "run", "build"];
+  const isScript = /\.[cm]?js$/.test(pnpm);
+  const result = spawnSync(isScript ? process.execPath : pnpm, isScript ? [pnpm, ...args] : args, {
     cwd: root,
     encoding: "utf8",
     env: process.env,
