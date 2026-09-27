@@ -67,8 +67,13 @@ export function TaskWorkbench() {
 
   return (
     <Card className="overflow-hidden bg-card shadow-none">
-      <CardContent className="p-6 sm:p-8">
-        <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <CardContent className={compact ? "p-4" : "p-6 sm:p-8"}>
+        <div
+          className={cn(
+            "flex flex-wrap items-start justify-between gap-4",
+            compact ? "mb-3" : "mb-6",
+          )}
+        >
           <div>
             <h3 className="text-lg font-medium">A small list. A working stack.</h3>
             <p className="mt-2 text-sm text-muted-foreground">
@@ -143,7 +148,7 @@ export function TaskWorkbench() {
                 key={task.id}
                 layout="position"
                 initial={false}
-                className={cn("flex items-center gap-3", compact ? "py-2" : "py-5")}
+                className={cn("flex items-center", compact ? "gap-2 py-1" : "gap-4 py-6")}
               >
                 <Button
                   size="icon-sm"
@@ -156,7 +161,10 @@ export function TaskWorkbench() {
                   {task.completed && <CheckIcon aria-hidden="true" />}
                 </Button>
                 <span
-                  className={cn("text-sm", task.completed && "text-muted-foreground line-through")}
+                  className={cn(
+                    compact ? "text-xs" : "text-base",
+                    task.completed && "text-muted-foreground line-through",
+                  )}
                 >
                   {task.title}
                 </span>

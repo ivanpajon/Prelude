@@ -73,23 +73,21 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     await page.emulateMedia({ reducedMotion });
     await page.goto("/");
     const preview = page.getByRole("region", { name: "Small details. More life." });
-    const start = preview.getByRole("button", { name: "Start", exact: true });
-    const end = preview.getByRole("button", { name: "End", exact: true });
+    const moveToEnd = preview.getByRole("button", { name: "Move to end", exact: true });
+    const moveToStart = preview.getByRole("button", { name: "Move to start", exact: true });
     const save = preview.getByRole("button", { name: "Save idea", exact: true });
     const saved = preview.getByRole("button", { name: "Idea saved", exact: true });
     const tile = preview.locator("[aria-hidden='true'] > div");
     const bookmark = preview.locator("svg").last();
-    await expect(start).toHaveAttribute("aria-pressed", "true");
+    await expect(moveToEnd).toBeVisible();
     const initialX = await tile.evaluate((element) => element.getBoundingClientRect().x);
     const initialPaths = await bookmark
       .locator("path")
       .evaluateAll((paths) => paths.map((path) => path.getAttribute("d")));
 
-    await start.focus();
-    await page.keyboard.press("Tab");
-    await expect(end).toBeFocused();
+    await moveToEnd.focus();
     await page.keyboard.press("Enter");
-    await expect(end).toHaveAttribute("aria-pressed", "true");
+    await expect(moveToStart).toBeFocused();
     await expect
       .poll(() => tile.evaluate((element) => element.getBoundingClientRect().x))
       .toBeGreaterThan(initialX + 50);
@@ -104,9 +102,10 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
           .evaluateAll((paths) => paths.map((path) => path.getAttribute("d"))),
       )
       .not.toEqual(initialPaths);
-    await expect(end).toHaveAttribute("aria-pressed", "true");
+    await expect(moveToStart).toBeVisible();
 
-    await start.click();
+    await moveToStart.click();
+    await expect(moveToEnd).toBeVisible();
     await expect
       .poll(() => tile.evaluate((element) => element.getBoundingClientRect().x))
       .toBeCloseTo(initialX, 0);
@@ -250,7 +249,7 @@ test("supports keyboard density changes with reduced motion", async ({ page }) =
   await expect.poll(() => path.getAttribute("d")).not.toBe(originalPath);
   await expect
     .poll(() => tasks.evaluate((element) => element.getBoundingClientRect().height))
-    .toBeLessThan(originalHeight);
+    .toBeLessThan(originalHeight * 0.6);
   expect(await tasks.innerText()).toBe(originalText);
 
   await page.keyboard.press("Enter");

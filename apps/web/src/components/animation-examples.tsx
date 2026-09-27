@@ -37,23 +37,9 @@ function MotionExample() {
             <ArrowRightIcon className="size-6" />
           </m.div>
         </div>
-        <fieldset className="flex items-center gap-2">
-          <legend className="sr-only">Tile position</legend>
-          <Button
-            variant={atEnd ? "outline" : "default"}
-            aria-pressed={!atEnd}
-            onClick={() => setAtEnd(false)}
-          >
-            Start
-          </Button>
-          <Button
-            variant={atEnd ? "default" : "outline"}
-            aria-pressed={atEnd}
-            onClick={() => setAtEnd(true)}
-          >
-            End
-          </Button>
-        </fieldset>
+        <Button variant="outline" onClick={() => setAtEnd((current) => !current)}>
+          {atEnd ? "Move to start" : "Move to end"}
+        </Button>
         <p role="status" className="mt-3 text-xs text-muted-foreground">
           {atEnd ? "Tile at the end." : "Tile at the start."}
         </p>
