@@ -1,4 +1,5 @@
 import "@repo/ui/styles/globals.css";
+import { Toaster } from "@repo/ui/components/toast";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Providers } from "@/components/providers";
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         >
           Skip to content
         </a>
+        <Toaster />
         <PwaProvider>
           <Providers>{children}</Providers>
         </PwaProvider>
