@@ -1,0 +1,73 @@
+services:
+  web:
+    build:
+      context: .
+      target: development
+    init: true
+    working_dir: /app
+    command: ["node", "scripts/dev-web.mjs", "--container"]
+    environment:
+      NODE_ENV: development
+      PORT: "${DEV_PORT:-3000}"
+      MCP_INSPECTOR_PORT: "${MCP_INSPECTOR_PORT:-6274}"
+      MCP_ENABLED: "${MCP_ENABLED:-true}"
+      MCP_ALLOWED_ORIGINS: "${MCP_ALLOWED_ORIGINS:-}"
+      NEXT_TELEMETRY_DISABLED: "1"
+    # Keep the container's wildcard listeners reachable from this machine only.
+    # Matching host/container ports preserve Inspector URLs and origin checks.
+    ports:
+      - "127.0.0.1:${DEV_PORT:-3000}:${DEV_PORT:-3000}"
+      - "127.0.0.1:${MCP_INSPECTOR_PORT:-6274}:${MCP_INSPECTOR_PORT:-6274}"
+    stop_grace_period: 10s
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          Promise.all([process.env.PORT, process.env.MCP_INSPECTOR_PORT].map(port =>
+          fetch('http://127.0.0.1:' + port + '/', {method: 'HEAD', signal: AbortSignal.timeout(4000)})
+          .then(response => {if (!response.ok) throw new Error('Unhealthy development server')})))
+          .catch(() => process.exit(1))
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
+    develop:
+      watch:
+        # .dockerignore also excludes host dependencies, caches and secrets.
+        - action: sync
+          path: .
+          target: /app
+          initial_sync: true
+          ignore:
+            - "**/package.json"
+            - pnpm-lock.yaml
+            - pnpm-workspace.yaml
+            - .npmrc
+            - Dockerfile
+            - .dockerignore
+            - "compose*.yaml"
+            - "scripts/dev-*.mjs"
+            - "apps/*/next.config.*"
+            - "apps/*/postcss.config.*"
+            - "**/tsconfig*.json"
+        - action: sync+restart
+          path: .
+          target: /app
+          initial_sync: true
+          include:
+            - "scripts/dev-*.mjs"
+            - "apps/*/next.config.*"
+            - "apps/*/postcss.config.*"
+            - "**/tsconfig*.json"
+        # Include every workspace manifest, including newly added packages.
+        - action: rebuild
+          path: .
+          include:
+            - "**/package.json"
+            - pnpm-lock.yaml
+            - pnpm-workspace.yaml
+            - .npmrc
+            - Dockerfile
+            - .dockerignore

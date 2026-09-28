@@ -18,11 +18,13 @@ const help = `Start Next.js and the local MCP Inspector together.
 Options:
   --port, -p <port>          Next.js port (PORT, or 3000)
   --hostname, -H <hostname>  127.0.0.1 or localhost; always binds 127.0.0.1
+  --container               Bind both servers to 0.0.0.0 inside an isolated container
   --turbopack                Accepted for compatibility; always enabled
   --help, -h                Show this help
 
 MCP_INSPECTOR_PORT selects the Inspector port (default 6274).
 Both ports must be free. Neither server changes ports or reuses another process.
+Container ports must be published on the host's loopback interface only.
 `;
 
 export function parsePort(value, label) {
@@ -38,19 +40,23 @@ export function parseDevOptions(args, env = process.env) {
     options: {
       port: { type: "string", short: "p" },
       hostname: { type: "string", short: "H" },
+      container: { type: "boolean" },
       turbopack: { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
     allowPositionals: false,
   });
   if (values.help) return { help: true };
+  if (values.container && values.hostname) {
+    throw new Error("--container chooses the bind host; omit --hostname.");
+  }
   if (values.hostname && !["127.0.0.1", "localhost"].includes(values.hostname)) {
     throw new Error("The development server and Inspector must bind to 127.0.0.1.");
   }
   const port = parsePort(values.port ?? env.PORT ?? "3000", "Next.js port");
   const inspectorPort = parsePort(env.MCP_INSPECTOR_PORT ?? "6274", "MCP_INSPECTOR_PORT");
   if (port === inspectorPort) throw new Error("Next.js and Inspector need different ports.");
-  return { port, inspectorPort, hostname: "127.0.0.1" };
+  return { port, inspectorPort, hostname: values.container ? "0.0.0.0" : "127.0.0.1" };
 }
 
 export function resolvePackageBin(packageName, binName, from = workspaceRoot) {
@@ -93,7 +99,10 @@ export function inspectorEnvironment(root, options, env = process.env) {
   );
   return {
     ...result,
-    HOST: "127.0.0.1",
+    HOST: options.hostname ?? "127.0.0.1",
+    // Only the explicit container option opts in; inherited exposure and auth
+    // settings were scrubbed above. Compose publishes these ports on loopback.
+    ...(options.hostname === "0.0.0.0" ? { DANGEROUSLY_BIND_ALL_INTERFACES: "true" } : {}),
     CLIENT_PORT: String(options.inspectorPort),
     MCP_SANDBOX_PORT: "0",
     MCP_APP_ORIGIN_PORT: "0",
@@ -138,11 +147,19 @@ export function devCommands(root, options, env = process.env, binaries) {
       cwd: root,
       env: inspectorEnvironment(root, options, env),
       port: options.inspectorPort,
+      hostname: options.hostname ?? "127.0.0.1",
     },
     {
       name: "Next.js",
       script: binaries?.next ?? resolvePackageBin("next", "next", app),
-      args: ["dev", "--turbopack", "--hostname", "127.0.0.1", "--port", String(options.port)],
+      args: [
+        "dev",
+        "--turbopack",
+        "--hostname",
+        options.hostname ?? "127.0.0.1",
+        "--port",
+        String(options.port),
+      ],
       cwd: app,
       env: {
         ...nextEnv,
@@ -150,6 +167,7 @@ export function devCommands(root, options, env = process.env, binaries) {
         MCP_INSPECTOR_PORT: String(options.inspectorPort),
       },
       port: options.port,
+      hostname: options.hostname ?? "127.0.0.1",
     },
   ];
 }
@@ -158,18 +176,19 @@ async function assertPortsAvailable(commands) {
   const reservations = [];
   try {
     for (const command of commands) {
+      const hostname = command.hostname ?? "127.0.0.1";
       const reservation = createServer();
       reservations.push(reservation);
       await new Promise((resolve, reject) => {
         reservation.once("error", (cause) => {
           reject(
             new Error(
-              `${command.name} cannot use 127.0.0.1:${command.port}. Free that port or choose another; no existing process was stopped.`,
+              `${command.name} cannot use ${hostname}:${command.port}. Free that port or choose another; no existing process was stopped.`,
               { cause },
             ),
           );
         });
-        reservation.listen({ port: command.port, host: "127.0.0.1", exclusive: true }, resolve);
+        reservation.listen({ port: command.port, host: hostname, exclusive: true }, resolve);
       });
     }
   } finally {

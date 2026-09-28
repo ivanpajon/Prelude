@@ -59,7 +59,7 @@ createServer((req, res) => {
   if (process.env.FIXTURE_MODE === "never-ready") res.statusCode = 503;
   res.end("fixture");
   if (req.url === "/exit") setTimeout(() => process.exit(23), 20);
-}).listen(Number(process.env.FIXTURE_PORT), "127.0.0.1");
+}).listen(Number(process.env.FIXTURE_PORT), process.env.FIXTURE_HOST ?? "127.0.0.1");
 `;
 
 function fixtureCommand(port, mode = "ready", extraEnv = {}) {
@@ -171,6 +171,19 @@ describe("development options and isolation", () => {
     expect(() => parseDevOptions(["-p", "6274"], {})).toThrow(/different ports/);
     expect(() => parseDevOptions(["--experimental-https"], {})).toThrow();
     expect(() => parseDevOptions(["--server-url", "http://remote.test"], {})).toThrow();
+    expect(() => parseDevOptions(["--container", "-H", "127.0.0.1"], {})).toThrow(
+      /omit --hostname/,
+    );
+  });
+
+  it("only binds wildcard interfaces after an explicit container option", () => {
+    const inherited = { HOST: "0.0.0.0", DANGEROUSLY_BIND_ALL_INTERFACES: "true" };
+    expect(parseDevOptions([], inherited).hostname).toBe("127.0.0.1");
+    expect(parseDevOptions(["--container"], { PORT: "3102", MCP_INSPECTOR_PORT: "6284" })).toEqual({
+      port: 3102,
+      inspectorPort: 6284,
+      hostname: "0.0.0.0",
+    });
   });
 
   it("isolates storage and scrubs inherited auth, catalog and exposure settings", () => {
@@ -260,6 +273,44 @@ describe("development options and isolation", () => {
     expect(commands[1].env).toEqual({ PORT: "3102", MCP_INSPECTOR_PORT: "6280" });
   });
 
+  it("preserves Inspector authentication and loopback URLs inside the container", () => {
+    const commands = devCommands(
+      workspaceRoot,
+      parseDevOptions(["--container"], { PORT: "3102", MCP_INSPECTOR_PORT: "6284" }),
+      {
+        DANGEROUSLY_OMIT_AUTH: "true",
+        DANGEROUSLY_BIND_ALL_INTERFACES: "false",
+        MCP_INSPECTOR_API_TOKEN: "inherited-secret",
+        ALLOWED_ORIGINS: "https://remote.test",
+      },
+      { next: "next.js", inspector: "inspector.js" },
+    );
+    const inspector = commands[0];
+    expect(inspector.hostname).toBe("0.0.0.0");
+    expect(inspector.args).toContain("http://127.0.0.1:3102/api/mcp");
+    expect(inspector.env).toMatchObject({
+      HOST: "0.0.0.0",
+      DANGEROUSLY_BIND_ALL_INTERFACES: "true",
+      CLIENT_PORT: "6284",
+      MCP_INSPECTOR_SECRET_STORE: "memory",
+      MCP_AUTO_OPEN_ENABLED: "false",
+      ALLOWED_ORIGINS:
+        "http://127.0.0.1:6284,http://localhost:6284,http://127.0.0.1:3102,http://localhost:3102",
+    });
+    expect(inspector.env.DANGEROUSLY_OMIT_AUTH).toBeUndefined();
+    expect(inspector.env.MCP_INSPECTOR_API_TOKEN).toBeUndefined();
+    expect(commands[1].args).toEqual([
+      "dev",
+      "--turbopack",
+      "--hostname",
+      "0.0.0.0",
+      "--port",
+      "3102",
+    ]);
+    expect(commands[1].hostname).toBe("0.0.0.0");
+    expect(commands[1].env.MCP_INSPECTOR_API_TOKEN).toBeUndefined();
+  });
+
   it("loads Next development dotenv precedence before resolving helper options", () => {
     const root = temporaryDirectory();
     writeFileSync(path.join(root, ".env"), "MCP_INSPECTOR_PORT=6200\n");
@@ -303,6 +354,20 @@ describe("owned development process lifecycle", () => {
   it("waits for both children, then shuts down both ports on cancellation", async () => {
     const ports = await freePorts();
     const run = start(ports.map((port) => fixtureCommand(port)));
+    await run.whenReady;
+    for (const port of ports) expect((await fetch(`http://127.0.0.1:${port}`)).status).toBe(200);
+    run.controller.abort();
+    await run.done;
+    await Promise.all(ports.map(expectClosed));
+  }, 10_000);
+
+  it("probes and stops container listeners through their shared loopback interface", async () => {
+    const ports = await freePorts();
+    const commands = ports.map((port) => ({
+      ...fixtureCommand(port, "ready", { FIXTURE_HOST: "0.0.0.0" }),
+      hostname: "0.0.0.0",
+    }));
+    const run = start(commands);
     await run.whenReady;
     for (const port of ports) expect((await fetch(`http://127.0.0.1:${port}`)).status).toBe(200);
     run.controller.abort();
