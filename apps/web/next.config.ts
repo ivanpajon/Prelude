@@ -1,7 +1,11 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  ...(process.env.NEXT_OUTPUT_STANDALONE === "true"
+    ? { output: "standalone", outputFileTracingRoot: path.resolve(import.meta.dirname, "../..") }
+    : {}),
   transpilePackages: ["@repo/ui", "@repo/contracts", "@repo/api", "@repo/temporal"],
   async headers() {
     return [
