@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@ark/schema": "0.56.4",
+    "@modelcontextprotocol/client": "2.2.0",
     "@modelcontextprotocol/server": "2.2.0",
     "@orpc/arktype": "1.15.4",
     "@orpc/client": "1.15.4",

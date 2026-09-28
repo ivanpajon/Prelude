@@ -263,6 +263,9 @@ importers:
       '@ark/schema':
         specifier: 0.56.4
         version: 0.56.4
+      '@modelcontextprotocol/client':
+        specifier: 2.2.0
+        version: 2.2.0
       '@modelcontextprotocol/server':
         specifier: 2.2.0
         version: 2.2.0

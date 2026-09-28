@@ -14,6 +14,16 @@ The tools execute real operations against the **public, shared, process-local de
 
 `mcp-from-openapi` **2.8.0** generates tool definitions and request mappings from `generateOpenApiSpec()`. The bridge dispatches mapped requests directly to the existing REST adapter with request-scoped context. It does not make an HTTP request back to itself or bypass ArkType validation, typed errors, the PATCH path-ID guard, or awaited mutation callbacks. The MCP SDK server and client are pinned to **2.2.0**. Zod is infrastructure for the SDK/tooling; ArkType remains the application schema source.
 
+## Homepage playground
+
+The homepage includes a live MCP playground below the Motion and Morphicons examples. Choose **Discover tools**, select a generated tool, edit its JSON arguments, and choose **Run tool**. Nothing is executed automatically. Tool descriptions, schemas, and read-only hints come from MCP discovery rather than a second hard-coded catalog. Starter arguments use schema defaults, examples, enums, and required fields; they are suggestions and may need editing.
+
+Results display natural JSON, including arrays, and tool failures remain visible for correction and retry. `createTask` and `setTaskCompleted` change the same public demo data as REST and RPC. Successful playground calls invalidate the workbench's task queries, so this page reflects changes without reloading. Other tabs still need their own refetch or reload.
+
+The browser calls same-origin Next.js Server Actions. Each action verifies the actual Host and Origin, respects development loopback restrictions and runtime `MCP_ENABLED`, then creates a fresh official MCP SDK client. The client exchanges real discovery/tool protocol messages with the shared endpoint in process, without a network request back to the application. Identity headers reach the same context factory in `apps/web/src/lib/mcp-endpoint.ts`; the SDK remains outside the browser bundle. Add future authorization there and in the shared procedures, not only in the widget.
+
+This action bridge works in production without adding the application's origin to `MCP_ALLOWED_ORIGINS`. The public `/api/mcp` HTTP endpoint retains its explicit browser-origin allowlist; the action verifies its own same-origin caller before acting as a native server-side client. Forwarded headers do not establish trust. Reverse-proxy deployments must preserve the caller's public Host for the action's exact comparison. `MCP_ENABLED=false` disables playground discovery and execution too, with an explanatory message in the UI. Action responses and their MCP exchanges are not cached; there is no offline playground or automatic mutation retry.
+
 ## Try it locally
 
 ```sh
@@ -84,7 +94,9 @@ Reusing the existing adapter means its supported methods and input mapping still
 
 Keep credentials and repository ownership in request context. When replacing the demo repository, update the MCP context factory alongside RPC, REST, and direct server calls. If adding cached server data, supply `onTasksChanged` consistently; MCP waits for it just as the other transports do. Tool discovery is not a substitute for procedure-level authorization.
 
-To remove MCP, remove its endpoint, bridge, development Inspector wrapper, managed Inspector launcher/check command, tests, and documentation. Remove the now-unused MCP dependencies and restore a plain Next.js/Turbo development command. Retain OpenAPI and Scalar if desired; the REST API does not depend on MCP. See [OpenAPI](openapi.md) for the shared specification and [architecture](architecture.md) for repository replacement.
+To remove only the homepage example, remove `McpPlayground` from the homepage, its component, the `app/actions/mcp-playground.ts` actions, and the `lib/mcp-playground*` helpers/types and related tests. The public MCP endpoint and Inspector can remain. When replacing the task demo, update the playground's `orpc.tasks.key()` invalidation to cover your own client queries.
+
+To remove MCP entirely, also remove its endpoint, bridge, development Inspector wrapper, managed Inspector launcher/check command, tests, and documentation. Remove the now-unused MCP dependencies and restore a plain Next.js/Turbo development command. Retain OpenAPI and Scalar if desired; the REST API does not depend on MCP. See [OpenAPI](openapi.md) for the shared specification and [architecture](architecture.md) for repository replacement.
 
 ## Verification
 
@@ -92,4 +104,4 @@ Unit tests exercise tool generation, request mapping, validation, response conve
 
 Run `pnpm check`, `pnpm test`, and `pnpm verify` after changing the contract, SDK, converter, or Inspector. Do not run managed development acceptance alongside an ordinary development server: they share the Next.js development output and Inspector ports. Package upgrades must keep the SDK server/client versions aligned and verify that the generator's parameter mapping and output representation still match the bridge.
 
-Pin upgrades explicitly in the web manifest for `mcp-from-openapi` and the MCP server SDK, and in the root development manifest for the MCP client SDK and Inspector. Regenerate and commit the lockfile, then verify a frozen installation. SDK changes must pass both modern and legacy client scenarios; generator changes must preserve tool names, complete schemas, opt-outs, annotations, and errors; Inspector changes must pass the actual embedded UI and CLI checks. Inspector brings its own SDK dependency, so upgrading the application SDK alone does not upgrade Inspector's client.
+Pin upgrades explicitly in the web manifest for `mcp-from-openapi` and the MCP server/client SDKs, and in the root development manifest for the MCP client SDK and Inspector. Regenerate and commit the lockfile, then verify a frozen installation. SDK changes must pass both modern and legacy client scenarios; generator changes must preserve tool names, complete schemas, opt-outs, annotations, and errors; Inspector changes must pass the actual embedded UI and CLI checks. Inspector brings its own SDK dependency, so upgrading the application SDK alone does not upgrade Inspector's client.

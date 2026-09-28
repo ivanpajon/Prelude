@@ -14,6 +14,7 @@ TypeScript remains pinned to the verified 6.0.3 baseline; compiler upgrades are 
 - Public REST access through the same procedures, automatic OpenAPI 3.1.1 at `/api/openapi.json`, and Scalar at `/api/docs`. Scalar's standalone renderer is pinned to 1.72.1 on jsDelivr; it is not an installed application dependency.
 - Native stateless Streamable HTTP MCP at `/api/mcp`, generated from OpenAPI using `mcp-from-openapi` 2.8.0 and MCP SDK server/client 2.2.0. The public demo exposes its three operations by default; `MCP_ENABLED=false` disables the endpoint.
 - MCP Inspector 2.8.0 as a root development tool, managed by `pnpm dev` and embedded at the development-only `/api/mcp/inspector` route. Inspector authentication remains enabled; no agent configuration is installed automatically.
+- A homepage MCP playground with on-demand tool discovery, editable JSON arguments, generated schemas, real execution, and results. Same-origin Server Actions use a request-scoped SDK client against the shared endpoint in process; `MCP_ENABLED=false` disables these actions too. Successful calls refresh the demo workbench.
 - TanStack Query 5.103.2 for client server data, nuqs 2.10.1 for URL state, and Zustand 5.0.15 for shared local UI state.
 - Serwist 9.5.12 for installability, static assets, an offline fallback, and user-controlled updates through a responsive, dismissible Base UI toast using the existing UI dependency.
 - pnpm workspaces, Turborepo, and strict TypeScript.

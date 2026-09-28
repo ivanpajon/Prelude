@@ -1,5 +1,13 @@
 # Verification
 
+## Homepage MCP playground
+
+Verified on 2026-09-29 with Node 26.10.0 and pnpm 12.6.0 on Windows: frozen installation and `pnpm verify` passed, including Biome, strict TypeScript, 205 unit/component/script tests with coverage, two development scenarios, all 43 production scenarios, the Turbopack/Serwist build, and byte-for-byte service-worker cache restoration. The live development playground was also inspected in the browser.
+
+The desktop and mobile production projects exercise the real homepage playground: on-demand discovery, input/output schemas, keyboard execution, natural array results, malformed JSON, tool errors, discovery retries, and refreshing the catalog without stale output. Mutation checks cover duplicate clicks, normalized creation, completion, preserved drafts, and immediate RPC workbench refresh without a page reload. The disabled-runtime test verifies that `MCP_ENABLED=false` disables the playground as well as the endpoint.
+
+Focused unit coverage exercises the action bridge with real SDK clients and isolated repositories: same-origin and development loopback guards, runtime enablement, identity forwarding and protocol-header isolation, paginated discovery, validation/errors, concurrent context isolation, mutation callbacks, timeouts/cleanup, and zero outbound requests. JSON editing helpers are checked separately. The SDK client is a web runtime dependency behind `server-only`; browser output is checked for accidental transport imports.
+
 ## Native MCP scenarios
 
 Verified on 2026-09-28 with Node 26.10.0 and pnpm 12.6.0 on Windows:

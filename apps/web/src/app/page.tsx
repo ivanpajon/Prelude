@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 import { AnimationExamples } from "@/components/animation-examples";
+import { McpPlayground } from "@/components/mcp-playground";
 import { TaskWorkbenchServer } from "@/components/task-workbench-server";
 
 const boundaries = [
@@ -203,6 +204,7 @@ export default function HomePage({
         </section>
 
         <AnimationExamples />
+        <McpPlayground />
 
         <section
           className="mt-16 border-t border-border pt-10"

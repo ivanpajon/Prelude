@@ -23,12 +23,12 @@ export default defineConfig({
     },
     {
       name: "desktop",
-      testMatch: ["app.spec.ts", "openapi.spec.ts"],
+      testMatch: ["app.spec.ts", "openapi.spec.ts", "mcp-playground.spec.ts"],
       use: { ...devices["Desktop Chrome"], serviceWorkers: "block" },
     },
     {
       name: "mobile",
-      testMatch: ["app.spec.ts", "openapi.spec.ts"],
+      testMatch: ["app.spec.ts", "openapi.spec.ts", "mcp-playground.spec.ts"],
       use: { ...devices["Pixel 7"], serviceWorkers: "block" },
     },
     {

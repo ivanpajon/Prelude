@@ -160,7 +160,9 @@ test("keeps the stateless MCP route uncached, rejects unexpected browser origins
   }
 });
 
-test("disables MCP at production runtime without rebuilding or disabling REST", async () => {
+test("disables MCP at production runtime without rebuilding or disabling REST", async ({
+  page,
+}) => {
   test.setTimeout(45_000);
   const reservation = createServer();
   await new Promise<void>((resolve, reject) => {
@@ -234,6 +236,11 @@ test("disables MCP at production runtime without rebuilding or disabling REST", 
     expect(disabled.status).toBe(404);
     expect(disabled.headers.get("Cache-Control")).toBe("no-store");
     expect((await fetch(`${origin}/api/mcp/inspector`)).status).toBe(404);
+    await page.goto(origin);
+    const widget = page.getByRole("region", { name: "A little input. Real action.", exact: true });
+    await widget.getByRole("button", { name: "Discover tools", exact: true }).click();
+    await expect(widget.getByRole("alert")).toContainText("MCP is disabled for this application.");
+    await expect(widget.getByRole("button", { name: "Run tool", exact: true })).toHaveCount(0);
   } finally {
     if (child.pid && child.exitCode === null && child.signalCode === null) {
       if (process.platform === "win32") {

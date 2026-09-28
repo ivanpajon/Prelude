@@ -1,17 +1,11 @@
-import { demoRepository } from "@repo/api";
 import { connection } from "next/server";
-import { createMcpEndpoint } from "@/lib/mcp";
 import { handleMcpRequest } from "@/lib/mcp-access";
-
-const endpoint = createMcpEndpoint({
-  // Extend this factory with the caller's identity when adding authentication.
-  getContext: (_request) => ({ repository: demoRepository }),
-});
+import { mcpEndpoint } from "@/lib/mcp-endpoint";
 
 async function handle(request: Request) {
   // Evaluate enablement on every request, including when a build used MCP_ENABLED=false.
   await connection();
-  return handleMcpRequest(request, (incoming) => endpoint.fetch(incoming));
+  return handleMcpRequest(request, (incoming) => mcpEndpoint.fetch(incoming));
 }
 
 export {

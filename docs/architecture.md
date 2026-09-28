@@ -22,6 +22,8 @@ The stateless Streamable HTTP MCP endpoint at `/api/mcp` derives its tools from 
 
 The workbench parses URL state on the server, fetches its initial query, and passes dehydrated state to TanStack Query. `React.cache` scopes the server QueryClient to a render request; the browser uses a stable client. A 60-second stale time avoids an immediate duplicate fetch. Successful mutations invalidate the task query family.
 
+The homepage MCP playground uses TanStack Query for on-demand discovery and tool execution, with local React state for editable JSON drafts. Same-origin Server Actions create request-scoped official SDK clients and dispatch real protocol messages to the shared MCP endpoint in process. The SDK stays on the server. Both this bridge and the public route share `lib/mcp-endpoint.ts` for request context; the actions enforce their own Host/Origin comparison and MCP runtime enablement without changing the public endpoint's origin policy. See [the playground guide](mcp.md#homepage-playground).
+
 State ownership:
 
 - TanStack Query: remote tasks and mutation status.
@@ -41,7 +43,7 @@ To remove the example, replace the task contract/router/repository and the workb
 
 Cache Components is enabled. The public stack overview demonstrates `use cache` with `cacheLife("hours")`. The task workbench runs after `connection()` beneath Suspense and is deliberately not stored in the Next.js data cache. Its in-memory data must not become a build-time snapshot.
 
-The API context exposes optional `onTasksChanged: () => void | Promise<void>`, awaited after successful writes through every transport or the direct client. It is unused by the uncached demo. When adding tagged server caching, provide invalidation in every context factory and retain client query invalidation. Scalar and MCP mutations do not notify an already-open workbench; reload or refetch it to see changes. Read request-specific information outside cached scopes.
+The API context exposes optional `onTasksChanged: () => void | Promise<void>`, awaited after successful writes through every transport or the direct client. It is unused by the uncached demo. When adding tagged server caching, provide invalidation in every context factory and retain client query invalidation. Scalar and external MCP mutations do not notify an already-open workbench; reload or refetch it to see changes. The homepage playground explicitly invalidates this page's task queries after successful calls. Read request-specific information outside cached scopes.
 
 Inside an oRPC Route Handler, use `revalidateTag(tag, "max")` for stale-while-revalidate, or `revalidateTag(tag, { expire: 0 })` when the next read must be fresh. `updateTag` is available only in Server Actions, not Route Handlers. Choose user-scoped cache keys/tags if caching authorized data. Consult the installed Next.js guides when changing this behavior.
 

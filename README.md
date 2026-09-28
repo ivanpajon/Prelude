@@ -35,7 +35,7 @@ Check `node --version` in the shell that starts development; `.node-version` doe
 
 Open [localhost:3000](http://localhost:3000), then follow **API docs** to [the Scalar reference](http://localhost:3000/api/docs). The [OpenAPI specification](http://localhost:3000/api/openapi.json) is generated from the contracts on request; no generation command is needed. Scalar loads its version-pinned renderer from jsDelivr, so the interactive reference requires CDN access. See [OpenAPI usage](docs/openapi.md) for endpoints, adding procedures, and upgrades.
 
-The same contracts provide native MCP tools at `/api/mcp`. `pnpm dev` also starts an authenticated local MCP Inspector, embedded at [the development Inspector page](http://localhost:3000/api/mcp/inspector), for discovering tools and executing real API calls. Run `pnpm mcp:check` from another terminal to check the endpoint with its CLI. MCP is public and enabled by default; set `MCP_ENABLED=false` to disable it. See [MCP usage](docs/mcp.md) for client connection, origin configuration, and replacing the demo safely.
+The same contracts provide native MCP tools at `/api/mcp`. Try the **MCP playground** on the homepage: discover tools, edit JSON arguments, and execute real calls that refresh the task list. `pnpm dev` also starts an authenticated local MCP Inspector, embedded at [the development Inspector page](http://localhost:3000/api/mcp/inspector). Run `pnpm mcp:check` from another terminal to check the endpoint with its CLI. MCP is public and enabled by default; set `MCP_ENABLED=false` to disable it and the playground. See [MCP usage](docs/mcp.md) for client connection, origin configuration, and replacing the demo safely.
 
 To run the production build and PWA on a separate origin:
 
