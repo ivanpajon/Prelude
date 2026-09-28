@@ -1,5 +1,16 @@
 # Verification
 
+## Toast-based PWA update acceptance
+
+Verified on 2026-09-28 with Node 26.10.0 and pnpm 12.6.0 on Windows:
+
+- Frozen-lockfile installation and the complete `pnpm verify` workflow passed without adding dependencies.
+- Biome, strict TypeScript, and all 106 unit/component/customization tests passed with V8 coverage. The new tests cover toast keyboard actions, persistence and dismissal, plus 19 lifecycle scenarios for registration races, per-tab approval, successive workers, timeout/retry, and cleanup.
+- The development smoke test and all 33 production browser scenarios passed. Real worker replacements verified desktop/320px keyboard approval, reduced motion, exactly one document reload, preservation of another tab's draft until its own approval, and swipe dismissal followed by a newer update notification.
+- The production Turbopack/Serwist build, existing API/docs cache exclusions and offline fallback, and byte-for-byte service-worker restoration from Turbo cache passed. Desktop and mobile toast screenshots were inspected.
+
+Reload checks count document navigation requests and completed loads; Next.js same-document history synchronization does not count as another reload. Streamed hidden form markup is excluded by using the visible input's accessible name.
+
 ## OpenAPI and Scalar acceptance
 
 Verified on 2026-09-28 with Node 26.10.0 and pnpm 12.6.0 on Windows:
@@ -44,7 +55,9 @@ No CI provider is configured. A future CI job can run these commands; on Linux r
 
 Scalar scenarios verify the homepage link at 320px, the exact pinned CDN renderer, search and hash navigation, and real same-origin GET/POST requests. A task created in Scalar must appear in the server-rendered workbench and subsequent RPC queries. The rendering/search test rejects unexpected external requests; the pinned jsDelivr bundle is the only allowed external resource. These browser checks require access to that CDN. HTTP and schema tests run locally without it.
 
-PWA scenarios inspect the manifest/icons, wait for a controlling worker, test a new navigation offline, and confirm RPC, REST, docs, specification, and RSC responses are absent from Cache Storage. Docs/spec/REST fetches must fail offline instead of returning cached responses. The update scenario changes only the generated worker, verifies the waiting notice, and activates it through **Reload to update**. It restores the original worker in cleanup. If a run is forcibly interrupted, regenerate artifacts with `pnpm build --force` before retrying.
+PWA scenarios inspect the manifest/icons, wait for a controlling worker, test a new navigation offline, and confirm RPC, REST, docs, specification, and RSC responses are absent from Cache Storage. Docs/spec/REST fetches must fail offline instead of returning cached responses.
+
+Update scenarios change only the generated worker and explicitly call `registration.update()` to trigger a deterministic browser check; production code uses the browser's default timing without polling. They cover a quiet first installation, a waiting worker that stays inactive before approval, keyboard activation at desktop and 320px widths, reduced motion at 320px, one reload per approval, and pointer-swipe dismissal followed by notification for a newer worker. Both width checks save an `update-toast.png` screenshot in their test output directories. A two-tab scenario leaves an unfinished task draft in the second tab: approval in the first tab activates the worker, while the second tab retains its draft until its own **Reload now** action. Each test restores the original worker in cleanup. These scenarios share one production worker file and run serially; do not run another build or worker-update suite concurrently. If a run is forcibly interrupted, regenerate artifacts with `pnpm build --force` before retrying.
 
 The cache check saves `apps/web/public/sw.js` and its map when present, removes only those explicit generated files, checks the restored hashes after a Turbo cache hit, and restores the saved bytes in `finally`. Do not run it alongside a development/production server or another build. Source files, the lockfile, and directories are not its cleanup targets.
 
@@ -73,7 +86,7 @@ Vitest's `node` project discovers `.test.ts` files under applications and packag
 
 Open the URL printed by `pnpm test:ui`, including its authentication token, to use the test explorer. The command stays in watch mode and binds its API to loopback.
 
-`pnpm verify` runs coverage rather than running the unit suite twice. Coverage is collected for contracts, API/repository logic, the OpenAPI adapter/converter, Temporal, state helpers, and the shared animation wrappers. Generated shadcn components and complete Next.js pages are not coverage targets; the form-controls tests exercise component composition, while Playwright owns integrated rendering. Reports start without percentage gates so projects can set meaningful thresholds for their own code. Vitest, its UI, and its coverage provider are pinned to the same version.
+`pnpm verify` runs coverage rather than running the unit suite twice. Coverage is collected for contracts, API/repository logic, the OpenAPI adapter/converter, the PWA update controller, Temporal, state helpers, and the shared animation/toast wrappers. Generated shadcn components and complete Next.js pages are not coverage targets; the form-controls tests exercise component composition, while Playwright owns integrated rendering. Reports start without percentage gates so projects can set meaningful thresholds for their own code. Vitest, its UI, and its coverage provider are pinned to the same version.
 
 ## Node 26 and additional tooling acceptance
 

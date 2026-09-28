@@ -13,7 +13,7 @@ TypeScript remains pinned to the verified 6.0.3 baseline; compiler upgrades are 
 - Contract-first oRPC 1.15.4 with ArkType 2.2.5 inputs, outputs, and inferred TypeScript types.
 - Public REST access through the same procedures, automatic OpenAPI 3.1.1 at `/api/openapi.json`, and Scalar at `/api/docs`. Scalar's standalone renderer is pinned to 1.72.1 on jsDelivr; it is not an installed application dependency.
 - TanStack Query 5.103.2 for client server data, nuqs 2.10.1 for URL state, and Zustand 5.0.15 for shared local UI state.
-- Serwist 9.5.12 for installability, static assets, an offline fallback, and user-controlled updates.
+- Serwist 9.5.12 for installability, static assets, an offline fallback, and user-controlled updates through a responsive, dismissible Base UI toast using the existing UI dependency.
 - pnpm workspaces, Turborepo, and strict TypeScript.
 - Biome as the sole linter, formatter, and import organizer.
 - Husky pre-commit with lint-staged, preserving unstaged changes.
@@ -27,6 +27,8 @@ TypeScript remains pinned to the verified 6.0.3 baseline; compiler upgrades are 
 ## Acceptance
 
 Reproducible installation; passing formatting, linting, type checking, tests, and production builds; compatible Base UI components; runtime API validation across RPC and REST; generated schemas and documented endpoint behavior; desktop/mobile Scalar navigation and requests using its pinned renderer; SSR hydration without an immediate duplicate fetch; request isolation; mutation invalidation; navigable URL state; SSR-safe local state; production PWA fallback and updates; exclusion of API/docs responses from service-worker caches; restoration of service-worker artifacts from Turbo cache; and hooks that preserve partial staging.
+
+PWA updates register only in production and use browser-default update checks. First installation is silent. A waiting worker offers **Update now**, supports keyboard use and dismissal per worker, and waits for approval while existing clients remain open. Activation reloads only the approving tab; other tabs retain their drafts and offer **Reload now** separately. Notifications fit narrow viewports, avoid duplicate activation/reloads, and offer retry after an activation failure or a 15-second timeout. A newer worker can show a notification after an earlier one was dismissed.
 
 ## Development workflow
 

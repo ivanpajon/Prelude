@@ -11,6 +11,47 @@ async function waitForWorker(page: Page) {
     .toBe(true);
 }
 
+async function checkForUpdate(page: Page) {
+  await page.evaluate(async () => {
+    const registration = await navigator.serviceWorker.ready;
+    await registration.update();
+  });
+}
+
+function trackDocumentNavigations(page: Page) {
+  const counts = { requests: 0, loads: 0 };
+  // Next.js history synchronization can also emit framenavigated without a reload.
+  page.on("request", (request) => {
+    if (
+      request.isNavigationRequest() &&
+      !request.serviceWorker() &&
+      request.frame() === page.mainFrame()
+    ) {
+      counts.requests++;
+    }
+  });
+  page.on("load", () => counts.loads++);
+  return counts;
+}
+
+async function withWorkerRevisions(
+  run: (publish: (page: Page, revision: string) => Promise<void>) => Promise<void>,
+) {
+  const workerPath = fileURLToPath(new URL("../../apps/web/public/sw.js", import.meta.url));
+  const original = await readFile(workerPath);
+  try {
+    await run(async (page, revision) => {
+      await writeFile(
+        workerPath,
+        Buffer.concat([original, Buffer.from(`\n// update-test-${revision}-${Date.now()}\n`)]),
+      );
+      await checkForUpdate(page);
+    });
+  } finally {
+    await writeFile(workerPath, original);
+  }
+}
+
 test("publishes an installable manifest and valid installation icons", async ({ request }) => {
   const response = await request.get("/manifest.webmanifest");
   expect(response.ok()).toBe(true);
@@ -105,37 +146,157 @@ test("shows an offline fallback without caching API docs, application data, or R
   await expect(page.getByRole("heading", { name: "A small list. A working stack." })).toBeVisible();
 });
 
-test("waits for user consent before activating a real worker update", async ({ page }) => {
-  test.setTimeout(45_000);
-  const workerPath = fileURLToPath(new URL("../../apps/web/public/sw.js", import.meta.url));
-  const original = await readFile(workerPath);
+test("keeps the first service-worker installation quiet", async ({ page }) => {
   await page.goto("/");
   await waitForWorker(page);
-  try {
-    await writeFile(
-      workerPath,
-      Buffer.concat([original, Buffer.from(`\n// update-test-${Date.now()}\n`)]),
-    );
-    await page.evaluate(async () => {
-      const registration = await navigator.serviceWorker.ready;
-      await registration.update();
+  await expect(page.getByText("Update available", { exact: true })).toBeHidden();
+  await expect(page.getByText("Update ready", { exact: true })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Dismiss notification" })).toBeHidden();
+  expect(
+    await page.evaluate(async () => (await navigator.serviceWorker.ready).waiting === null),
+  ).toBe(true);
+});
+
+for (const width of [1280, 320]) {
+  test(`approves a real update by keyboard and reloads once at ${width}px`, async ({ page }) => {
+    test.setTimeout(45_000);
+    await page.setViewportSize({ width, height: 800 });
+    if (width === 320) await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/");
+    await waitForWorker(page);
+    const navigations = trackDocumentNavigations(page);
+
+    await withWorkerRevisions(async (publish) => {
+      await publish(page, `keyboard-${width}`);
+      const title = page.getByText("Update available", { exact: true });
+      const description = page.getByText(
+        "A new version is ready. Update now to reload this page.",
+        { exact: true },
+      );
+      const update = page.getByRole("button", { name: "Update now", exact: true });
+      const dismiss = page.getByRole("button", { name: "Dismiss notification", exact: true });
+      const toast = page.locator('[data-slot="toast"]').filter({ has: update });
+      await expect(title).toHaveCount(1);
+      await expect(title).toBeVisible();
+      await expect(description).toBeVisible();
+      await expect(update).toBeVisible();
+      await expect(dismiss).toBeVisible();
+      expect(navigations).toEqual({ requests: 0, loads: 0 });
+      expect(
+        await page.evaluate(async () => {
+          const registration = await navigator.serviceWorker.ready;
+          return registration.waiting?.state === "installed";
+        }),
+      ).toBe(true);
+
+      for (const element of [toast, title, description, update, dismiss]) {
+        const bounds = await element.boundingBox();
+        expect(bounds).not.toBeNull();
+        if (!bounds) throw new Error("The update notification is not rendered");
+        expect(bounds.x).toBeGreaterThanOrEqual(0);
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+      }
+      expect((await title.boundingBox())?.y).toBeLessThan(120);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+        width,
+      );
+      await page.screenshot({
+        path: test.info().outputPath("update-toast.png"),
+        animations: "disabled",
+      });
+
+      await update.focus();
+      await expect(update).toBeFocused();
+      const reload = page.waitForEvent("load");
+      await page.keyboard.press("Enter");
+      await reload;
+      await expect(
+        page.getByRole("heading", { name: "A small list. A working stack." }),
+      ).toBeVisible();
+      await waitForWorker(page);
+      await expect(title).toBeHidden();
+      await expect(update).toBeHidden();
+      expect(navigations).toEqual({ requests: 1, loads: 1 });
+      expect(
+        await page.evaluate(async () => (await navigator.serviceWorker.ready).waiting === null),
+      ).toBe(true);
     });
-    const update = page.getByRole("button", { name: "Reload to update", exact: true });
+  });
+}
+
+test("keeps another tab's draft until that tab approves its own reload", async ({
+  page,
+  context,
+}) => {
+  test.setTimeout(60_000);
+  await page.goto("/");
+  await waitForWorker(page);
+  const second = await context.newPage();
+  await second.goto("/");
+  await waitForWorker(second);
+  const draft = second.getByRole("textbox", { name: "New task", exact: true });
+  await expect(draft).toBeVisible();
+  await draft.fill("Keep this unfinished idea");
+  const secondNavigations = trackDocumentNavigations(second);
+
+  await withWorkerRevisions(async (publish) => {
+    await publish(page, "two-tabs");
+    await expect(page.getByRole("button", { name: "Update now", exact: true })).toBeVisible();
+    await expect(second.getByRole("button", { name: "Update now", exact: true })).toBeVisible();
+    const firstReload = page.waitForEvent("load");
+    await page.getByRole("button", { name: "Update now", exact: true }).click();
+    await firstReload;
+
+    await expect(second.getByText("Update ready", { exact: true })).toBeVisible();
+    await expect(second.getByRole("button", { name: "Reload now", exact: true })).toBeVisible();
+    await expect(draft).toHaveValue("Keep this unfinished idea");
+    expect(secondNavigations).toEqual({ requests: 0, loads: 0 });
+    expect(
+      await second.evaluate(async () => (await navigator.serviceWorker.ready).waiting === null),
+    ).toBe(true);
+
+    const secondReload = second.waitForEvent("load");
+    await second.getByRole("button", { name: "Reload now", exact: true }).click();
+    await secondReload;
+    await expect(draft).toHaveValue("");
+    await expect(second.getByText("Update ready", { exact: true })).toBeHidden();
+    expect(secondNavigations).toEqual({ requests: 1, loads: 1 });
+  });
+});
+
+test("remembers a dismissed worker but offers a newer waiting worker", async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.goto("/");
+  await waitForWorker(page);
+
+  await withWorkerRevisions(async (publish) => {
+    await publish(page, "dismissed");
+    const title = page.getByText("Update available", { exact: true });
+    const update = page.getByRole("button", { name: "Update now", exact: true });
+    await expect(update).toBeVisible();
+    const bounds = await title.boundingBox();
+    if (!bounds) throw new Error("The update notification title is not rendered");
+    const startX = bounds.x + Math.min(bounds.width / 2, 40);
+    const startY = bounds.y + bounds.height / 2;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX + 240, startY, { steps: 12 });
+    await page.mouse.up();
+    await expect(title).toBeHidden();
+    await expect(update).toBeHidden();
+
+    await checkForUpdate(page);
+    await expect(title).toBeHidden();
+    expect(
+      await page.evaluate(async () => (await navigator.serviceWorker.ready).waiting?.state),
+    ).toBe("installed");
+
+    await publish(page, "newer");
+    await expect(title).toHaveCount(1);
+    await expect(title).toBeVisible();
     await expect(update).toBeVisible();
     expect(
-      await page.evaluate(async () => Boolean((await navigator.serviceWorker.ready).waiting)),
-    ).toBe(true);
-    const reload = page.waitForEvent("load");
-    await update.click();
-    await reload;
-    await expect(
-      page.getByRole("heading", { name: "A small list. A working stack." }),
-    ).toBeVisible();
-    await expect(update).toBeHidden();
-    expect(
-      await page.evaluate(async () => (await navigator.serviceWorker.ready).waiting === null),
-    ).toBe(true);
-  } finally {
-    await writeFile(workerPath, original);
-  }
+      await page.evaluate(async () => (await navigator.serviceWorker.ready).waiting?.state),
+    ).toBe("installed");
+  });
 });

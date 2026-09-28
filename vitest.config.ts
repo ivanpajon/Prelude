@@ -30,8 +30,8 @@ export default defineConfig({
       reporter: ["text", "html", "lcov"],
       include: [
         "packages/{api,contracts,temporal}/src/**/*.ts",
-        "apps/web/src/lib/{openapi,query-client,task-search,workbench-store}.ts",
-        "packages/ui/src/components/{motion-provider,morph-icon}.tsx",
+        "apps/web/src/lib/{openapi,pwa-update-controller,query-client,task-search,workbench-store}.ts",
+        "packages/ui/src/components/{motion-provider,morph-icon,toast}.tsx",
       ],
       exclude: ["**/*.test.{ts,tsx}", "**/contract-types.ts"],
     },

@@ -1,8 +1,9 @@
 "use client";
 
-import { Button } from "@repo/ui/components/button";
+import { toast } from "@repo/ui/components/toast";
 import { SerwistProvider, useSerwist } from "@serwist/next/react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect } from "react";
+import { createPwaUpdateController } from "@/lib/pwa-update-controller";
 
 type ServiceWorkerClient = NonNullable<ReturnType<typeof useSerwist>["serwist"]>;
 
@@ -24,116 +25,82 @@ function registerOnce(serwist: ServiceWorkerClient) {
   return registration;
 }
 
+const updateMessages = {
+  available: {
+    title: "Update available",
+    description: "A new version is ready. Update now to reload this page.",
+    action: "Update now",
+    type: "info",
+  },
+  updating: {
+    title: "Updating…",
+    description: "This page will reload when the update takes control.",
+    action: "Updating…",
+    type: "loading",
+  },
+  ready: {
+    title: "Update ready",
+    description: "Another tab applied the update. Reload when you’re ready.",
+    action: "Reload now",
+    type: "info",
+  },
+  error: {
+    title: "Couldn’t update",
+    description: "The update could not be activated. Please try again.",
+    action: "Try again",
+    type: "error",
+  },
+};
+
 function UpdateNotice() {
   const { serwist } = useSerwist();
-  const [available, setAvailable] = useState(false);
-  const [updating, setUpdating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const consent = useRef(false);
-  const activationTimeout = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!serwist) return;
+    if (!serwist || !("serviceWorker" in navigator)) return;
 
-    let active = true;
-    const onWaiting = () => {
-      setAvailable(true);
-      setError(null);
+    const id = "pwa-update";
+    let closing = false;
+    const closeNotice = () => {
+      closing = true;
+      toast.close(id);
+      closing = false;
     };
-    const onControlling = () => {
-      if (activationTimeout.current !== null) {
-        window.clearTimeout(activationTimeout.current);
-        activationTimeout.current = null;
-      }
-      if (consent.current) {
-        window.location.reload();
-      } else {
-        setAvailable(false);
-      }
-    };
-
-    serwist.addEventListener("waiting", onWaiting);
-    serwist.addEventListener("controlling", onControlling);
-
-    // PWA registration is optional: denied or failed registration must not
-    // interrupt the application or produce an unhandled rejection.
-    void registerOnce(serwist).then((registration) => {
-      if (active && registration?.waiting) onWaiting();
+    const controller = createPwaUpdateController({
+      serviceWorker: navigator.serviceWorker,
+      register: () => registerOnce(serwist),
+      reload: () => window.location.reload(),
+      onChange: (notice) => {
+        if (!notice) {
+          closeNotice();
+          return;
+        }
+        const message = updateMessages[notice.status];
+        toast.add({
+          id,
+          title: message.title,
+          description: message.description,
+          type: message.type,
+          priority: notice.status === "error" ? "high" : "low",
+          timeout: 0,
+          actionProps: {
+            children: message.action,
+            disabled: notice.status === "updating",
+            onClick: () => controller.apply(),
+          },
+          onClose: () => {
+            if (!closing) controller.dismiss();
+          },
+        });
+      },
     });
 
-    // The worker may already be waiting before this component subscribes.
-    void navigator.serviceWorker
-      .getRegistration("/")
-      .then((registration) => {
-        if (active && registration?.waiting) onWaiting();
-      })
-      .catch(() => undefined);
-
     return () => {
-      active = false;
-      serwist.removeEventListener("waiting", onWaiting);
-      serwist.removeEventListener("controlling", onControlling);
-      if (activationTimeout.current !== null) {
-        window.clearTimeout(activationTimeout.current);
-      }
+      controller.dispose();
+      closeNotice();
     };
   }, [serwist]);
 
-  async function activateUpdate() {
-    if (!serwist || updating) return;
-
-    consent.current = true;
-    setUpdating(true);
-    setError(null);
-
-    const reportFailure = () => {
-      consent.current = false;
-      setUpdating(false);
-      setError("The update could not be activated. Please try again.");
-    };
-
-    try {
-      const registration = await navigator.serviceWorker.getRegistration("/");
-      if (!registration) {
-        reportFailure();
-        return;
-      }
-      if (!registration.waiting) {
-        // Another tab may already have activated the available update.
-        window.location.reload();
-        return;
-      }
-      activationTimeout.current = window.setTimeout(reportFailure, 15_000);
-      serwist.messageSkipWaiting();
-    } catch {
-      if (activationTimeout.current !== null) {
-        window.clearTimeout(activationTimeout.current);
-      }
-      reportFailure();
-    }
-  }
-
-  if (!available) return null;
-
-  return (
-    <aside
-      aria-label="Application update"
-      className="fixed right-4 bottom-4 left-4 z-50 rounded-xl border border-border bg-card p-4 text-card-foreground shadow-lg sm:left-auto sm:max-w-sm"
-    >
-      <p role="status" className="font-semibold">
-        Update available
-      </p>
-      <p className="mt-1 text-sm text-muted-foreground">Reload to use the latest version.</p>
-      <Button className="mt-3" disabled={updating} onClick={activateUpdate}>
-        {updating ? "Updating…" : "Reload to update"}
-      </Button>
-      {error && (
-        <p role="alert" className="mt-2 text-sm text-destructive">
-          {error}
-        </p>
-      )}
-    </aside>
-  );
+  return null;
 }
 
 export function PwaProvider({ children }: { children: ReactNode }) {
