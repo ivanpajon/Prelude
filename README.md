@@ -4,7 +4,7 @@
   <img src="docs/assets/prelude-logo.png" alt="Prelude" width="640" />
 </p>
 
-A pnpm + Turborepo starter with React 19, Next.js 16, Base UI shadcn components, Tailwind 4, contract-first oRPC, ArkType, automatically generated OpenAPI docs with Scalar, TanStack Query, nuqs, Zustand, and Serwist.
+A pnpm + Turborepo starter with React 19, Next.js 16, Base UI shadcn components, Tailwind 4, contract-first oRPC, ArkType, automatically generated OpenAPI docs with Scalar and native MCP tools, TanStack Query, nuqs, Zustand, and Serwist.
 
 The included task list connects the stack end to end. **It is public, shared, in-memory demo data:** every visitor reaches the same process-local list, which resets on restart and differs across server instances. Replace it before using the starter for private or persistent data. No database, authentication, or environment variables are required to run the demo.
 
@@ -35,6 +35,8 @@ Check `node --version` in the shell that starts development; `.node-version` doe
 
 Open [localhost:3000](http://localhost:3000), then follow **API docs** to [the Scalar reference](http://localhost:3000/api/docs). The [OpenAPI specification](http://localhost:3000/api/openapi.json) is generated from the contracts on request; no generation command is needed. Scalar loads its version-pinned renderer from jsDelivr, so the interactive reference requires CDN access. See [OpenAPI usage](docs/openapi.md) for endpoints, adding procedures, and upgrades.
 
+The same contracts provide native MCP tools at `/api/mcp`. `pnpm dev` also starts an authenticated local MCP Inspector, embedded at [the development Inspector page](http://localhost:3000/api/mcp/inspector), for discovering tools and executing real API calls. Run `pnpm mcp:check` from another terminal to check the endpoint with its CLI. MCP is public and enabled by default; set `MCP_ENABLED=false` to disable it. See [MCP usage](docs/mcp.md) for client connection, origin configuration, and replacing the demo safely.
+
 To run the production build and PWA on a separate origin:
 
 ```sh
@@ -49,7 +51,8 @@ Use separate development and production ports. A previously installed production
 | Command | Purpose |
 | --- | --- |
 | `pnpm customize --name my-app --scope "@acme"` | Rename the root package and workspace scope, reinstall, and validate. |
-| `pnpm dev` | Start Next.js with Turbopack. |
+| `pnpm dev` | Start Next.js with Turbopack and the managed local MCP Inspector. |
+| `pnpm mcp:check` | Check the running MCP endpoint with the pinned Inspector CLI; supports `--url`. |
 | `pnpm build` | Build Next.js, then generate the Serwist worker. |
 | `pnpm start` | Serve an existing production build. |
 | `pnpm check` | Check Biome and strict TypeScript. |
@@ -57,8 +60,8 @@ Use separate development and production ports. A previously installed production
 | `pnpm test` | Run Vitest server/utility tests and Testing Library component tests. |
 | `pnpm test:coverage` | Run tests with V8 coverage and HTML/LCOV reports. |
 | `pnpm test:ui` | Open Vitest's local test explorer in watch mode. |
-| `pnpm test:dev` | Check development rendering for Next.js console and overlay errors. |
-| `pnpm test:e2e` | Build, then run production browser scenarios with Playwright. |
+| `pnpm test:dev` | Check development rendering and the embedded MCP Inspector. |
+| `pnpm test:e2e` | Build, then run production browser and MCP protocol scenarios with Playwright. |
 | `pnpm test:cache` | Verify generated worker artifacts restore from Turbo cache. |
 | `pnpm verify` | Run the complete verification sequence. |
 | `pnpm react-doctor` | Run optional React diagnostics with file locations. |
@@ -96,5 +99,6 @@ The command updates package names, workspace dependencies, imports, shadcn alias
 - Use the shared Motion provider and Morphicons wrapper for animations that honor reduced motion. The compact-view toggle demonstrates both; see [animation guidance](docs/motion.md).
 - Replace the task contracts, repository, and workbench with your feature, updating the corresponding tests. Keep the provider and transport infrastructure you need.
 - Update the API title, version, tags, and descriptions in `apps/web/src/lib/openapi.ts`; keep route metadata with the contracts. See [OpenAPI customization and demo removal](docs/openapi.md).
+- MCP tools follow the same OpenAPI operations automatically. Configure exposure and request authorization with the rest of the API; see [MCP customization](docs/mcp.md).
 
 See [architecture](docs/architecture.md) for data access, state, caching, and removing the demo; [requirements](docs/requirements.md) records the stack and deferred choices. [React diagnostics](docs/diagnostics.md) explains scanner results and scoped exceptions. [Candidate skills](docs/skills.md) lists reviewed project-local agent skills and installation commands; none are installed by default.

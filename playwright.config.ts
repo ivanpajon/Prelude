@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  outputDir: "./test-results/production",
   fullyParallel: false,
   workers: 1,
   forbidOnly: Boolean(process.env.CI),
@@ -15,6 +16,11 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   projects: [
+    {
+      name: "mcp",
+      testMatch: "mcp.spec.ts",
+      use: { ...devices["Desktop Chrome"], serviceWorkers: "block" },
+    },
     {
       name: "desktop",
       testMatch: ["app.spec.ts", "openapi.spec.ts"],

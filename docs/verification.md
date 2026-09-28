@@ -1,5 +1,22 @@
 # Verification
 
+## Native MCP scenarios
+
+Verified on 2026-09-28 with Node 26.10.0 and pnpm 12.6.0 on Windows:
+
+- Frozen installation and the complete `pnpm verify` workflow passed: Biome, strict TypeScript, 183 unit/component/script tests with coverage, two development browser scenarios, and all 37 production scenarios.
+- The actual Inspector CLI listed all three tools without mutations. The embedded Inspector connected with authentication enabled and executed create/update/list operations against the shared REST/RPC data; its screenshot was inspected.
+- Production enablement was verified in both directions: disabling the endpoint after a normal build, and serving the default enabled endpoint from a build created with `MCP_ENABLED=false`. Inspector paths remained unavailable in production.
+- Managed-process tests covered occupied ports, startup failures, shutdown, and parent/launcher termination with listening descendants. The production Turbopack/Serwist build, API/MCP cache exclusions, PWA updates and offline fallback passed; Turbo restored the generated service worker byte for byte.
+
+The MCP unit suite covers tool generation from the shared OpenAPI document, flat parameter/body mapping, ArkType validation, protocol output conversion, immutable catalog reuse, failed generation retries, request isolation, and awaited mutation callbacks. Transport tests cover disabled access, development loopback restrictions, exact production Origin rules, no-store responses, and a development-only Inspector wrapper.
+
+The production `mcp` Playwright project connects real SDK clients using both modern discovery and the legacy initialize handshake. It executes all three tools and checks that writes are visible through REST, RPC, and the rendered workbench. A separately owned production process starts with `MCP_ENABLED=false` against the existing build to prove that the switch applies at runtime while REST remains available. The test terminates only its own process tree. Production also checks that the Inspector wrapper and nested asset/backend paths return 404.
+
+Development acceptance starts the actual pinned Inspector alongside Next.js on dedicated ports. It checks its authentication and origin protections, the full-viewport token-free iframe, manual connection, generated forms, and real create/update/list calls. The resulting data is checked through REST and the RPC workbench. The wrapper never proxies Inspector backend or asset routes. The test saves `mcp-inspector.png` for visual review.
+
+Run `pnpm test:dev` separately from an ordinary development session because both use the Next.js development output. The production MCP project runs within `pnpm test:e2e`; `pnpm verify` includes both. Do not run the production build or worker-cache checks concurrently with these servers. `pnpm mcp:check` provides a separate read-only Inspector CLI discovery check against a running application.
+
 ## Toast-based PWA update acceptance
 
 Verified on 2026-09-28 with Node 26.10.0 and pnpm 12.6.0 on Windows:

@@ -80,7 +80,7 @@ test("shows an offline fallback without caching API docs, application data, or R
 }) => {
   await page.goto("/");
   await waitForWorker(page);
-  const apiPaths = ["/api/docs", "/api/openapi.json", "/api/v1/tasks?status=all"];
+  const apiPaths = ["/api/docs", "/api/openapi.json", "/api/v1/tasks?status=all", "/api/mcp"];
   const apiResponses = await page.evaluate(
     async (paths) =>
       Promise.all(
@@ -97,7 +97,11 @@ test("shows an offline fallback without caching API docs, application data, or R
     apiPaths,
   );
   expect(apiResponses).toEqual(
-    apiPaths.map((path) => ({ path, status: 200, cacheControl: "no-store" })),
+    apiPaths.map((path) => ({
+      path,
+      status: path === "/api/mcp" ? 405 : 200,
+      cacheControl: "no-store",
+    })),
   );
   await page.getByRole("button", { name: "Completed", exact: true }).click();
   await expect(page.getByRole("button", { name: "Completed", exact: true })).toHaveAttribute(

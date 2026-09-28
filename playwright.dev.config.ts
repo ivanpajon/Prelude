@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/dev",
+  outputDir: "./test-results/development",
   workers: 1,
   forbidOnly: Boolean(process.env.CI),
   retries: 0,
@@ -17,6 +18,7 @@ export default defineConfig({
   },
   webServer: {
     command: "pnpm --filter @repo/web dev --hostname 127.0.0.1 --port 3102",
+    env: { MCP_INSPECTOR_PORT: "6284" },
     url: "http://127.0.0.1:3102",
     reuseExistingServer: false,
     timeout: 60_000,
