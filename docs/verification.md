@@ -86,7 +86,9 @@ Vitest's `node` project discovers `.test.ts` files under applications and packag
 
 Open the URL printed by `pnpm test:ui`, including its authentication token, to use the test explorer. The command stays in watch mode and binds its API to loopback.
 
-`pnpm verify` runs coverage rather than running the unit suite twice. Coverage is collected for contracts, API/repository logic, the OpenAPI adapter/converter, the PWA update controller, Temporal, state helpers, and the shared animation/toast wrappers. Generated shadcn components and complete Next.js pages are not coverage targets; the form-controls tests exercise component composition, while Playwright owns integrated rendering. Reports start without percentage gates so projects can set meaningful thresholds for their own code. Vitest, its UI, and its coverage provider are pinned to the same version.
+`pnpm verify` runs coverage rather than running the unit suite twice. Coverage includes all `.ts` and `.tsx` source under `apps/*/src` and `packages/*/src`, including untested files. New applications, packages, and source files enter the report automatically. Tests, declaration files, and the compile-only `contract-types.ts` fixture are excluded.
+
+Next.js pages, service-worker code, and shared UI components are included in that source inventory. Playwright checks integrated rendering and browser behavior separately; its execution does not contribute to Vitest coverage. Reports start without percentage gates so projects can set meaningful thresholds for their own code. Vitest, its UI, and its coverage provider are pinned to the same version.
 
 ## Node 26 and additional tooling acceptance
 

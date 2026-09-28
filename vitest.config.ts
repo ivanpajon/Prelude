@@ -28,12 +28,8 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "lcov"],
-      include: [
-        "packages/{api,contracts,temporal}/src/**/*.ts",
-        "apps/web/src/lib/{openapi,pwa-update-controller,query-client,task-search,workbench-store}.ts",
-        "packages/ui/src/components/{motion-provider,morph-icon,toast}.tsx",
-      ],
-      exclude: ["**/*.test.{ts,tsx}", "**/contract-types.ts"],
+      include: ["{apps,packages}/*/src/**/*.{ts,tsx}"],
+      exclude: ["**/*.{test,spec}.{ts,tsx}", "**/*.d.ts", "**/contract-types.ts"],
     },
   },
 });
