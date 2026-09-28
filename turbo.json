@@ -11,7 +11,11 @@
         "public/sw.js.map"
       ]
     },
-    "dev": { "cache": false, "persistent": true },
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["PORT", "MCP_ENABLED", "MCP_ALLOWED_ORIGINS", "MCP_INSPECTOR_PORT"]
+    },
     "typecheck": { "dependsOn": ["^typecheck"], "outputs": [] },
     "test": { "dependsOn": ["^build"], "outputs": [] }
   }

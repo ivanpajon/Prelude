@@ -3,6 +3,8 @@ packages:
   - packages/*
 
 allowBuilds:
+  # Published Inspector assets are prebuilt; its postinstall is for source checkouts.
+  '@modelcontextprotocol/inspector': false
   esbuild: true
 
 minimumReleaseAge: 0

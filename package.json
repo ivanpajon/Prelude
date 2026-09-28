@@ -10,6 +10,7 @@
   "scripts": {
     "customize": "node scripts/customize.mjs",
     "dev": "turbo run dev",
+    "mcp:check": "node scripts/mcp-check.mjs",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck && tsc --project tsconfig.tools.json",
     "check": "pnpm lint && pnpm typecheck",
@@ -34,6 +35,7 @@
     "@commitlint/cli": "21.2.3",
     "@commitlint/config-conventional": "21.2.3",
     "@modelcontextprotocol/client": "2.2.0",
+    "@modelcontextprotocol/inspector": "2.8.0",
     "@playwright/test": "1.63.0",
     "@testing-library/dom": "10.4.2",
     "@testing-library/jest-dom": "7.0.1",
