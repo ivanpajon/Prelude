@@ -2,8 +2,9 @@
 
 import { toast } from "@repo/ui/components/toast";
 import { SerwistProvider, useSerwist } from "@serwist/next/react";
-import { type ReactNode, useEffect } from "react";
-import { createPwaUpdateController } from "@/lib/pwa-update-controller";
+import { useTranslations } from "next-intl";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { createPwaUpdateController, type PwaUpdateNotice } from "../lib/pwa-update-controller";
 
 type ServiceWorkerClient = NonNullable<ReturnType<typeof useSerwist>["serwist"]>;
 
@@ -25,80 +26,61 @@ function registerOnce(serwist: ServiceWorkerClient) {
   return registration;
 }
 
-const updateMessages = {
-  available: {
-    title: "Update available",
-    description: "A new version is ready. Update now to reload this page.",
-    action: "Update now",
-    type: "info",
-  },
-  updating: {
-    title: "Updating…",
-    description: "This page will reload when the update takes control.",
-    action: "Updating…",
-    type: "loading",
-  },
-  ready: {
-    title: "Update ready",
-    description: "Another tab applied the update. Reload when you’re ready.",
-    action: "Reload now",
-    type: "info",
-  },
-  error: {
-    title: "Couldn’t update",
-    description: "The update could not be activated. Please try again.",
-    action: "Try again",
-    type: "error",
-  },
-};
+const noticeId = "pwa-update";
 
 function UpdateNotice() {
   const { serwist } = useSerwist();
+  const t = useTranslations("Pwa");
+  const [notice, setNotice] = useState<PwaUpdateNotice | null>(null);
+  const controller = useRef<ReturnType<typeof createPwaUpdateController> | null>(null);
+  const closing = useRef(false);
+  const closeNotice = useCallback(() => {
+    closing.current = true;
+    toast.close(noticeId);
+    closing.current = false;
+  }, []);
 
+  // Language changes update presentation without resetting approval or dismissal guards.
   useEffect(() => {
     if (!serwist || !("serviceWorker" in navigator)) return;
-
-    const id = "pwa-update";
-    let closing = false;
-    const closeNotice = () => {
-      closing = true;
-      toast.close(id);
-      closing = false;
-    };
-    const controller = createPwaUpdateController({
+    const instance = createPwaUpdateController({
       serviceWorker: navigator.serviceWorker,
       register: () => registerOnce(serwist),
       reload: () => window.location.reload(),
-      onChange: (notice) => {
-        if (!notice) {
-          closeNotice();
-          return;
-        }
-        const message = updateMessages[notice.status];
-        toast.add({
-          id,
-          title: message.title,
-          description: message.description,
-          type: message.type,
-          priority: notice.status === "error" ? "high" : "low",
-          timeout: 0,
-          actionProps: {
-            children: message.action,
-            disabled: notice.status === "updating",
-            onClick: () => controller.apply(),
-          },
-          onClose: () => {
-            if (!closing) controller.dismiss();
-          },
-        });
-      },
+      onChange: setNotice,
     });
+    controller.current = instance;
 
     return () => {
-      controller.dispose();
+      instance.dispose();
+      controller.current = null;
       closeNotice();
+      setNotice(null);
     };
-  }, [serwist]);
+  }, [serwist, closeNotice]);
+
+  useEffect(() => {
+    if (!notice) {
+      closeNotice();
+      return;
+    }
+    toast.add({
+      id: noticeId,
+      title: t(`${notice.status}Title`),
+      description: t(`${notice.status}Description`),
+      type: notice.status === "updating" ? "loading" : notice.status === "error" ? "error" : "info",
+      priority: notice.status === "error" ? "high" : "low",
+      timeout: 0,
+      actionProps: {
+        children: t(`${notice.status}Action`),
+        disabled: notice.status === "updating",
+        onClick: () => controller.current?.apply(),
+      },
+      onClose: () => {
+        if (!closing.current) controller.current?.dismiss();
+      },
+    });
+  }, [notice, t, closeNotice]);
 
   return null;
 }

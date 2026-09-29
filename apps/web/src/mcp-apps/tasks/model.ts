@@ -1,6 +1,40 @@
 import type { Task, TaskStatus } from "@repo/contracts";
 import { QueryClient } from "@tanstack/react-query";
 
+export type TaskAppErrorCode =
+  | "errorConfigurationMissing"
+  | "errorListingUnavailable"
+  | "errorConfigurationInvalid"
+  | "errorInvalidToolResult"
+  | "errorToolFailed"
+  | "errorInvalidTaskList"
+  | "errorInvalidStatus"
+  | "errorReadFailed"
+  | "errorCancelled"
+  | "errorLoadFailed"
+  | "errorInvalidTask"
+  | "errorUpdateFailed"
+  | "errorConnectionFailed"
+  | "errorHostUnavailable"
+  | "errorInvalidTitle";
+
+export interface TaskAppIssue {
+  code: TaskAppErrorCode;
+  values?: Record<string, string | number>;
+}
+
+/** Keep presentation out of the session so an existing error can change language. */
+export class TaskAppError extends Error {
+  constructor(readonly issue: TaskAppIssue) {
+    super(issue.code);
+    this.name = "TaskAppError";
+  }
+}
+
+function readIssue(error: unknown, fallback: TaskAppErrorCode): TaskAppIssue {
+  return error instanceof TaskAppError ? error.issue : { code: fallback };
+}
+
 export interface TaskAppTools {
   listTasks: string;
   createTask?: string;
@@ -20,22 +54,23 @@ function record(value: unknown): value is Record<string, unknown> {
 }
 
 export function readTools(value: unknown): TaskAppTools {
-  if (!record(value) || !record(value.tools)) throw new Error("Task App configuration is missing.");
+  if (!record(value) || !record(value.tools))
+    throw new TaskAppError({ code: "errorConfigurationMissing" });
   const tools = value.tools;
   if (typeof tools.listTasks !== "string" || !tools.listTasks.trim()) {
-    throw new Error("Task listing is unavailable.");
+    throw new TaskAppError({ code: "errorListingUnavailable" });
   }
   for (const name of ["createTask", "setTaskCompleted", "updateTaskTitle", "deleteTask"]) {
     if (tools[name] !== undefined && (typeof tools[name] !== "string" || !tools[name].trim())) {
-      throw new Error("Task App configuration is invalid.");
+      throw new TaskAppError({ code: "errorConfigurationInvalid" });
     }
   }
   return tools as unknown as TaskAppTools;
 }
 
 function resultValue(result: unknown): unknown {
-  if (!record(result)) throw new Error("The host returned an invalid tool result.");
-  if (result.isError) throw new Error("The tool could not complete the request. Please try again.");
+  if (!record(result)) throw new TaskAppError({ code: "errorInvalidToolResult" });
+  if (result.isError) throw new TaskAppError({ code: "errorToolFailed" });
   let value = result.structuredContent;
   if (value === undefined && Array.isArray(result.content)) {
     const block = result.content.find((item) => record(item) && item.type === "text");
@@ -69,7 +104,7 @@ export function readTasks(result: unknown): Task[] {
     !value.every(isTask) ||
     new Set(value.map((task) => task.id)).size !== value.length
   ) {
-    throw new Error("The host returned an invalid task list.");
+    throw new TaskAppError({ code: "errorInvalidTaskList" });
   }
   return value;
 }
@@ -81,7 +116,7 @@ interface AppState {
   connected: boolean;
   loading: boolean;
   mutating: boolean;
-  error: string | null;
+  error: TaskAppIssue | null;
 }
 
 // The host owns transport. This instance owns only this widget's query cache and lifecycle.
@@ -132,7 +167,7 @@ export class TaskAppSession {
     this.expectingHost = true;
     const status = args?.status;
     if (status !== "all" && status !== "active" && status !== "completed") {
-      this.fail("Choose a valid status and refresh the task list.");
+      this.fail({ code: "errorInvalidStatus" });
       this.expectingHost = false;
       return;
     }
@@ -145,16 +180,16 @@ export class TaskAppSession {
       this.queryClient.setQueryData(taskKey(this.state.status), readTasks(result));
       this.update({ loading: false, error: null });
     } catch (error) {
-      this.fail(error instanceof Error ? error.message : "Unable to read tasks.");
+      this.fail(readIssue(error, "errorReadFailed"));
     }
   }
-  fail(message: string) {
+  fail(issue: TaskAppIssue) {
     this.cancelRequests();
     this.expectingHost = false;
-    this.update({ loading: false, mutating: false, error: message });
+    this.update({ loading: false, mutating: false, error: issue });
   }
   cancel() {
-    this.fail("The request was cancelled. Refresh to try again.");
+    this.fail({ code: "errorCancelled" });
   }
   clearError() {
     this.update({ error: null });
@@ -181,7 +216,7 @@ export class TaskAppSession {
       if (generation === this.generation)
         this.update({
           loading: false,
-          error: error instanceof Error ? error.message : "Unable to load tasks.",
+          error: readIssue(error, "errorLoadFailed"),
         });
       return false;
     }
@@ -202,7 +237,7 @@ export class TaskAppSession {
     try {
       const result = resultValue(await this.caller(name, args, controller.signal));
       if (generation !== this.generation || this.disposed) return false;
-      if (!isTask(result)) throw new Error("The host returned an invalid task.");
+      if (!isTask(result)) throw new TaskAppError({ code: "errorInvalidTask" });
       await this.queryClient.invalidateQueries({
         queryKey: ["mcp-app-tasks"],
         refetchType: "none",
@@ -216,7 +251,7 @@ export class TaskAppSession {
       if (generation === this.generation)
         this.update({
           mutating: false,
-          error: error instanceof Error ? error.message : "Unable to update tasks.",
+          error: readIssue(error, "errorUpdateFailed"),
         });
       return false;
     }

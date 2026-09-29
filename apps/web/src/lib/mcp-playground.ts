@@ -8,16 +8,15 @@ import {
   rejectNonLocalRequest,
 } from "./mcp-access";
 import { mcpEndpoint } from "./mcp-endpoint";
-import type {
-  McpPlaygroundDiscovery,
-  McpPlaygroundExecution,
-  McpPlaygroundResponse,
-  McpPlaygroundTool,
+import {
+  type McpPlaygroundDiscovery,
+  McpPlaygroundError,
+  type McpPlaygroundExecution,
+  type McpPlaygroundResponse,
+  type McpPlaygroundTool,
 } from "./mcp-playground-types";
 
 const endpointUrl = new URL("http://prelude.internal/api/mcp");
-
-class PlaygroundError extends Error {}
 
 interface PlaygroundOptions {
   endpoint?: { fetch: (request: Request) => Promise<Response> };
@@ -40,14 +39,14 @@ function validatePageOrigin(headers: Headers, environment: McpEnvironment) {
       throw new Error("Invalid page origin");
     }
   } catch {
-    throw new PlaygroundError("Open this playground from the application's own page.");
+    throw new McpPlaygroundError("errorInvalidOrigin");
   }
 
   if (
     environment.NODE_ENV === "development" &&
     rejectNonLocalRequest(new Request(endpointUrl, { headers }))
   ) {
-    throw new PlaygroundError("The development playground is available on localhost only.");
+    throw new McpPlaygroundError("errorLocalOnly");
   }
 }
 
@@ -98,10 +97,8 @@ export function createMcpPlayground({
       const headers = nativeHeaders(incoming);
       const rejection = rejectMcpRequest(new Request(endpointUrl, { headers }), config);
       if (rejection) {
-        throw new PlaygroundError(
-          rejection.status === 404
-            ? "MCP is disabled for this application."
-            : "MCP is unavailable for this request.",
+        throw new McpPlaygroundError(
+          rejection.status === 404 ? "errorDisabled" : "errorUnavailable",
         );
       }
       client = new Client(
@@ -123,12 +120,12 @@ export function createMcpPlayground({
       await client.connect(transport, { signal: controller.signal, timeout: timeoutMs });
       return { ok: true, ...(await operation(client, controller.signal)) };
     } catch (error) {
-      if (error instanceof PlaygroundError) return { ok: false, error: error.message };
+      if (error instanceof McpPlaygroundError) return { ok: false, error: error.code };
       if (controller.signal.aborted) {
-        return { ok: false, error: "MCP took too long to respond. Try again." };
+        return { ok: false, error: "errorTimeout" };
       }
       console.error("MCP playground request failed:", error);
-      return { ok: false, error: "Could not complete the MCP request. Try again." };
+      return { ok: false, error: "errorRequestFailed" };
     } finally {
       clearTimeout(timeout);
       await client?.close().catch(() => undefined);
@@ -156,12 +153,12 @@ export function createMcpPlayground({
           typeof args !== "object" ||
           ![Object.prototype, null].includes(Object.getPrototypeOf(args))
         ) {
-          throw new PlaygroundError("Choose a tool and provide a JSON object for its arguments.");
+          throw new McpPlaygroundError("errorInvalidToolArguments");
         }
         // Discovery also prepares the SDK's output-schema validation for this client.
         const { tools } = await client.listTools(undefined, { signal, timeout: timeoutMs });
         if (!tools.some((tool) => tool.name === name)) {
-          throw new PlaygroundError("This tool is unavailable. Discover tools again.");
+          throw new McpPlaygroundError("errorToolUnavailable");
         }
         const result = await client.callTool(
           { name, arguments: args },

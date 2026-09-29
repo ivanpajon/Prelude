@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mcpResultText, parseArguments, starterArguments } from "./mcp-playground-format";
+import { McpPlaygroundError } from "./mcp-playground-types";
 
 describe("playground JSON editing", () => {
   it("suggests required fields from schemas, including enums without a string type", () => {
@@ -32,9 +33,9 @@ describe("playground JSON editing", () => {
       title: "  Keep spaces  ",
     });
     for (const text of ["null", "[]", "true", '"hello"']) {
-      expect(() => parseArguments(text)).toThrow("Arguments must be a JSON object");
+      expect(() => parseArguments(text)).toThrow(new McpPlaygroundError("errorObjectRequired"));
     }
-    expect(() => parseArguments('{"title":}')).toThrow("Enter valid JSON");
+    expect(() => parseArguments('{"title":}')).toThrow(new McpPlaygroundError("errorInvalidJson"));
   });
 
   it("preserves natural structured arrays, null, and public tool error text", () => {

@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./messages": "./src/messages.ts",
+    "./pwa": "./src/pwa.ts",
     "./widget": "./src/widget.ts"
   },
   "scripts": {

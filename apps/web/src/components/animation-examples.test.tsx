@@ -1,15 +1,19 @@
+import { getMessages } from "@repo/i18n/messages";
 import { MotionProvider } from "@repo/ui/components/motion-provider";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { NextIntlClientProvider } from "next-intl";
 import { expect, it } from "vitest";
 import { AnimationExamples } from "./animation-examples";
 
 it("keeps keyboard-operated animation previews independent", async () => {
   const user = userEvent.setup();
   render(
-    <MotionProvider>
-      <AnimationExamples />
-    </MotionProvider>,
+    <NextIntlClientProvider locale="en" messages={getMessages("en")} timeZone="UTC">
+      <MotionProvider>
+        <AnimationExamples />
+      </MotionProvider>
+    </NextIntlClientProvider>,
   );
   const move = screen.getByRole("button", { name: "Move to end" });
   const save = screen.getByRole("button", { name: "Save idea" });

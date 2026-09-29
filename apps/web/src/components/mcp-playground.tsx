@@ -6,22 +6,25 @@ import { Card, CardContent } from "@repo/ui/components/card";
 import { cn } from "@repo/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRightIcon, CheckIcon, CodeIcon, PlayIcon, TerminalIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { discoverMcpTools, executeMcpTool } from "@/app/actions/mcp-playground";
 import { mcpResultText, parseArguments, starterArguments } from "@/lib/mcp-playground-format";
+import { McpPlaygroundError, type McpPlaygroundErrorCode } from "@/lib/mcp-playground-types";
 import { orpc } from "@/lib/orpc";
 
 export function McpPlayground() {
+  const t = useTranslations("Mcp");
   const queryClient = useQueryClient();
   const [selectedName, setSelectedName] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [inputError, setInputError] = useState<string>();
+  const [inputError, setInputError] = useState<McpPlaygroundErrorCode>();
   const running = useRef(false);
   const discovery = useQuery({
     queryKey: ["mcp-playground", "tools"],
     queryFn: async () => {
       const response = await discoverMcpTools();
-      if (!response.ok) throw new Error(response.error);
+      if (!response.ok) throw new McpPlaygroundError(response.error);
       return response.tools;
     },
     enabled: false,
@@ -35,7 +38,7 @@ export function McpPlayground() {
   const execution = useMutation({
     mutationFn: async (input: { name: string; args: Record<string, unknown> }) => {
       const response = await executeMcpTool(input.name, input.args);
-      if (!response.ok) throw new Error(response.error);
+      if (!response.ok) throw new McpPlaygroundError(response.error);
       return response.result;
     },
     retry: false,
@@ -45,7 +48,9 @@ export function McpPlayground() {
     },
   });
   const draft = tool ? (drafts[tool.name] ?? starterArguments(tool.inputSchema)) : "";
-  const error = inputError ?? execution.error?.message;
+  const errorCode = (error: Error) =>
+    error instanceof McpPlaygroundError ? error.code : "errorRequestFailed";
+  const error = inputError ?? (execution.error ? errorCode(execution.error) : undefined);
 
   async function run() {
     if (!tool || running.current) return;
@@ -55,7 +60,7 @@ export function McpPlayground() {
     try {
       args = parseArguments(draft);
     } catch (error) {
-      setInputError(error instanceof Error ? error.message : "Check your JSON arguments.");
+      setInputError(error instanceof McpPlaygroundError ? error.code : "errorArguments");
       return;
     }
     running.current = true;
@@ -73,10 +78,10 @@ export function McpPlayground() {
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="mb-2 text-xs font-medium tracking-widest text-muted-foreground uppercase">
-            Ready for agents
+            {t("eyebrow")}
           </p>
           <h2 id="mcp-heading" className="text-2xl font-medium tracking-tight sm:text-3xl">
-            A little input. Real action.
+            {t("title")}
           </h2>
         </div>
         <span className="font-mono text-xs text-muted-foreground">/api/mcp</span>
@@ -87,11 +92,11 @@ export function McpPlayground() {
             <div>
               <Badge variant="secondary" className="gap-1.5">
                 <TerminalIcon className="size-3" aria-hidden="true" />
-                MCP playground
+                {t("badge")}
               </Badge>
-              <h3 className="mt-4 text-lg font-medium">Try the tools your agent can use.</h3>
+              <h3 className="mt-4 text-lg font-medium">{t("toolsTitle")}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Discover a tool, edit its arguments, and see what comes back.
+                {t("description")}
               </p>
             </div>
             <Button
@@ -103,35 +108,35 @@ export function McpPlayground() {
                 void discovery.refetch();
               }}
             >
-              {discovery.isFetching
-                ? "Discovering…"
-                : discovery.data
-                  ? "Refresh tools"
-                  : "Discover tools"}
+              {t(
+                discovery.isFetching
+                  ? "discovering"
+                  : discovery.data
+                    ? "refreshTools"
+                    : "discoverTools",
+              )}
               <ArrowRightIcon aria-hidden="true" />
             </Button>
           </div>
           <p role="status" className="mt-4 text-xs text-muted-foreground">
             {discovery.isFetching
-              ? "Discovering available tools…"
+              ? t("discoveringStatus")
               : discovery.data
-                ? `${tools.length} tools available. Nothing runs until you choose Run tool.`
-                : "Connect to explore this app’s live MCP tools."}
+                ? t("toolsAvailable", { count: tools.length })
+                : t("connectHint")}
           </p>
           {discovery.isError && (
             <p role="alert" className="mt-3 text-sm text-destructive">
-              {discovery.error.message} Use Discover tools to try again.
+              {t(errorCode(discovery.error))} {t("discoveryRetry")}
             </p>
           )}
           {discovery.data && tools.length === 0 && (
-            <p className="mt-4 text-sm text-muted-foreground">
-              This server has no available tools.
-            </p>
+            <p className="mt-4 text-sm text-muted-foreground">{t("empty")}</p>
           )}
           {tool && (
             <>
               <fieldset className="mt-6 flex flex-wrap gap-2">
-                <legend className="sr-only">MCP tools</legend>
+                <legend className="sr-only">{t("toolsLabel")}</legend>
                 {tools.map((entry) => (
                   <Button
                     key={entry.name}
@@ -151,14 +156,15 @@ export function McpPlayground() {
               </fieldset>
               <div className="mt-5 flex items-start gap-3">
                 <Badge variant="secondary" className="mt-0.5 shrink-0">
-                  {tool.annotations?.readOnlyHint ? "Read only" : "Changes data"}
+                  {t(tool.annotations?.readOnlyHint ? "readOnly" : "changesData")}
                 </Badge>
                 <p className="text-sm leading-relaxed text-muted-foreground">{tool.description}</p>
               </div>
               <div className="mt-6 grid gap-6 md:grid-cols-2">
                 <div className="min-w-0">
                   <label htmlFor="mcp-arguments" className="mb-3 block text-sm font-medium">
-                    Arguments <span className="font-mono text-xs text-muted-foreground">JSON</span>
+                    {t("arguments")}{" "}
+                    <span className="font-mono text-xs text-muted-foreground">JSON</span>
                   </label>
                   <textarea
                     id="mcp-arguments"
@@ -177,24 +183,24 @@ export function McpPlayground() {
                     className="h-64 w-full resize-y rounded-xl border border-border bg-muted/50 p-4 font-mono text-sm leading-relaxed outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-60"
                   />
                   <p id="mcp-arguments-help" className="mt-2 text-xs text-muted-foreground">
-                    Starter values are editable. Check the schema for required fields.
+                    {t("argumentsHelp")}
                   </p>
                 </div>
                 <div className="min-w-0">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <h4 id="mcp-result-heading" className="text-sm font-medium">
-                      Response
+                      {t("response")}
                     </h4>
                     <span role="status" className="text-xs text-muted-foreground">
                       {execution.isPending
-                        ? "Running…"
+                        ? t("running")
                         : execution.data
                           ? execution.data.isError
-                            ? "Tool returned an error"
-                            : "Complete"
+                            ? t("toolError")
+                            : t("complete")
                           : execution.isError
-                            ? "Request failed"
-                            : "Ready when you are"}
+                            ? t("requestFailed")
+                            : t("ready")}
                     </span>
                   </div>
                   <section
@@ -214,7 +220,7 @@ export function McpPlayground() {
                     ) : (
                       <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-muted-foreground">
                         <CodeIcon className="size-6" aria-hidden="true" />
-                        <p className="text-sm">Your tool’s response will appear here.</p>
+                        <p className="text-sm">{t("responsePlaceholder")}</p>
                       </div>
                     )}
                   </section>
@@ -222,7 +228,7 @@ export function McpPlayground() {
               </div>
               {error && (
                 <p id="mcp-input-error" role="alert" className="mt-3 text-sm text-destructive">
-                  {error}
+                  {t(error, { example: '{ "status": "all" }' })}
                 </p>
               )}
               <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -235,17 +241,15 @@ export function McpPlayground() {
                   ) : (
                     <PlayIcon aria-hidden="true" />
                   )}
-                  {execution.isPending ? "Running…" : "Run tool"}
+                  {t(execution.isPending ? "running" : "runTool")}
                 </Button>
                 <p className="text-xs text-muted-foreground">
-                  {tool.annotations?.readOnlyHint
-                    ? "This tool reads data."
-                    : "This tool changes the shared demo data."}
+                  {t(tool.annotations?.readOnlyHint ? "readOnlyHint" : "mutationHint")}
                 </p>
               </div>
               <details className="mt-6 border-t border-border pt-4">
                 <summary className="w-fit cursor-pointer rounded-sm text-xs text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">
-                  View tool schemas
+                  {t("viewSchemas")}
                 </summary>
                 <pre className="mt-4 rounded-lg bg-muted/50 p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap wrap-anywhere">
                   {JSON.stringify({ input: tool.inputSchema, output: tool.outputSchema }, null, 2)}
@@ -255,10 +259,7 @@ export function McpPlayground() {
           )}
         </CardContent>
       </Card>
-      <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-        Live tools, shared demo data. Successful calls refresh the workspace above. Data resets when
-        the server restarts.
-      </p>
+      <p className="mt-4 text-xs leading-relaxed text-muted-foreground">{t("sharedData")}</p>
     </section>
   );
 }

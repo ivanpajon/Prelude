@@ -1,4 +1,7 @@
-export default function Loading() {
+import { getTranslations } from "next-intl/server";
+
+export default async function Loading() {
+  const t = await getTranslations("Common");
   return (
     <main
       id="main-content"
@@ -6,7 +9,7 @@ export default function Loading() {
       aria-busy="true"
     >
       <p role="status" className="text-sm text-muted-foreground">
-        Getting your workspace ready…
+        {t("loading")}
       </p>
       <div className="h-16 max-w-xl animate-pulse rounded-xl bg-muted" aria-hidden="true" />
       <div className="h-8 max-w-md animate-pulse rounded-xl bg-muted" aria-hidden="true" />

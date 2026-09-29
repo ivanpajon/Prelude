@@ -7,12 +7,20 @@ import { CircleCheckIcon, CircleXIcon, InfoIcon, LoaderCircleIcon, XIcon } from 
 // Add notifications from client event handlers or effects, after mounting one Toaster.
 export const toast = Toast.createToastManager();
 
-function ToastList() {
+interface ToasterLabels {
+  dismissLabel?: string;
+  regionLabel?: string;
+}
+
+function ToastList({ dismissLabel, regionLabel }: Required<ToasterLabels>) {
   const { toasts } = Toast.useToastManager();
 
   return (
     <Toast.Portal>
-      <Toast.Viewport className="pointer-events-none fixed top-4 right-4 left-4 z-50 flex flex-col gap-3 outline-none sm:left-auto sm:w-96">
+      <Toast.Viewport
+        aria-label={regionLabel}
+        className="pointer-events-none fixed top-4 right-4 left-4 z-50 flex flex-col gap-3 outline-none sm:left-auto sm:w-96"
+      >
         {toasts.map((notification) => {
           const Icon =
             notification.type === "loading"
@@ -47,7 +55,7 @@ function ToastList() {
                 </div>
               </Toast.Content>
               <Toast.Close
-                aria-label="Dismiss notification"
+                aria-label={dismissLabel}
                 aria-hidden={false}
                 render={
                   <Button variant="ghost" size="icon-sm" className="absolute top-2 right-2" />
@@ -63,10 +71,13 @@ function ToastList() {
   );
 }
 
-export function Toaster() {
+export function Toaster({
+  dismissLabel = "Dismiss notification",
+  regionLabel = "Notifications",
+}: ToasterLabels = {}) {
   return (
     <Toast.Provider toastManager={toast}>
-      <ToastList />
+      <ToastList dismissLabel={dismissLabel} regionLabel={regionLabel} />
     </Toast.Provider>
   );
 }

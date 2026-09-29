@@ -141,7 +141,10 @@ describe("Task App session", () => {
         false,
       );
       expect(session.queryClient.getQueryData(taskKey("all"))).toEqual([task]);
-      expect(session.snapshot()).toMatchObject({ mutating: false, error: expect.any(String) });
+      expect(session.snapshot()).toMatchObject({
+        mutating: false,
+        error: { code: expect.any(String) },
+      });
     }
     const updated = { ...task, title: "Keep trying" };
     call.mockResolvedValueOnce(result(updated)).mockResolvedValueOnce(result([updated]));
@@ -167,7 +170,7 @@ describe("Task App session", () => {
     expect(await update).toBe(false);
     expect(call).toHaveBeenCalledTimes(1);
     expect(session.queryClient.getQueryData(taskKey("all"))).toEqual([task]);
-    expect(session.snapshot().error).toContain("cancelled");
+    expect(session.snapshot().error).toEqual({ code: "errorCancelled" });
   });
 
   it("does not dispatch excluded title updates or keep an edit alive after disposal", async () => {
@@ -221,7 +224,10 @@ describe("Task App session", () => {
       call.mockResolvedValueOnce(payload);
       expect(await session.mutate("deleteTask", { id: task.id })).toBe(false);
       expect(session.queryClient.getQueryData(taskKey("all"))).toEqual([task]);
-      expect(session.snapshot()).toMatchObject({ mutating: false, error: expect.any(String) });
+      expect(session.snapshot()).toMatchObject({
+        mutating: false,
+        error: { code: expect.any(String) },
+      });
     }
     expect(call).toHaveBeenCalledTimes(2);
     call.mockResolvedValueOnce(result(task)).mockResolvedValueOnce(result([]));
@@ -244,7 +250,7 @@ describe("Task App session", () => {
     expect(await deletion).toBe(false);
     expect(call).toHaveBeenCalledTimes(1);
     expect(session.queryClient.getQueryData(taskKey("all"))).toEqual([task]);
-    expect(session.snapshot().error).toContain("cancelled");
+    expect(session.snapshot().error).toEqual({ code: "errorCancelled" });
     // Cancellation does not undo a write already accepted by the server.
     call.mockResolvedValueOnce(result([]));
     expect(await session.refresh()).toBe(true);
@@ -326,7 +332,7 @@ describe("Task App session", () => {
     call.mockResolvedValueOnce(result(task)).mockRejectedValueOnce(new Error("Connection lost"));
     expect(await session.mutate("createTask", { title: task.title })).toBe(true);
     expect(session.snapshot()).toMatchObject({
-      error: "Connection lost",
+      error: { code: "errorLoadFailed" },
       mutating: false,
       loading: false,
     });
@@ -344,7 +350,7 @@ describe("Task App session", () => {
       expect(session.snapshot()).toMatchObject({
         mutating: false,
         loading: false,
-        error: expect.any(String),
+        error: { code: expect.any(String) },
       });
     }
     expect(call.mock.calls.map(([name]) => name)).toEqual(["createTask", "createTask"]);
@@ -400,7 +406,7 @@ describe("Task App session", () => {
     expect(session.queryClient.getQueryData(taskKey("active"))).toBeUndefined();
     expect(session.snapshot()).toMatchObject({
       loading: false,
-      error: expect.stringContaining("cancelled"),
+      error: { code: "errorCancelled" },
     });
     call.mockResolvedValueOnce(result([task]));
     expect(await session.refresh()).toBe(true);
@@ -411,12 +417,12 @@ describe("Task App session", () => {
     const { session } = fixture();
     session.hostInput({ status: "invalid" });
     session.hostResult(result([]));
-    expect(session.snapshot().error).toContain("valid status");
+    expect(session.snapshot().error).toEqual({ code: "errorInvalidStatus" });
     session.hostInput({ status: "all" });
     session.hostResult(result({ unexpected: true }));
     expect(session.snapshot()).toMatchObject({
       loading: false,
-      error: expect.stringContaining("invalid task list"),
+      error: { code: "errorInvalidTaskList" },
     });
   });
 

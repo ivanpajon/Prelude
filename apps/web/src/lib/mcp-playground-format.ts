@@ -1,4 +1,4 @@
-import type { McpPlaygroundResult } from "./mcp-playground-types";
+import { McpPlaygroundError, type McpPlaygroundResult } from "./mcp-playground-types";
 
 function record(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -38,9 +38,9 @@ export function parseArguments(text: string): Record<string, unknown> {
   try {
     value = JSON.parse(text);
   } catch {
-    throw new Error('Enter valid JSON, for example { "status": "all" }.');
+    throw new McpPlaygroundError("errorInvalidJson");
   }
-  if (!record(value)) throw new Error("Arguments must be a JSON object, not an array or value.");
+  if (!record(value)) throw new McpPlaygroundError("errorObjectRequired");
   return value;
 }
 

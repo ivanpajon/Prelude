@@ -1,12 +1,15 @@
-export function SiteFooter() {
+import { getTranslations } from "next-intl/server";
+
+export async function SiteFooter() {
+  const t = await getTranslations("Common");
   return (
     <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border py-6 text-xs text-muted-foreground">
-      <p>Made with ❤️ by Ivan Pajon</p>
+      <p>{t("footer")}</p>
       <a
         href="https://github.com/ivanpajon/Prelude"
         target="_blank"
         rel="noreferrer"
-        aria-label="Prelude on GitHub (opens in a new tab)"
+        aria-label={t("github")}
         className="inline-flex size-10 items-center justify-center rounded-full transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
       >
         {/* GitHub's Octicons mark; license in docs/licenses/octicons.txt. */}

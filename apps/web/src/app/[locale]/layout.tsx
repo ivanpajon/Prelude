@@ -3,19 +3,21 @@ import { locales } from "@repo/i18n";
 import { Toaster } from "@repo/ui/components/toast";
 import type { Metadata, Viewport } from "next";
 import { NextIntlClientProvider } from "next-intl";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 import { Providers } from "@/components/providers";
 import { PwaProvider } from "@/components/pwa-provider";
 
-export const metadata: Metadata = {
-  title: "Prelude — Less setup. More building.",
-  description:
-    "A considered foundation for your next project. React, Next.js, and a connected, type-safe application stack.",
-  applicationName: "Prelude",
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "Prelude" },
-  icons: { icon: "/icons/icon.svg", apple: "/icons/apple-touch-icon.png" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("Home");
+  return {
+    title: t("metaTitle"),
+    description: t("metaDescription"),
+    applicationName: "Prelude",
+    appleWebApp: { capable: true, statusBarStyle: "default", title: "Prelude" },
+    icons: { icon: "/icons/icon.svg", apple: "/icons/apple-touch-icon.png" },
+  };
+}
 
 export const viewport: Viewport = { themeColor: "#20382a" };
 
@@ -26,6 +28,8 @@ export function generateStaticParams() {
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const locale = await getLocale();
   const t = await getTranslations("Common");
+  const pwa = await getTranslations("Pwa");
+  const { Common, Tasks, Mcp, Animation, Pwa, Errors } = await getMessages();
   return (
     <html lang={locale}>
       <body className="min-h-screen bg-background text-foreground antialiased">
@@ -35,8 +39,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         >
           {t("skip")}
         </a>
-        <NextIntlClientProvider>
-          <Toaster />
+        <NextIntlClientProvider messages={{ Common, Tasks, Mcp, Animation, Pwa, Errors }}>
+          <Toaster dismissLabel={pwa("toastClose")} regionLabel={pwa("toastRegion")} />
           <PwaProvider>
             <Providers>{children}</Providers>
           </PwaProvider>

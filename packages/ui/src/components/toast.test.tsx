@@ -78,4 +78,16 @@ describe("shared toaster", () => {
     expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled();
     expect(document.querySelectorAll('[data-slot="toast"]')).toHaveLength(1);
   });
+
+  it("translates region and dismissal labels without resetting existing notifications", () => {
+    const app = render(<Toaster />);
+    act(() => {
+      toast.add({ id: "localized", title: "Existing update", timeout: 0 });
+    });
+    app.rerender(<Toaster dismissLabel="Cerrar notificación" regionLabel="Notificaciones" />);
+    expect(screen.getByRole("region", { name: "Notificaciones" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Cerrar notificación" })).toBeVisible();
+    expect(screen.getByText("Existing update")).toBeVisible();
+    expect(document.querySelectorAll('[data-slot="toast"]')).toHaveLength(1);
+  });
 });

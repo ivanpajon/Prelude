@@ -1,14 +1,13 @@
 "use client";
 
-import { isLocale } from "@repo/i18n";
+import { isLocale, LOCALE_COOKIE, localeCookieMaxAge } from "@repo/i18n";
 import { useLocale, useTranslations } from "next-intl";
 import { useTransition } from "react";
-import { usePathname, useRouter } from "@/i18n/navigation";
+import { useRouter } from "@/i18n/navigation";
 
 export function LanguageSelector() {
   const locale = useLocale();
   const t = useTranslations("Common");
-  const pathname = usePathname();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   return (
@@ -21,10 +20,10 @@ export function LanguageSelector() {
         const selected = event.target.value;
         if (!isLocale(selected) || selected === locale) return;
         startTransition(() => {
-          router.replace(`${pathname}${window.location.search}${window.location.hash}`, {
-            locale: selected,
-            scroll: false,
-          });
+          // biome-ignore lint/suspicious/noDocumentCookie: Match next-intl's preference cookie across supported browsers.
+          document.cookie = `${LOCALE_COOKIE}=${selected}; Path=/; Max-Age=${localeCookieMaxAge}; SameSite=Lax`;
+          // Refresh this URL directly: a prefixed redirect can drop its fragment.
+          router.refresh();
         });
       }}
     >

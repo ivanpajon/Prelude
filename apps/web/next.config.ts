@@ -4,6 +4,7 @@ import createNextIntlPlugin from "next-intl/plugin";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  skipProxyUrlNormalize: true,
   outputFileTracingIncludes: { "/api/mcp": ["./.generated/mcp-apps/tasks.html"] },
   // Docker binds internally to 0.0.0.0; browsers still reach HMR over loopback.
   allowedDevOrigins: ["127.0.0.1"],

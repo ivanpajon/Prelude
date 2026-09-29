@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { TaskApp } from "./app";
+import { TaskApp, WidgetIntlProvider, WidgetStartupError, widgetLocale } from "./app";
 import { readTools } from "./model";
 
 const root = document.getElementById("root");
@@ -12,6 +12,8 @@ try {
   reactRoot.render(<TaskApp tools={readTools(config)} />);
 } catch {
   reactRoot.render(
-    <p role="alert">The task app configuration is unavailable. Reopen this widget to try again.</p>,
+    <WidgetIntlProvider locale={widgetLocale()}>
+      <WidgetStartupError />
+    </WidgetIntlProvider>,
   );
 }

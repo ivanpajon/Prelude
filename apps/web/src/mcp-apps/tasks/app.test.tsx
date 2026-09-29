@@ -3,7 +3,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { TaskApp, TaskAppView } from "./app";
+import { TaskApp, TaskAppView, WidgetIntlProvider, WidgetStartupError, widgetLocale } from "./app";
 import { TaskAppSession, type TaskAppTools, type ToolCaller } from "./model";
 
 const bridge = vi.hoisted(() => ({
@@ -32,9 +32,11 @@ function fixture(config: TaskAppTools = tools) {
   session.hostResult(result([task]));
   sessions.push(session);
   const rendered = render(
-    <QueryClientProvider client={session.queryClient}>
-      <TaskAppView session={session} />
-    </QueryClientProvider>,
+    <WidgetIntlProvider locale="en">
+      <QueryClientProvider client={session.queryClient}>
+        <TaskAppView session={session} />
+      </QueryClientProvider>
+    </WidgetIntlProvider>,
   );
   return { session, call, ...rendered };
 }
@@ -42,6 +44,7 @@ function fixture(config: TaskAppTools = tools) {
 beforeEach(() => vi.clearAllMocks());
 afterEach(() => {
   for (const session of sessions.splice(0)) session.dispose();
+  vi.restoreAllMocks();
 });
 
 it("renders host-seeded data accessibly without fetching again and hides excluded mutation controls", async () => {
@@ -49,7 +52,7 @@ it("renders host-seeded data accessibly without fetching again and hides exclude
   expect(screen.getByRole("main", { name: "Prelude task app" })).toBeVisible();
   expect(screen.getByRole("heading", { name: "Your tasks, right here." })).toBeVisible();
   expect(within(screen.getByRole("list", { name: "Tasks" })).getByText(task.title)).toBeVisible();
-  expect(screen.getByRole("status")).toHaveTextContent("1 tasks in this view");
+  expect(screen.getByRole("status")).toHaveTextContent("1 task in this view");
   expect(screen.queryByRole("textbox", { name: "New task" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Add task" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /^Mark / })).not.toBeInTheDocument();
@@ -326,9 +329,16 @@ it("wires host events, bridge-only calls, styles, resize, cancellation, and unmo
     onerror?: () => void;
     request: ReturnType<typeof vi.fn>;
     getHostContext: ReturnType<typeof vi.fn>;
+    addEventListener: ReturnType<typeof vi.fn>;
+    removeEventListener: ReturnType<typeof vi.fn>;
   };
   const hostContext = { theme: "dark" };
-  const host: HostApp = { request: vi.fn(), getHostContext: vi.fn(() => hostContext) };
+  const host: HostApp = {
+    request: vi.fn(),
+    getHostContext: vi.fn(() => hostContext),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  };
   let initialized = false;
   bridge.useApp.mockImplementation((options: { onAppCreated: (app: HostApp) => void }) => {
     if (!initialized) {
@@ -368,6 +378,7 @@ it("wires host events, bridge-only calls, styles, resize, cancellation, and unmo
   rendered.unmount();
   expect(signal.aborted).toBe(true);
   expect(dispose).toHaveBeenCalledOnce();
+  expect(host.removeEventListener).toHaveBeenCalledWith("hostcontextchanged", expect.any(Function));
   dispose.mockRestore();
 });
 
@@ -381,4 +392,99 @@ it("shows host connection failures and keeps mutation controls disabled before c
   expect(screen.getByRole("alert")).toHaveTextContent("Unable to connect to the MCP host.");
   expect(screen.getByRole("button", { name: "Add task" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Refresh tasks" })).toBeDisabled();
+});
+
+it("chooses a supported host language before browser preferences and falls back safely", () => {
+  vi.spyOn(navigator, "languages", "get").mockReturnValue(["fr-FR", "es-MX"]);
+  vi.spyOn(navigator, "language", "get").mockReturnValue("fr-FR");
+  expect(widgetLocale("en-GB")).toBe("en");
+  expect(widgetLocale("es-AR")).toBe("es");
+  expect(widgetLocale("fr-CA")).toBe("es");
+  expect(widgetLocale("invalid locale")).toBe("es");
+  expect(widgetLocale()).toBe("es");
+  vi.spyOn(navigator, "languages", "get").mockReturnValue(["fr-FR", "de-DE"]);
+  expect(widgetLocale("ja-JP")).toBe("en");
+});
+
+it("localizes startup failures before connecting to a host", () => {
+  render(
+    <WidgetIntlProvider locale="es">
+      <WidgetStartupError />
+    </WidgetIntlProvider>,
+  );
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "La configuración de la aplicación de tareas no está disponible.",
+  );
+  expect(document.documentElement).toHaveAttribute("lang", "es");
+  expect(document.title).toBe("Tareas de Prelude");
+});
+
+it("changes host language without reconnecting, losing drafts, refetching, or resetting filters", async () => {
+  const user = userEvent.setup();
+  vi.spyOn(navigator, "languages", "get").mockReturnValue(["en-US"]);
+  type HostContext = { locale?: string; theme?: string };
+  type HostApp = {
+    ontoolinput?: (event: { arguments: { status: string } }) => void;
+    ontoolresult?: (value: unknown) => void;
+    request: ReturnType<typeof vi.fn>;
+    getHostContext: ReturnType<typeof vi.fn>;
+    addEventListener: ReturnType<typeof vi.fn>;
+    removeEventListener: ReturnType<typeof vi.fn>;
+  };
+  const listeners = new Set<(context: HostContext) => void>();
+  const host: HostApp = {
+    request: vi.fn(),
+    getHostContext: vi.fn(() => ({ locale: "es-MX" })),
+    addEventListener: vi.fn((_event, listener) => listeners.add(listener)),
+    removeEventListener: vi.fn((_event, listener) => listeners.delete(listener)),
+  };
+  let initialized = false;
+  bridge.useApp.mockImplementation((options: { onAppCreated: (app: HostApp) => void }) => {
+    if (!initialized) {
+      initialized = true;
+      options.onAppCreated(host);
+    }
+    return { app: host, isConnected: true, error: null };
+  });
+  const connect = vi.spyOn(TaskAppSession.prototype, "connect");
+  const dispose = vi.spyOn(TaskAppSession.prototype, "dispose");
+  const rendered = render(<TaskApp tools={tools} />);
+  act(() => {
+    host.ontoolinput?.({ arguments: { status: "active" } });
+    host.ontoolresult?.({ structuredContent: { result: [task] } });
+  });
+  expect(screen.getByRole("heading", { name: "Tus tareas, aquí mismo." })).toBeVisible();
+  expect(screen.getByRole("status")).toHaveTextContent("1 tarea en esta vista");
+  expect(screen.getByRole("button", { name: "Activas" })).toHaveAttribute("aria-pressed", "true");
+  await user.type(screen.getByRole("textbox", { name: "Nueva tarea" }), "Keep this create draft");
+  await user.click(screen.getByRole("button", { name: `Editar ${task.title}` }));
+  const edit = screen.getByRole("textbox", { name: "Título de la tarea" });
+  fireEvent.change(edit, { target: { value: "   " } });
+  await user.click(screen.getByRole("button", { name: "Guardar" }));
+  expect(screen.getByRole("alert")).toHaveTextContent("entre 1 y 120 caracteres");
+
+  // Context notifications contain only changed fields; a theme change retains Spanish.
+  act(() => {
+    for (const listener of listeners) listener({ theme: "dark" });
+  });
+  expect(screen.getByRole("heading", { name: "Tus tareas, aquí mismo." })).toBeVisible();
+  act(() => {
+    for (const listener of listeners) listener({ locale: "en-GB" });
+  });
+  expect(screen.getByRole("heading", { name: "Your tasks, right here." })).toBeVisible();
+  expect(screen.getByRole("textbox", { name: "Task title" })).toBe(edit);
+  expect(edit).toHaveValue("   ");
+  expect(screen.getByRole("textbox", { name: "New task" })).toHaveValue("Keep this create draft");
+  expect(screen.getByRole("alert")).toHaveTextContent("between 1 and 120 characters");
+  expect(screen.getByRole("button", { name: "Active" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("status")).toHaveTextContent("1 task in this view");
+  expect(document.documentElement).toHaveAttribute("lang", "en");
+  expect(document.title).toBe("Prelude Tasks");
+  expect(host.request).not.toHaveBeenCalled();
+  expect(connect).toHaveBeenCalledOnce();
+  expect(dispose).not.toHaveBeenCalled();
+  expect(host.addEventListener).toHaveBeenCalledOnce();
+  rendered.unmount();
+  expect(listeners.size).toBe(0);
+  expect(dispose).toHaveBeenCalledOnce();
 });

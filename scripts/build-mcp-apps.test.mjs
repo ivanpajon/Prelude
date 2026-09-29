@@ -101,12 +101,14 @@ describe("self-contained MCP App output", () => {
 });
 
 describe("managed MCP App watcher", () => {
-  it("rebuilds widget/shared source and preserves good output after failure", async () => {
+  it("rebuilds widget/shared source and translations, preserving good output after failure", async () => {
     const root = await directory();
     const widget = path.join(root, "apps/web/src/mcp-apps");
     const shared = path.join(root, "packages/ui/src");
+    const translations = path.join(root, "packages/i18n/src/messages/es");
     await mkdir(widget, { recursive: true });
     await mkdir(shared, { recursive: true });
+    await mkdir(translations, { recursive: true });
     const output = path.join(root, "tasks.html");
     let content = "first";
     let fail = false;
@@ -131,15 +133,19 @@ describe("managed MCP App watcher", () => {
     content = "third";
     await writeFile(path.join(shared, "theme.css"), "fixed");
     await expect.poll(() => readFile(output, "utf8")).toBe("third");
+    content = "translated build";
+    await writeFile(path.join(translations, "widget.json"), '{"heading":"Tus tareas"}');
+    await expect.poll(() => readFile(output, "utf8")).toBe("translated build");
     expect(onReady).toHaveBeenCalledOnce();
     controller.abort();
     await done;
-    expect(await readFile(output, "utf8")).toBe("third");
+    expect(await readFile(output, "utf8")).toBe("translated build");
   });
   it("fails startup instead of announcing a stale artifact", async () => {
     const root = await directory();
     await mkdir(path.join(root, "apps/web/src/mcp-apps"), { recursive: true });
     await mkdir(path.join(root, "packages/ui/src"), { recursive: true });
+    await mkdir(path.join(root, "packages/i18n/src"), { recursive: true });
     const onReady = vi.fn();
     await expect(
       watchMcpApps({

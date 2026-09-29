@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  createTaskInput,
-  type TaskStatus,
-  taskStatuses,
-  updateTaskTitleInput,
-} from "@repo/contracts";
+import { createTaskInput, taskStatuses, updateTaskTitleInput } from "@repo/contracts";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent } from "@repo/ui/components/card";
@@ -17,17 +12,27 @@ import { type } from "arktype";
 import { LayoutList, List } from "lucide";
 import { CheckIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import * as m from "motion/react-m";
+import { useTranslations } from "next-intl";
 import { useQueryState } from "nuqs";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { orpc } from "@/lib/orpc";
 import { taskSearchParsers } from "@/lib/task-search";
 import { useWorkbenchStore } from "./workbench-store-provider";
 
-const filterLabels: Record<TaskStatus, string> = {
-  all: "All tasks",
-  active: "Active",
-  completed: "Completed",
-};
+type TaskErrorCode =
+  | "invalidTitle"
+  | "taskNotFound"
+  | "createFailed"
+  | "completionFailed"
+  | "deleteFailed"
+  | "editFailed";
+
+function taskError(error: unknown, fallback: TaskErrorCode): TaskErrorCode | undefined {
+  if (!error) return undefined;
+  return typeof error === "object" && "code" in error && error.code === "NOT_FOUND"
+    ? "taskNotFound"
+    : fallback;
+}
 
 function TaskTitleEditor({
   title,
@@ -44,6 +49,7 @@ function TaskTitleEditor({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onCancel: () => void;
 }) {
+  const t = useTranslations("Tasks");
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => {
     input.current?.focus();
@@ -56,11 +62,12 @@ function TaskTitleEditor({
   return (
     <form className="flex min-w-0 flex-1 flex-wrap gap-2" onSubmit={onSubmit}>
       <label htmlFor="task-edit-title" className="sr-only">
-        Task title
+        {t("taskTitle")}
       </label>
       <Input
         ref={input}
         id="task-edit-title"
+        aria-label={t("taskTitle")}
         value={title}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => {
@@ -75,10 +82,10 @@ function TaskTitleEditor({
         className="min-w-0 basis-full sm:flex-1 sm:basis-0"
       />
       <Button type="submit" disabled={pending}>
-        {pending ? "Saving…" : "Save"}
+        {t(pending ? "saving" : "save")}
       </Button>
       <Button type="button" variant="outline" disabled={pending} onClick={onCancel}>
-        Cancel
+        {t("cancel")}
       </Button>
       {error && (
         <p id="task-edit-feedback" role="alert" className="w-full text-sm text-destructive">
@@ -90,14 +97,15 @@ function TaskTitleEditor({
 }
 
 export function TaskWorkbench() {
+  const t = useTranslations("Tasks");
   const [status, setStatus] = useQueryState(
     "status",
     taskSearchParsers.status.withOptions({ history: "push" }),
   );
   const [title, setTitle] = useState("");
-  const [validationError, setValidationError] = useState<string>();
+  const [validationError, setValidationError] = useState<TaskErrorCode>();
   const [editing, setEditing] = useState<{ id: string; title: string }>();
-  const [editError, setEditError] = useState<string>();
+  const [editError, setEditError] = useState<TaskErrorCode>();
   const editTrigger = useRef<HTMLButtonElement | null>(null);
   const newTaskInput = useRef<HTMLInputElement>(null);
   const submitting = useRef(false);
@@ -172,7 +180,7 @@ export function TaskWorkbench() {
     updateTitle.reset();
     const input = updateTaskTitleInput(editing);
     if (input instanceof type.errors) {
-      setEditError("Enter a task between 1 and 120 characters.");
+      setEditError("invalidTitle");
       return;
     }
     if (await changeTask(() => updateTitle.mutateAsync(input))) setEditing(undefined);
@@ -189,7 +197,7 @@ export function TaskWorkbench() {
     }
     const input = createTaskInput({ title: title.trim() });
     if (input instanceof type.errors) {
-      setValidationError("Enter a task between 1 and 120 characters.");
+      setValidationError("invalidTitle");
       return;
     }
     submitting.current = true;
@@ -205,9 +213,10 @@ export function TaskWorkbench() {
 
   const error =
     validationError ??
-    createTask.error?.message ??
-    setCompleted.error?.message ??
-    deleteTask.error?.message;
+    taskError(createTask.error, "createFailed") ??
+    taskError(setCompleted.error, "completionFailed") ??
+    taskError(deleteTask.error, "deleteFailed");
+  const editingError = editError ?? taskError(updateTitle.error, "editFailed");
 
   return (
     <Card className="overflow-hidden bg-card shadow-none">
@@ -219,32 +228,31 @@ export function TaskWorkbench() {
           )}
         >
           <div>
-            <h3 className="text-lg font-medium">A small list. A working stack.</h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Add a first step, make it happen, and check it off.
-            </p>
+            <h3 className="text-lg font-medium">{t("title")}</h3>
+            <p className="mt-2 text-sm text-muted-foreground">{t("description")}</p>
           </div>
-          <Badge variant="secondary">Live demo</Badge>
+          <Badge variant="secondary">{t("liveDemo")}</Badge>
         </div>
         <form onSubmit={submitTask} className="flex flex-col gap-3 sm:flex-row">
           <label htmlFor="task-title" className="sr-only">
-            New task
+            {t("newTask")}
           </label>
           <Input
             ref={newTaskInput}
             id="task-title"
+            aria-label={t("newTask")}
             name="title"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             maxLength={120}
             required
-            placeholder="What will you build next?"
+            placeholder={t("newTaskPlaceholder")}
             aria-describedby="task-feedback"
             className="flex-1"
           />
           <Button type="submit" disabled={createTask.isPending || Boolean(editing)}>
             <PlusIcon aria-hidden="true" />
-            {createTask.isPending ? "Adding…" : "Add task"}
+            {t(createTask.isPending ? "adding" : "addTask")}
           </Button>
         </form>
         <div
@@ -252,22 +260,22 @@ export function TaskWorkbench() {
           aria-live="polite"
           className="mt-2 min-h-5 text-sm text-destructive"
         >
-          {error}
+          {error && t(error)}
         </div>
         <span role="status" className="sr-only">
           {updateTitle.isPending
-            ? "Saving task…"
+            ? t("savingTask")
             : updateTitle.isSuccess
-              ? `Saved ${updateTitle.data.title}.`
+              ? t("savedTask", { title: updateTitle.data.title })
               : deleteTask.isPending
-                ? "Deleting task…"
+                ? t("deletingTask")
                 : deleteTask.isSuccess
-                  ? `Deleted ${deleteTask.data.title}.`
+                  ? t("deletedTask", { title: deleteTask.data.title })
                   : ""}
         </span>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-b pb-4">
           <fieldset className="flex flex-wrap gap-1">
-            <legend className="sr-only">Filter tasks</legend>
+            <legend className="sr-only">{t("filterTasks")}</legend>
             {taskStatuses.map((filter) => (
               <Button
                 key={filter}
@@ -276,34 +284,33 @@ export function TaskWorkbench() {
                 disabled={Boolean(editing)}
                 onClick={() => void setStatus(filter)}
               >
-                {filterLabels[filter]}
+                {t(filter)}
               </Button>
             ))}
           </fieldset>
           <Button variant="ghost" onClick={toggleCompact} aria-pressed={compact}>
             <MorphIcon icon={compact ? List : LayoutList} />
-            Compact view
+            {t("compactView")}
           </Button>
         </div>
         {tasks.isError && (
           <div role="alert" className="flex items-center justify-between gap-4 py-8">
             <p className="text-sm text-destructive">
-              {tasks.data ? "Could not refresh tasks." : "Could not load tasks."} Check your
-              connection.
+              {t(tasks.data ? "refreshFailed" : "loadFailed")}
             </p>
             <Button variant="outline" onClick={() => void tasks.refetch()}>
-              Try again
+              {t("tryAgain")}
             </Button>
           </div>
         )}
         {tasks.isPending ? (
           <p role="status" className="py-8 text-sm text-muted-foreground">
-            Loading tasks…
+            {t("loading")}
           </p>
         ) : !tasks.data ? null : tasks.data.length === 0 ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">No tasks here yet.</p>
+          <p className="py-10 text-center text-sm text-muted-foreground">{t("empty")}</p>
         ) : (
-          <ul aria-label="Tasks" className="divide-y">
+          <ul aria-label={t("listLabel")} className="divide-y">
             {tasks.data.map((task) => (
               <m.li
                 key={task.id}
@@ -314,7 +321,9 @@ export function TaskWorkbench() {
                 <Button
                   size={compact ? "icon-xs" : "icon-sm"}
                   variant={task.completed ? "default" : "outline"}
-                  aria-label={`Mark ${task.title} as ${task.completed ? "active" : "completed"}`}
+                  aria-label={t(task.completed ? "markActive" : "markCompleted", {
+                    title: task.title,
+                  })}
                   aria-pressed={task.completed}
                   disabled={taskChangePending || Boolean(editing)}
                   onClick={() =>
@@ -329,7 +338,7 @@ export function TaskWorkbench() {
                   <TaskTitleEditor
                     title={editing.title}
                     pending={updateTitle.isPending}
-                    error={editError ?? updateTitle.error?.message}
+                    error={editingError && t(editingError)}
                     onChange={(title) => setEditing({ id: task.id, title })}
                     onSubmit={(event) => void saveEdit(event)}
                     onCancel={cancelEdit}
@@ -349,8 +358,8 @@ export function TaskWorkbench() {
                   size={compact ? "icon-xs" : "icon-sm"}
                   variant="ghost"
                   className={editing?.id === task.id ? "hidden" : "text-muted-foreground"}
-                  aria-label={`Edit ${task.title}`}
-                  title={`Edit ${task.title}`}
+                  aria-label={t("editTask", { title: task.title })}
+                  title={t("editTask", { title: task.title })}
                   disabled={taskChangePending || (Boolean(editing) && editing?.id !== task.id)}
                   onClick={(event) => {
                     if (changingTask.current) return;
@@ -373,8 +382,8 @@ export function TaskWorkbench() {
                     "text-muted-foreground hover:bg-destructive/10 hover:text-destructive",
                     editing?.id === task.id && "hidden",
                   )}
-                  aria-label={`Delete ${task.title}`}
-                  title={`Delete ${task.title}`}
+                  aria-label={t("deleteTask", { title: task.title })}
+                  title={t("deleteTask", { title: task.title })}
                   disabled={taskChangePending || Boolean(editing)}
                   onClick={() => void changeTask(() => deleteTask.mutateAsync({ id: task.id }))}
                 >
@@ -385,8 +394,8 @@ export function TaskWorkbench() {
           </ul>
         )}
         <div className="mt-2 flex flex-wrap justify-between gap-2 border-t pt-4 text-xs text-muted-foreground">
-          <span role="status">{tasks.data?.length ?? 0} tasks in this view</span>
-          <span>Shared demo data · resets when the server restarts</span>
+          <span role="status">{t("count", { count: tasks.data?.length ?? 0 })}</span>
+          <span>{t("sharedData")}</span>
         </div>
       </CardContent>
     </Card>

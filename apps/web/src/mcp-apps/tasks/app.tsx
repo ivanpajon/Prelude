@@ -1,18 +1,57 @@
 import { useApp, useAutoResize, useHostStyleVariables } from "@modelcontextprotocol/ext-apps/react";
 import type { Task, TaskStatus } from "@repo/contracts";
+import { type Locale, resolveLocale } from "@repo/i18n";
+import { getWidgetMessages } from "@repo/i18n/widget";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { CheckIcon, PencilIcon, PlusIcon, RefreshCwIcon, Trash2Icon } from "lucide-react";
-import { type FormEvent, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import {
+  type FormEvent,
+  type ReactNode,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { IntlProvider, useLocale, useTranslations } from "use-intl";
 import { callHostTool } from "./bridge";
-import { TaskAppSession, type TaskAppTools, taskKey } from "./model";
+import { type TaskAppIssue, TaskAppSession, type TaskAppTools, taskKey } from "./model";
 
-const filters: [TaskStatus, string][] = [
-  ["all", "All tasks"],
-  ["active", "Active"],
-  ["completed", "Completed"],
+const filters: [TaskStatus, "filterAll" | "filterActive" | "filterCompleted"][] = [
+  ["all", "filterAll"],
+  ["active", "filterActive"],
+  ["completed", "filterCompleted"],
 ];
+
+export function widgetLocale(hostLocale?: string): Locale {
+  return resolveLocale(hostLocale, ...navigator.languages, navigator.language);
+}
+
+function WidgetDocument() {
+  const locale = useLocale();
+  const t = useTranslations("Widget");
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    document.title = t("documentTitle");
+  }, [locale, t]);
+  return null;
+}
+
+export function WidgetIntlProvider({ locale, children }: { locale: Locale; children: ReactNode }) {
+  return (
+    <IntlProvider locale={locale} messages={getWidgetMessages(locale)} timeZone="UTC">
+      <WidgetDocument />
+      {children}
+    </IntlProvider>
+  );
+}
+
+export function WidgetStartupError() {
+  const t = useTranslations("Widget");
+  return <p role="alert">{t("errorStartupFailed")}</p>;
+}
 
 function TaskTitleEditor({
   task,
@@ -25,8 +64,9 @@ function TaskTitleEditor({
   disabled: boolean;
   onClose: () => void;
 }) {
+  const t = useTranslations("Widget");
   const [title, setTitle] = useState(task.title);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<TaskAppIssue | null>(null);
   const [saving, setSaving] = useState(false);
   const pending = useRef(false);
   const restoreInputFocus = useRef(false);
@@ -53,7 +93,7 @@ function TaskTitleEditor({
     if (pending.current || disabled) return;
     const normalized = title.trim();
     if (!normalized || normalized.length > 120) {
-      setError("Enter a task between 1 and 120 characters.");
+      setError({ code: "errorInvalidTitle", values: { min: 1, max: 120 } });
       input.current?.focus();
       return;
     }
@@ -71,12 +111,12 @@ function TaskTitleEditor({
   return (
     <form
       className="flex min-w-0 flex-1 flex-wrap items-start gap-2"
-      aria-label={`Edit ${task.title}`}
+      aria-label={t("editLabel", { title: task.title })}
       onSubmit={submit}
     >
       <div className="min-w-0 basis-full sm:flex-1 sm:basis-auto">
         <label className="sr-only" htmlFor={fieldId}>
-          Task title
+          {t("taskTitleLabel")}
         </label>
         <Input
           ref={input}
@@ -98,21 +138,22 @@ function TaskTitleEditor({
         />
         {error && (
           <p id={`${fieldId}-error`} className="mt-1 text-xs text-destructive" role="alert">
-            {error}
+            {t(error.code, error.values)}
           </p>
         )}
       </div>
       <Button type="submit" disabled={disabled || saving}>
-        {saving ? "Saving…" : "Save"}
+        {t(saving ? "saving" : "save")}
       </Button>
       <Button type="button" variant="outline" disabled={disabled || saving} onClick={onClose}>
-        Cancel
+        {t("cancel")}
       </Button>
     </form>
   );
 }
 
 export function TaskAppView({ session }: { session: TaskAppSession }) {
+  const t = useTranslations("Widget");
   const state = useSyncExternalStore(session.subscribe, session.snapshot);
   const tasks = useQuery<Task[]>({
     queryKey: taskKey(state.status),
@@ -155,7 +196,7 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
     if (editing) return;
     const normalized = title.trim();
     if (!normalized || normalized.length > 120) {
-      session.fail("Enter a task between 1 and 120 characters.");
+      session.fail({ code: "errorInvalidTitle", values: { min: 1, max: 120 } });
       return;
     }
     if (await session.mutate("createTask", { title: normalized })) {
@@ -164,37 +205,33 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
   }
 
   return (
-    <main className="mx-auto max-w-2xl p-4 sm:p-6" aria-label="Prelude task app">
+    <main className="mx-auto max-w-2xl p-4 sm:p-6" aria-label={t("appLabel")}>
       <header className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs tracking-widest text-muted-foreground uppercase">
-            Prelude · MCP App
-          </p>
-          <h1 className="mt-1 text-xl font-semibold">Your tasks, right here.</h1>
+          <p className="text-xs tracking-widest text-muted-foreground uppercase">{t("eyebrow")}</p>
+          <h1 className="mt-1 text-xl font-semibold">{t("heading")}</h1>
         </div>
         <Button
           ref={refreshButton}
           variant="outline"
           disabled={busy || state.loading || editing}
           onClick={() => void session.refresh()}
-          aria-label="Refresh tasks"
+          aria-label={t("refreshLabel")}
         >
           <RefreshCwIcon aria-hidden="true" />
-          Refresh
+          {t("refresh")}
         </Button>
       </header>
-      <p className="mt-2 text-sm text-muted-foreground">
-        The same shared list, through your MCP connection.
-      </p>
+      <p className="mt-2 text-sm text-muted-foreground">{t("description")}</p>
       {session.tools.createTask && (
         <form className="mt-5 flex flex-wrap gap-2" onSubmit={submit}>
           <label className="sr-only" htmlFor="task-title">
-            New task
+            {t("newTaskLabel")}
           </label>
           <Input
             id="task-title"
             className="min-w-0 flex-1"
-            placeholder="What will you build next?"
+            placeholder={t("newTaskPlaceholder")}
             value={title}
             maxLength={120}
             onChange={(event) => setTitle(event.target.value)}
@@ -202,11 +239,11 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
           />
           <Button type="submit" disabled={busy || editing}>
             <PlusIcon aria-hidden="true" />
-            Add task
+            {t("addTask")}
           </Button>
         </form>
       )}
-      <nav className="mt-5 flex flex-wrap gap-1" aria-label="Task filters">
+      <nav className="mt-5 flex flex-wrap gap-1" aria-label={t("filtersLabel")}>
         {filters.map(([status, label]) => (
           <Button
             key={status}
@@ -215,28 +252,28 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
             disabled={busy || editing}
             onClick={() => void session.refresh(status)}
           >
-            {label}
+            {t(label)}
           </Button>
         ))}
       </nav>
       <div className="mt-3 text-sm" aria-live="polite" role="status">
         {state.mutating
-          ? "Updating tasks…"
+          ? t("updating")
           : state.loading
-            ? "Loading tasks…"
-            : `${tasks.data?.length ?? 0} tasks in this view`}
+            ? t("loading")
+            : t("taskCount", { count: tasks.data?.length ?? 0 })}
       </div>
       {state.error && (
         <div
           className="mt-3 rounded-lg border border-destructive/30 p-3 text-sm text-destructive"
           role="alert"
         >
-          {state.error}
+          {t(state.error.code, state.error.values)}
         </div>
       )}
       <ul
         className="mt-3 divide-y border-y"
-        aria-label="Tasks"
+        aria-label={t("tasksLabel")}
         aria-busy={state.loading || state.mutating}
       >
         {tasks.data?.map((task) => (
@@ -246,7 +283,9 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
                 size="icon"
                 variant={task.completed ? "default" : "outline"}
                 disabled={busy || editing}
-                aria-label={`Mark ${task.title} as ${task.completed ? "active" : "completed"}`}
+                aria-label={t(task.completed ? "markActive" : "markCompleted", {
+                  title: task.title,
+                })}
                 aria-pressed={task.completed}
                 onClick={() =>
                   void session.mutate("setTaskCompleted", {
@@ -259,7 +298,7 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
               </Button>
             ) : (
               <span className="text-xs text-muted-foreground">
-                {task.completed ? "Done" : "Active"}
+                {t(task.completed ? "completedStatus" : "activeStatus")}
               </span>
             )}
             {editingId === task.id ? (
@@ -290,8 +329,8 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
                 variant="ghost"
                 className="text-muted-foreground"
                 disabled={busy || editing}
-                aria-label={`Edit ${task.title}`}
-                title="Edit task"
+                aria-label={t("editLabel", { title: task.title })}
+                title={t("editTitle")}
                 onClick={() => {
                   session.clearError();
                   setEditingId(task.id);
@@ -306,8 +345,8 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
                 variant="ghost"
                 className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                 disabled={busy || editing}
-                aria-label={`Delete ${task.title}`}
-                title="Delete task"
+                aria-label={t("deleteLabel", { title: task.title })}
+                title={t("deleteTitle")}
                 onClick={() => void session.mutate("deleteTask", { id: task.id })}
               >
                 <Trash2Icon aria-hidden="true" />
@@ -317,17 +356,16 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
         ))}
       </ul>
       {!state.loading && !state.error && !tasks.data?.length && (
-        <p className="py-5 text-sm text-muted-foreground">No tasks in this view.</p>
+        <p className="py-5 text-sm text-muted-foreground">{t("empty")}</p>
       )}
-      <p className="mt-4 text-xs text-muted-foreground">
-        Public demo data resets when the server restarts. Refresh other clients to see changes.
-      </p>
+      <p className="mt-4 text-xs text-muted-foreground">{t("demoNote")}</p>
     </main>
   );
 }
 
 export function TaskApp({ tools }: { tools: TaskAppTools }) {
   const [session] = useState(() => new TaskAppSession(tools));
+  const [hostLocale, setHostLocale] = useState<string | undefined>();
   const { app, isConnected, error } = useApp({
     appInfo: { name: "Prelude Tasks", version: "1.0.0" },
     capabilities: {},
@@ -337,22 +375,34 @@ export function TaskApp({ tools }: { tools: TaskAppTools }) {
       app.ontoolinput = ({ arguments: args }) => session.hostInput(args);
       app.ontoolresult = (result) => session.hostResult(result);
       app.ontoolcancelled = () => session.cancel();
-      app.onerror = () => session.fail("The MCP connection failed. Refresh to try again.");
+      app.onerror = () => session.fail({ code: "errorConnectionFailed" });
     },
   });
   useHostStyleVariables(app, app?.getHostContext());
   useAutoResize(app);
   useEffect(() => {
+    if (!app || !isConnected) return;
+    const changed = (context: { locale?: string }) => {
+      // Notifications are partial: a theme change must not reset the host's language.
+      if ("locale" in context) setHostLocale(context.locale);
+    };
+    app.addEventListener("hostcontextchanged", changed);
+    setHostLocale(app.getHostContext()?.locale);
+    return () => app.removeEventListener("hostcontextchanged", changed);
+  }, [app, isConnected]);
+  useEffect(() => {
     if (app && isConnected)
       session.connect((name, args, signal) => callHostTool(app, name, args, signal));
   }, [app, isConnected, session]);
   useEffect(() => {
-    if (error) session.fail("Unable to connect to the MCP host.");
+    if (error) session.fail({ code: "errorHostUnavailable" });
   }, [error, session]);
   useEffect(() => () => session.dispose(), [session]);
   return (
-    <QueryClientProvider client={session.queryClient}>
-      <TaskAppView session={session} />
-    </QueryClientProvider>
+    <WidgetIntlProvider locale={widgetLocale(hostLocale)}>
+      <QueryClientProvider client={session.queryClient}>
+        <TaskAppView session={session} />
+      </QueryClientProvider>
+    </WidgetIntlProvider>
   );
 }

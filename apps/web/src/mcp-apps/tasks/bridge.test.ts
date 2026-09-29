@@ -2,7 +2,7 @@ import { InMemoryTransport, type JSONRPCMessage } from "@modelcontextprotocol/cl
 import { App } from "@modelcontextprotocol/ext-apps";
 import { afterEach, expect, it } from "vitest";
 import { callHostTool } from "./bridge";
-import { readTasks } from "./model";
+import { readTasks, TaskAppError } from "./model";
 
 const task = { id: "task-1", title: "Build something", completed: false };
 const apps: App[] = [];
@@ -93,5 +93,5 @@ it("preserves valid tool errors for the widget's error handling", async () => {
     new AbortController().signal,
   );
   expect(result).toEqual(wireResult);
-  expect(() => readTasks(result)).toThrow("The tool could not complete the request.");
+  expect(() => readTasks(result)).toThrow(new TaskAppError({ code: "errorToolFailed" }));
 });

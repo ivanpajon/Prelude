@@ -75,7 +75,7 @@ describe("homepage MCP access", () => {
       ),
     ).toEqual({
       ok: false,
-      error: "The development playground is available on localhost only.",
+      error: "errorLocalOnly",
     });
     expect(endpoint.fetch).not.toHaveBeenCalled();
   });
@@ -86,11 +86,11 @@ describe("homepage MCP access", () => {
     const playground = createMcpPlayground({ endpoint, environment: () => environment });
     expect(await playground.discover(pageHeaders())).toEqual({
       ok: false,
-      error: "MCP is disabled for this application.",
+      error: "errorDisabled",
     });
     expect(await playground.execute(pageHeaders(), "createTask", { title: "Disabled" })).toEqual({
       ok: false,
-      error: "MCP is disabled for this application.",
+      error: "errorDisabled",
     });
     expect(endpoint.fetch).not.toHaveBeenCalled();
   });
@@ -248,7 +248,7 @@ describe("homepage MCP protocol client", () => {
     expect(context.repository.list("all")).toEqual([]);
     expect(await playground.execute(pageHeaders(), "unknown", {})).toEqual({
       ok: false,
-      error: "This tool is unavailable. Discover tools again.",
+      error: "errorToolUnavailable",
     });
     for (const args of [null, [], "not an object"]) {
       expect(
@@ -322,7 +322,7 @@ describe("homepage MCP protocol client", () => {
       environment: () => ({}),
     });
     const result = await playground.discover(pageHeaders());
-    expect(result).toEqual({ ok: false, error: "Could not complete the MCP request. Try again." });
+    expect(result).toEqual({ ok: false, error: "errorRequestFailed" });
     expect(closed).toHaveBeenCalled();
     expect(JSON.stringify(result)).not.toContain("PRIVATE_HANDLER_DETAILS");
   });
@@ -347,7 +347,7 @@ describe("homepage MCP protocol client", () => {
     });
     expect(await playground.discover(pageHeaders())).toEqual({
       ok: false,
-      error: "MCP took too long to respond. Try again.",
+      error: "errorTimeout",
     });
     expect(closed).toHaveBeenCalled();
   });
