@@ -4,7 +4,16 @@
   <img src="docs/assets/prelude-logo.png" alt="Prelude" width="640" />
 </p>
 
-A pnpm + Turborepo starter with React 19, Next.js 16, Base UI shadcn components, Tailwind 4, contract-first oRPC, ArkType, automatically generated OpenAPI docs with Scalar, native MCP tools and an MCP App example, TanStack Query, nuqs, Zustand, and Serwist.
+**A next-generation, agentic-ready Next.js template.**
+
+Prelude gives developers and AI agents a shared foundation: a modern web application, typed APIs, discoverable tools, and interactive MCP Apps. Less setup. More building.
+
+- **One contract across interfaces.** Define schemas and operations once with oRPC and ArkType. Reuse them through RPC, REST, automatically generated OpenAPI documentation with Scalar, and native MCP tools.
+- **Interactive examples included.** Explore the task workspace and live MCP tool runner at `/playground`, or use the task-list MCP App inside a compatible host.
+- **Inspect as you build.** The managed local MCP Inspector lets you discover tools, inspect schemas, execute calls, and preview the MCP App. Check connectivity from the terminal with `pnpm mcp:check`.
+- **Feedback for humans and agents.** Strict TypeScript, Biome, Vitest, Testing Library, Playwright, and React Doctor provide checks and diagnostics, including structured React reports for agents.
+
+The pnpm + Turborepo workspace brings together React 19, Next.js 16 with Turbopack and Cache Components, Base UI shadcn components, Tailwind 4, TanStack Query, nuqs, Zustand, and Serwist. Keep your choice of database, authentication, AI provider, and deployment platform; no provider account or model API key is required to run the examples. Connect your preferred agent explicitly through MCP.
 
 The included task list connects the stack end to end. **It is public, shared, in-memory demo data:** every visitor reaches the same process-local list, which resets on restart and differs across server instances. Replace it before using the starter for private or persistent data. No database, authentication, or environment variables are required to run the demo.
 
