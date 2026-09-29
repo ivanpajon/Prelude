@@ -16,6 +16,22 @@ The tools execute real operations against the **public, shared, process-local de
 
 `mcp-from-openapi` **2.8.0** generates tool definitions and request mappings from `generateOpenApiSpec()`. The bridge dispatches mapped requests directly to the existing REST adapter with request-scoped context. It does not make an HTTP request back to itself or bypass ArkType validation, typed errors, the task mutation path-ID guards, or awaited mutation callbacks. The MCP SDK server and client are pinned to **2.2.0**. Zod is infrastructure for the SDK/tooling; ArkType remains the application schema source.
 
+### Tool annotations
+
+Each task contract explicitly supplies these hints through its OpenAPI `x-mcp.annotations` metadata:
+
+| Tool | `readOnlyHint` | `destructiveHint` | `idempotentHint` | `openWorldHint` |
+| --- | --- | --- | --- | --- |
+| `listTasks` | `true` | `false` | `true` | `false` |
+| `createTask` | `false` | `false` | `false` | `false` |
+| `setTaskCompleted` | `false` | `true` | `true` | `false` |
+| `updateTaskTitle` | `false` | `true` | `true` | `false` |
+| `deleteTask` | `false` | `true` | `true` | `false` |
+
+Creation only adds data, but repeating it creates another task. Completion and title updates overwrite existing values, so they are destructive even though they do not delete a row. Repeating either update with identical arguments has the same effect. Deletion is also idempotent: a repeated call returns `NOT_FOUND`, but does not change the resulting task state. Idempotence describes effects, not identical responses. All tools operate within the closed domain of this local demo repository. MCP defines destructive and idempotent hints as relevant only to writable tools. See the [official annotation definitions](https://modelcontextprotocol.io/specification/2026-07-28/schema#toolannotations).
+
+These hints help clients describe operations; they do not authorize calls or enforce permissions. Revisit the matrix when replacing the repository or adding side effects, including mutation callbacks that send notifications or invoke external services.
+
 ## Website playground
 
 Open `/playground#mcp` for the live JSON tool explorer; `/playground#tasks` contains the browser workbench above it. Choose **Discover tools**, select a generated tool, edit its JSON arguments, and choose **Run tool**. Nothing is executed automatically. Tool descriptions, schemas, and read-only hints come from MCP discovery rather than a second hard-coded catalog. Starter arguments use schema defaults, examples, enums, and required fields; they are suggestions and may need editing. The homepage retains its separate Motion and Morphicons previews.

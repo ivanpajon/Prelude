@@ -52,6 +52,14 @@ export const contract = {
           "Filter the shared demo list by status. For example: /api/v1/tasks?status=all.",
         spec: (operation) => ({
           ...operation,
+          "x-mcp": {
+            annotations: {
+              readOnlyHint: true,
+              destructiveHint: false,
+              idempotentHint: true,
+              openWorldHint: false,
+            },
+          },
           parameters: (operation.parameters ?? []).map((parameter) =>
             "$ref" in parameter || parameter.name !== "status"
               ? parameter
@@ -72,7 +80,17 @@ export const contract = {
           "Add a task to the shared demo list. Titles are trimmed before validation; the normalized title must contain 1–120 characters.",
         successStatus: 201,
         successDescription: "Task created",
-        spec: jsonExample({ title: "Build a feature" }),
+        spec: (operation) => ({
+          ...jsonExample({ title: "Build a feature" })(operation),
+          "x-mcp": {
+            annotations: {
+              readOnlyHint: false,
+              destructiveHint: false,
+              idempotentHint: false,
+              openWorldHint: false,
+            },
+          },
+        }),
       })
       .input(createTaskInput)
       .output(taskSchema),
@@ -85,7 +103,17 @@ export const contract = {
         summary: "Set task completion",
         description:
           "Mark a task as completed or active. Returns NOT_FOUND if the task does not exist.",
-        spec: jsonExample({ completed: true }),
+        spec: (operation) => ({
+          ...jsonExample({ completed: true })(operation),
+          "x-mcp": {
+            annotations: {
+              readOnlyHint: false,
+              destructiveHint: true,
+              idempotentHint: true,
+              openWorldHint: false,
+            },
+          },
+        }),
       })
       .input(setCompletedInput)
       .output(taskSchema)
@@ -101,7 +129,17 @@ export const contract = {
           "Edit a task title without changing its completion status. Titles are trimmed before validation; the normalized title must contain 1–120 characters. Returns NOT_FOUND if the task does not exist.",
         successStatus: 200,
         successDescription: "Task title updated",
-        spec: jsonExample({ title: "Polish a feature" }),
+        spec: (operation) => ({
+          ...jsonExample({ title: "Polish a feature" })(operation),
+          "x-mcp": {
+            annotations: {
+              readOnlyHint: false,
+              destructiveHint: true,
+              idempotentHint: true,
+              openWorldHint: false,
+            },
+          },
+        }),
       })
       .input(updateTaskTitleInput)
       .output(taskSchema)
@@ -117,6 +155,17 @@ export const contract = {
           "Remove a task from the shared demo list and return the deleted task. Returns NOT_FOUND if the task does not exist or has already been deleted.",
         successStatus: 200,
         successDescription: "Task deleted",
+        spec: (operation) => ({
+          ...operation,
+          "x-mcp": {
+            annotations: {
+              readOnlyHint: false,
+              destructiveHint: true,
+              idempotentHint: true,
+              openWorldHint: false,
+            },
+          },
+        }),
       })
       .input(deleteTaskInput)
       .output(taskSchema)

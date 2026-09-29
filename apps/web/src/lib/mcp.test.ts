@@ -11,6 +11,39 @@ type Endpoint = ReturnType<typeof createMcpEndpoint>;
 const endpoints: Endpoint[] = [];
 const clients: Client[] = [];
 
+const expectedTaskAnnotations = {
+  listTasks: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
+  createTask: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: false,
+  },
+  setTaskCompleted: {
+    readOnlyHint: false,
+    destructiveHint: true,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
+  updateTaskTitle: {
+    readOnlyHint: false,
+    destructiveHint: true,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
+  deleteTask: {
+    readOnlyHint: false,
+    destructiveHint: true,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
+};
+
 afterEach(async () => {
   for (const client of clients.splice(0)) await client.close();
   for (const endpoint of endpoints.splice(0)) await endpoint.close();
@@ -63,6 +96,31 @@ describe("generated MCP catalog", () => {
     const spec = await generateOpenApiSpec();
     const before = structuredClone(spec);
     const catalog = await generateMcpCatalog(spec);
+
+    // Require explicit contract hints, independent of the generator's HTTP-method defaults.
+    const operations = Object.values(spec.paths ?? {}).flatMap((path) =>
+      [path?.get, path?.post, path?.patch, path?.delete].filter(
+        (operation) => operation !== undefined,
+      ),
+    );
+    expect(
+      Object.fromEntries(
+        operations.map((operation) => [
+          operation.operationId,
+          "x-mcp" in operation ? operation["x-mcp"] : undefined,
+        ]),
+      ),
+    ).toEqual(
+      Object.fromEntries(
+        Object.entries(expectedTaskAnnotations).map(([name, annotations]) => [
+          name,
+          { annotations },
+        ]),
+      ),
+    );
+    expect(Object.fromEntries(catalog.map((tool) => [tool.name, tool.annotations]))).toEqual(
+      expectedTaskAnnotations,
+    );
 
     expect(catalog.map((tool) => tool.name).sort()).toEqual([
       "createTask",
@@ -202,6 +260,9 @@ describe.each(["modern", "legacy"] as const)("MCP %s HTTP compatibility", (era) 
     const handler = endpoint({ getContext: () => context, dispatch });
     const client = await connect(handler, era);
     const { tools } = await client.listTools();
+    expect(Object.fromEntries(tools.map((tool) => [tool.name, tool.annotations]))).toEqual(
+      expectedTaskAnnotations,
+    );
     expect(tools.map((tool) => tool.name).sort()).toEqual([
       "createTask",
       "deleteTask",
