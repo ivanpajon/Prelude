@@ -1,5 +1,11 @@
 # Verification
 
+## Docker stacks
+
+Run `pnpm test:stack` with Docker's Linux engine running and host dependencies installed. This separate acceptance command verifies the packaged production runtime and development workflow; `pnpm verify` continues to run natively without requiring Docker. See [Docker verification and measurements](docker.md#verification-and-measurements) for scope and prerequisites.
+
+The run report is written to ignored `test-results/stack/report.json`. Inspect its completed checks, image-size measurements, timings, and platform information before reporting Docker acceptance. Results from native tests or an image build alone do not establish that the standalone runtime, service worker, MCP transports, or Compose Watch work in a container.
+
 ## Homepage MCP playground
 
 Verified on 2026-09-29 with Node 26.10.0 and pnpm 12.6.0 on Windows: frozen installation and `pnpm verify` passed, including Biome, strict TypeScript, 205 unit/component/script tests with coverage, two development scenarios, all 43 production scenarios, the Turbopack/Serwist build, and byte-for-byte service-worker cache restoration. The live development playground was also inspected in the browser.

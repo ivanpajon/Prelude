@@ -18,6 +18,18 @@
       "passThroughEnv": ["PORT", "MCP_ENABLED", "MCP_ALLOWED_ORIGINS", "MCP_INSPECTOR_PORT"]
     },
     "typecheck": { "dependsOn": ["^typecheck"], "outputs": [] },
-    "test": { "dependsOn": ["^build"], "outputs": [] }
+    "test": { "dependsOn": ["^build"], "outputs": [] },
+    "test:stack": {
+      "cache": false,
+      "passThroughEnv": [
+        "PRELUDE_STACK_URL",
+        "PRELUDE_STACK_MODE",
+        "PRELUDE_STACK_INSPECTOR_URL",
+        "PRELUDE_STACK_CONTEXT",
+        "PRELUDE_STACK_PROJECT",
+        "PRELUDE_STACK_CONTAINER",
+        "PRELUDE_STACK_NODE_BIN"
+      ]
+    }
   }
 }

@@ -46,6 +46,22 @@ pnpm start --port 3001
 
 Use separate development and production ports. A previously installed production service worker can keep controlling its origin after switching to development; unregister it in browser developer tools if reusing that origin.
 
+## Run with Docker
+
+With Docker running, start the production application at [localhost:3001](http://localhost:3001):
+
+```sh
+pnpm stack:prod
+```
+
+Production is the default Compose configuration. For development with Turbopack, automatic source synchronization, and the managed MCP Inspector:
+
+```sh
+pnpm stack:dev
+```
+
+Development uses [localhost:3000](http://localhost:3000). Both workflows build their own Linux dependencies; host `node_modules` and Next.js output stay separate. Configuration is optional. See [Docker workflows](docs/docker.md) for prerequisites, custom ports, environment variables, shutdown, server deployment, and verification.
+
 ## Commands
 
 | Command | Purpose |
@@ -55,6 +71,9 @@ Use separate development and production ports. A previously installed production
 | `pnpm mcp:check` | Check the running MCP endpoint with the pinned Inspector CLI; supports `--url`. |
 | `pnpm build` | Build Next.js, then generate the Serwist worker. |
 | `pnpm start` | Serve an existing production build. |
+| `pnpm stack:prod` | Build and start the production Docker Compose stack. |
+| `pnpm stack:dev` | Start the development Docker Compose stack with Watch and MCP Inspector. |
+| `pnpm test:stack` | Verify the Docker stacks and report image/build/runtime measurements. |
 | `pnpm check` | Check Biome and strict TypeScript. |
 | `pnpm fix` | Apply formatting and supported lint fixes. |
 | `pnpm test` | Run Vitest server/utility tests and Testing Library component tests. |

@@ -30,6 +30,7 @@
     "test:e2e": "pnpm build && playwright test",
     "test:dev": "playwright test --config playwright.dev.config.ts",
     "test:cache": "node scripts/verify-build-cache.mjs",
+    "test:stack": "node scripts/test-stack.mjs",
     "verify": "pnpm check && pnpm test:coverage && pnpm test:dev && pnpm test:e2e && pnpm test:cache"
   },
   "devDependencies": {
