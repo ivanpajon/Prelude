@@ -13,6 +13,7 @@ export interface TaskAppTools {
   listTasks: string;
   createTask?: string;
   setTaskCompleted?: string;
+  updateTaskTitle?: string;
   deleteTask?: string;
 }
 
@@ -26,11 +27,13 @@ export function getTaskAppTools(catalog: readonly McpOpenAPITool[]): TaskAppTool
   if (!listTasks) return undefined;
   const createTask = nameFor("createTask");
   const setTaskCompleted = nameFor("setTaskCompleted");
+  const updateTaskTitle = nameFor("updateTaskTitle");
   const deleteTask = nameFor("deleteTask");
   return {
     listTasks,
     ...(createTask === undefined ? {} : { createTask }),
     ...(setTaskCompleted === undefined ? {} : { setTaskCompleted }),
+    ...(updateTaskTitle === undefined ? {} : { updateTaskTitle }),
     ...(deleteTask === undefined ? {} : { deleteTask }),
   };
 }
@@ -83,7 +86,7 @@ export function registerTaskAppResource(
     server,
     "Prelude task workspace",
     mcpAppResourceUri,
-    { description: "Create, filter, complete, and delete tasks in an MCP App.", _meta: meta },
+    { description: "Create, edit, filter, complete, and delete tasks in an MCP App.", _meta: meta },
     async () => {
       try {
         return {

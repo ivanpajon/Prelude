@@ -97,7 +97,7 @@ export default function PlaygroundPage({
                 Connect an MCP Apps compatible client to this site’s{" "}
                 <code className="font-mono text-xs">/api/mcp</code> endpoint, then run{" "}
                 <code className="font-mono text-xs">listTasks</code> to open the interactive task
-                widget. You can filter, create, complete, and delete tasks from your client.
+                widget. You can filter, create, edit, complete, and delete tasks from your client.
               </p>
               {process.env.NODE_ENV === "development" ? (
                 <>

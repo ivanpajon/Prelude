@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 const listRpc = /\/api\/rpc\/tasks\/list(?:\?|$)/;
 const createRpc = /\/api\/rpc\/tasks\/create(?:\?|$)/;
 const deleteRpc = /\/api\/rpc\/tasks\/delete(?:\?|$)/;
+const updateTitleRpc = /\/api\/rpc\/tasks\/updateTitle(?:\?|$)/;
 
 test.describe("server rendering", () => {
   test.use({ javaScriptEnabled: false });
@@ -211,11 +212,11 @@ test("prevents duplicate creation when a form submits twice before rendering", a
   expect(requests).toHaveLength(1);
 });
 
-test("creates, completes and deletes a task across hard reloads", async ({
+test("creates, edits, completes and deletes a task across hard reloads", async ({
   page,
   request,
 }, testInfo) => {
-  const title = `Build ${testInfo.project.name} ${crypto.randomUUID()}`;
+  let title = `Build ${testInfo.project.name} ${crypto.randomUUID()}`;
   await page.goto("/playground");
   await page.getByRole("textbox", { name: "New task", exact: true }).fill(title);
   await page.getByRole("button", { name: "Add task", exact: true }).click();
@@ -223,6 +224,19 @@ test("creates, completes and deletes a task across hard reloads", async ({
     page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("textbox", { name: "New task", exact: true })).toHaveValue("");
+
+  await page.getByRole("button", { name: `Edit ${title}`, exact: true }).click();
+  const editor = page.getByRole("textbox", { name: "Task title", exact: true });
+  await expect(editor).toBeFocused();
+  await expect(editor).toHaveValue(title);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  title = `Edited ${title}`;
+  await editor.fill(`  ${title}  `);
+  const saved = page.waitForResponse(updateTitleRpc);
+  await editor.press("Enter");
+  expect((await saved).ok()).toBe(true);
+  await expect(editor).toHaveCount(0);
+  await expect(page.getByRole("button", { name: `Edit ${title}`, exact: true })).toBeFocused();
 
   await page.getByRole("button", { name: `Mark ${title} as completed`, exact: true }).click();
   const completed = page.getByRole("button", { name: `Mark ${title} as active`, exact: true });
@@ -250,6 +264,125 @@ test("creates, completes and deletes a task across hard reloads", async ({
   }
   await page.reload();
   await expect(tasks.getByText(title, { exact: true })).toHaveCount(0);
+});
+
+test("cancels title edits, validates input, and retries a failed save without losing either draft", async ({
+  page,
+  request,
+}) => {
+  const title = `Edit retry ${crypto.randomUUID()}`;
+  const created = await (await request.post("/api/v1/tasks", { data: { title } })).json();
+  await page.goto("/playground");
+  const creationDraft = page.getByRole("textbox", { name: "New task", exact: true });
+  await creationDraft.fill("Keep this separate creation draft");
+  const edit = page.getByRole("button", { name: `Edit ${title}`, exact: true });
+  const editor = page.getByRole("textbox", { name: "Task title", exact: true });
+  const requests: string[] = [];
+  page.on("request", (outgoing) => {
+    if (updateTitleRpc.test(outgoing.url())) requests.push(outgoing.url());
+  });
+  await edit.click();
+  await editor.fill("Cancel with Escape");
+  await editor.press("Escape");
+  await expect(editor).toHaveCount(0);
+  await expect(edit).toBeFocused();
+  await edit.press("Enter");
+  await editor.fill("Cancel with button");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(editor).toHaveCount(0);
+  expect(requests).toEqual([]);
+
+  await edit.click();
+  await editor.fill("   ");
+  await editor.press("Enter");
+  await expect(
+    page.getByText("Enter a task between 1 and 120 characters.", { exact: true }),
+  ).toBeVisible();
+  expect(requests).toEqual([]);
+  const renamed = `Renamed ${title}`;
+  await editor.fill(renamed);
+  await page.route(updateTitleRpc, (route) => route.abort("internetdisconnected"));
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.locator("#task-edit-feedback")).toContainText(/\S/);
+  await expect(page.locator("#task-edit-feedback")).not.toContainText("Enter a task");
+  await expect(editor).toHaveValue(renamed);
+  await expect(page.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
+  await expect(creationDraft).toHaveValue("Keep this separate creation draft");
+  expect(
+    (await (await request.get("/api/v1/tasks?status=all")).json()).find(
+      (task: { id: string }) => task.id === created.id,
+    ),
+  ).toMatchObject({ title });
+  await page.unroute(updateTitleRpc);
+  await editor.press("Enter");
+  await expect(editor).toHaveCount(0);
+  await expect(
+    page.getByRole("list", { name: "Tasks" }).getByText(renamed, { exact: true }),
+  ).toBeVisible();
+  await expect(creationDraft).toHaveValue("Keep this separate creation draft");
+  expect(
+    (await (await request.get("/api/v1/tasks?status=all")).json()).find(
+      (task: { id: string }) => task.id === created.id,
+    ),
+  ).toEqual({ ...created, title: renamed });
+});
+
+test("sends only one title update when Save is clicked twice before rendering", async ({
+  page,
+  request,
+}) => {
+  const title = `Single edit ${crypto.randomUUID()}`;
+  await request.post("/api/v1/tasks", { data: { title } });
+  await page.goto("/playground");
+  await page.getByRole("button", { name: `Edit ${title}`, exact: true }).click();
+  const renamed = `Saved ${title}`;
+  await page.getByRole("textbox", { name: "Task title", exact: true }).fill(renamed);
+  const requests: string[] = [];
+  page.on("request", (outgoing) => {
+    if (updateTitleRpc.test(outgoing.url())) requests.push(outgoing.url());
+  });
+  await page
+    .getByRole("button", { name: "Save", exact: true })
+    .evaluate((button: HTMLButtonElement) => {
+      button.click();
+      button.click();
+    });
+  await expect(page.getByRole("textbox", { name: "Task title", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: `Edit ${renamed}`, exact: true })).toBeEnabled();
+  expect(requests).toHaveLength(1);
+});
+
+test("retains a cached inline editor when another tool invalidates a failing task query", async ({
+  page,
+  request,
+}) => {
+  const title = `Background edit ${crypto.randomUUID()}`;
+  await request.post("/api/v1/tasks", { data: { title } });
+  await page.goto("/playground");
+  await page.getByRole("button", { name: `Edit ${title}`, exact: true }).click();
+  const editor = page.getByRole("textbox", { name: "Task title", exact: true });
+  await editor.fill("Keep this edit through a failed refresh");
+  const creationDraft = page.getByRole("textbox", { name: "New task", exact: true });
+  await creationDraft.fill("Keep this separate creation draft");
+  const playground = page.getByRole("region", {
+    name: "A little input. Real action.",
+    exact: true,
+  });
+  await playground.getByRole("button", { name: "Discover tools", exact: true }).click();
+  await playground.getByRole("button", { name: "createTask", exact: true }).click();
+  await playground
+    .getByRole("textbox", { name: "Arguments JSON" })
+    .fill(JSON.stringify({ title: `Invalidate ${crypto.randomUUID()}` }));
+  await page.route(listRpc, (route) => route.abort("internetdisconnected"));
+  await playground.getByRole("button", { name: "Run tool", exact: true }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "Could not refresh tasks." })).toBeVisible(
+    { timeout: 10_000 },
+  );
+  await expect(editor).toHaveValue("Keep this edit through a failed refresh");
+  await expect(creationDraft).toHaveValue("Keep this separate creation draft");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(editor).toHaveCount(0);
+  await expect(page.getByRole("button", { name: `Edit ${title}`, exact: true })).toBeFocused();
 });
 
 test("retains a task after failed deletion and supports retry without losing a draft", async ({

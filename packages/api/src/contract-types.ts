@@ -6,6 +6,8 @@ export function checkContractTypes(client: ApiClient) {
   void validResult;
   const deletedResult: Promise<Task> = client.tasks.delete({ id: "explore" });
   void deletedResult;
+  const editedResult: Promise<Task> = client.tasks.updateTitle({ id: "explore", title: "Edited" });
+  void editedResult;
 
   // @ts-expect-error The contract requires a string title.
   void client.tasks.create({ title: 123 });
@@ -17,6 +19,10 @@ export function checkContractTypes(client: ApiClient) {
   void client.tasks.delete({ id: 123 });
   // @ts-expect-error Deleting a task requires an id.
   void client.tasks.delete({});
+  // @ts-expect-error Editing a task requires a string title.
+  void client.tasks.updateTitle({ id: "explore", title: 123 });
+  // @ts-expect-error Editing a task requires an id.
+  void client.tasks.updateTitle({ title: "Edited" });
   // @ts-expect-error The output is a Task, not a string.
   const invalidResult: Promise<string> = client.tasks.create({ title: "A valid title" });
   void invalidResult;

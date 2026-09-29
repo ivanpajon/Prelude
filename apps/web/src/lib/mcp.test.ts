@@ -69,6 +69,7 @@ describe("generated MCP catalog", () => {
       "deleteTask",
       "listTasks",
       "setTaskCompleted",
+      "updateTaskTitle",
     ]);
     expect(catalog.find((tool) => tool.name === "listTasks")).toMatchObject({
       inputSchema: { type: "object", required: ["status"] },
@@ -96,6 +97,20 @@ describe("generated MCP catalog", () => {
       },
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
       metadata: { operationId: "deleteTask", method: "delete", path: "/v1/tasks/{id}" },
+    });
+    expect(catalog.find((tool) => tool.name === "updateTaskTitle")).toMatchObject({
+      inputSchema: {
+        type: "object",
+        properties: { id: { type: "string", minLength: 1 }, title: { type: "string" } },
+        required: expect.arrayContaining(["id", "title"]),
+      },
+      outputSchema: {
+        type: "object",
+        properties: { title: { type: "string", minLength: 1, maxLength: 120 } },
+        required: expect.arrayContaining(["id", "title", "completed"]),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: true },
+      metadata: { operationId: "updateTaskTitle", method: "patch", path: "/v1/tasks/{id}/title" },
     });
     expect(spec).toEqual(before);
     expect(Object.isFrozen(catalog)).toBe(true);
@@ -178,7 +193,12 @@ describe.each(["modern", "legacy"] as const)("MCP %s HTTP compatibility", (era) 
       .spyOn(globalThis, "fetch")
       .mockRejectedValue(new Error("Unexpected network request"));
     const context: Context = { repository: createDemoRepository([]), onTasksChanged: vi.fn() };
-    const dispatch = vi.fn(handleOpenApiRequest);
+    const dispatch = vi.fn(async (request: Request, requestContext: Context) => {
+      if (new URL(request.url).pathname.endsWith("/title")) {
+        expect(await request.clone().json()).toEqual({ title: "  Edited task  " });
+      }
+      return handleOpenApiRequest(request, requestContext);
+    });
     const handler = endpoint({ getContext: () => context, dispatch });
     const client = await connect(handler, era);
     const { tools } = await client.listTools();
@@ -187,6 +207,7 @@ describe.each(["modern", "legacy"] as const)("MCP %s HTTP compatibility", (era) 
       "deleteTask",
       "listTasks",
       "setTaskCompleted",
+      "updateTaskTitle",
     ]);
     expect(tools.find((tool) => tool.name === "listTasks")?.outputSchema).toMatchObject(
       era === "modern"
@@ -207,28 +228,39 @@ describe.each(["modern", "legacy"] as const)("MCP %s HTTP compatibility", (era) 
       arguments: { id: task.id, completed: true },
     });
     expect(updated.structuredContent).toEqual({ ...task, completed: true });
+    const edited = await client.callTool({
+      name: "updateTaskTitle",
+      arguments: { id: task.id, title: "  Edited task  " },
+    });
+    const editedTask = { ...task, title: "Edited task", completed: true };
+    expect(edited.isError).not.toBe(true);
+    expect(edited.structuredContent).toEqual(editedTask);
+    expect(edited.content).toContainEqual({ type: "text", text: JSON.stringify(editedTask) });
     const listed = await client.callTool({ name: "listTasks", arguments: { status: "completed" } });
-    const expected = [{ ...task, completed: true }];
+    const expected = [editedTask];
     expect(listed.structuredContent).toEqual(era === "modern" ? expected : { result: expected });
     expect(listed.content).toContainEqual({ type: "text", text: JSON.stringify(expected) });
     const deleted = await client.callTool({ name: "deleteTask", arguments: { id: task.id } });
     expect(deleted.isError).not.toBe(true);
-    expect(deleted.structuredContent).toEqual({ ...task, completed: true });
+    expect(deleted.structuredContent).toEqual(editedTask);
     expect(context.repository.list("all")).toEqual([]);
     const repeated = await client.callTool({ name: "deleteTask", arguments: { id: task.id } });
     expect(repeated.isError).toBe(true);
     expect(JSON.stringify(repeated.content)).toContain("NOT_FOUND");
-    expect(context.onTasksChanged).toHaveBeenCalledTimes(3);
+    expect(context.onTasksChanged).toHaveBeenCalledTimes(4);
     expect(dispatch.mock.calls.map(([request]) => request.url)).toEqual([
       "http://prelude.internal/api/v1/tasks",
       `http://prelude.internal/api/v1/tasks/${task.id}`,
+      `http://prelude.internal/api/v1/tasks/${task.id}/title`,
       "http://prelude.internal/api/v1/tasks?status=completed",
       `http://prelude.internal/api/v1/tasks/${task.id}`,
       `http://prelude.internal/api/v1/tasks/${task.id}`,
     ]);
     const patch = dispatch.mock.calls[1]?.[0];
     expect(patch?.method).toBe("PATCH");
-    const deletion = dispatch.mock.calls[3]?.[0];
+    const titlePatch = dispatch.mock.calls[2]?.[0];
+    expect(titlePatch?.method).toBe("PATCH");
+    const deletion = dispatch.mock.calls[4]?.[0];
     expect(deletion?.method).toBe("DELETE");
     expect(deletion?.body).toBeNull();
     expect(networkFetch).not.toHaveBeenCalled();
@@ -259,6 +291,22 @@ describe.each(["modern", "legacy"] as const)("MCP %s HTTP compatibility", (era) 
       expect(deleted.structuredContent).toBeUndefined();
       if (args.id === "missing") expect(JSON.stringify(deleted.content)).toContain("NOT_FOUND");
     }
+    for (const args of [
+      {},
+      { id: "missing", title: "Valid title" },
+      { id: "missing", title: "   " },
+      { id: "missing", title: "x".repeat(121) },
+      { id: "missing", title: 42 },
+      { id: "", title: "Valid title" },
+      { id: 42, title: "Valid title" },
+    ]) {
+      const edited = await client.callTool({ name: "updateTaskTitle", arguments: args });
+      expect(edited.isError).toBe(true);
+      expect(edited.structuredContent).toBeUndefined();
+      if (args.id === "missing" && args.title === "Valid title") {
+        expect(JSON.stringify(edited.content)).toContain("NOT_FOUND");
+      }
+    }
     expect(context.repository.list("all")).toEqual([]);
     expect(context.onTasksChanged).not.toHaveBeenCalled();
   });
@@ -271,12 +319,14 @@ describe.each(["modern", "legacy"] as const)("MCP %s HTTP compatibility", (era) 
         throw new Error("PRIVATE_DATABASE_PASSWORD");
       },
       delete: () => ({ id: "broken", title: 42, completed: false }) as unknown as Task,
+      updateTitle: () => ({ id: "broken", title: 42, completed: false }) as unknown as Task,
     };
     const client = await connect(endpoint({ getContext: () => ({ repository }) }), era);
     for (const request of [
       { name: "listTasks", arguments: { status: "all" } },
       { name: "createTask", arguments: { title: "Safe error" } },
       { name: "deleteTask", arguments: { id: "broken" } },
+      { name: "updateTaskTitle", arguments: { id: "broken", title: "Edited" } },
     ]) {
       const result = await client.callTool(request);
       expect(result.isError).toBe(true);
@@ -331,7 +381,7 @@ describe.each(["modern", "legacy"] as const)("MCP %s App resources", (era) => {
       era,
     );
     const { tools } = await client.listTools();
-    expect(tools).toHaveLength(4);
+    expect(tools).toHaveLength(5);
     expect(tools.find((tool) => tool.name === "listTasks")).toMatchObject({
       _meta: {
         ui: { resourceUri: mcpAppResourceUri },
@@ -363,6 +413,7 @@ describe.each(["modern", "legacy"] as const)("MCP %s App resources", (era) => {
           listTasks: "listTasks",
           createTask: "createTask",
           setTaskCompleted: "setTaskCompleted",
+          updateTaskTitle: "updateTaskTitle",
           deleteTask: "deleteTask",
         },
       }),
@@ -393,6 +444,9 @@ describe.each(["modern", "legacy"] as const)("MCP %s App resources", (era) => {
         patch: { ...operation("setTaskCompleted"), "x-mcp": { name: "renamedCompletion" } },
         delete: { ...operation("deleteTask"), "x-mcp": { name: "renamedDelete" } },
       },
+      "/tasks/title": {
+        patch: { ...operation("updateTaskTitle"), "x-mcp": { name: "renamedTitle" } },
+      },
     });
     const before = structuredClone(spec);
     const client = await connect(
@@ -420,6 +474,7 @@ describe.each(["modern", "legacy"] as const)("MCP %s App resources", (era) => {
           listTasks: "renamedList",
           createTask: "renamedCreate",
           setTaskCompleted: "renamedCompletion",
+          updateTaskTitle: "renamedTitle",
           deleteTask: "renamedDelete",
         },
       }),
@@ -445,6 +500,9 @@ describe.each(["modern", "legacy"] as const)("MCP %s App resources", (era) => {
               "x-mcp": true,
               patch: { ...operation("setTaskCompleted"), "x-mcp": false },
               delete: { ...operation("deleteTask"), "x-mcp": false },
+            },
+            "/tasks/title": {
+              patch: { ...operation("updateTaskTitle"), "x-mcp": false },
             },
           }),
           "x-mcp": false,
@@ -525,7 +583,7 @@ describe.each(["modern", "legacy"] as const)("MCP %s App resources", (era) => {
 });
 
 describe("MCP endpoint lifecycle", () => {
-  it.each(["createTask", "deleteTask"])(
+  it.each(["createTask", "deleteTask", "updateTaskTitle"])(
     "awaits asynchronous invalidation for %s before returning success",
     async (name) => {
       let finishInvalidation: (() => void) | undefined;
@@ -547,7 +605,12 @@ describe("MCP endpoint lifecycle", () => {
       const call = client
         .callTool({
           name,
-          arguments: name === "createTask" ? { title: "Await invalidation" } : { id: "explore" },
+          arguments:
+            name === "createTask"
+              ? { title: "Await invalidation" }
+              : name === "updateTaskTitle"
+                ? { id: "explore", title: "Await invalidation" }
+                : { id: "explore" },
         })
         .then((result) => {
           returned = true;
@@ -560,7 +623,7 @@ describe("MCP endpoint lifecycle", () => {
       finishInvalidation?.();
       await expect(call).resolves.toMatchObject({
         structuredContent: {
-          title: name === "createTask" ? "Await invalidation" : "Explore the workspace",
+          title: name === "deleteTask" ? "Explore the workspace" : "Await invalidation",
         },
       });
       expect(onTasksChanged).toHaveBeenCalledOnce();
@@ -669,14 +732,25 @@ describe("MCP endpoint lifecycle", () => {
     const firstTask = first.repository.list("all")[0];
     expect(firstTask).toBeDefined();
     await expect(
+      firstClient.callTool({
+        name: "updateTaskTitle",
+        arguments: { id: firstTask?.id, title: "Edited first context" },
+      }),
+    ).resolves.toMatchObject({
+      structuredContent: { ...firstTask, title: "Edited first context" },
+    });
+    expect(second.repository.list("all").map((task) => task.title)).toEqual(["Second context"]);
+    await expect(
       firstClient.callTool({ name: "deleteTask", arguments: { id: firstTask?.id } }),
-    ).resolves.toMatchObject({ structuredContent: firstTask });
+    ).resolves.toMatchObject({
+      structuredContent: { ...firstTask, title: "Edited first context" },
+    });
     expect(first.repository.list("all")).toEqual([]);
     expect(second.repository.list("all").map((task) => task.title)).toEqual(["Second context"]);
-    expect(first.onTasksChanged).toHaveBeenCalledTimes(2);
+    expect(first.onTasksChanged).toHaveBeenCalledTimes(3);
     expect(second.onTasksChanged).toHaveBeenCalledOnce();
     expect(getSpec).toHaveBeenCalledOnce();
-    expect(getContext).toHaveBeenCalledTimes(5);
+    expect(getContext).toHaveBeenCalledTimes(6);
   });
 
   it("retries failed specification generation instead of caching a failed catalog", async () => {

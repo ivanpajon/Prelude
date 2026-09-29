@@ -18,6 +18,7 @@ export type Task = typeof taskSchema.infer;
 export const listTasksInput = type({ status: taskStatusSchema });
 export const createTaskInput = type({ title: titleSchema });
 export const setCompletedInput = type({ id: "string > 0", completed: "boolean" });
+export const updateTaskTitleInput = type({ id: "string > 0", title: titleSchema });
 export const deleteTaskInput = type({ id: "string > 0" });
 
 // Extend the generated body without replacing its schema or validation constraints.
@@ -87,6 +88,22 @@ export const contract = {
         spec: jsonExample({ completed: true }),
       })
       .input(setCompletedInput)
+      .output(taskSchema)
+      .errors({ NOT_FOUND: { message: "Task not found" } }),
+    updateTitle: oc
+      .route({
+        method: "PATCH",
+        path: "/v1/tasks/{id}/title",
+        operationId: "updateTaskTitle",
+        tags: ["Tasks"],
+        summary: "Edit a task title",
+        description:
+          "Edit a task title without changing its completion status. Titles are trimmed before validation; the normalized title must contain 1–120 characters. Returns NOT_FOUND if the task does not exist.",
+        successStatus: 200,
+        successDescription: "Task title updated",
+        spec: jsonExample({ title: "Polish a feature" }),
+      })
+      .input(updateTaskTitleInput)
       .output(taskSchema)
       .errors({ NOT_FOUND: { message: "Task not found" } }),
     delete: oc

@@ -37,7 +37,7 @@ State ownership:
 
 ## Replace or remove the demo
 
-`TaskRepository` currently has synchronous `list`, `create`, `setCompleted`, and `delete` methods. `createDemoRepository()` produces isolated state for tests. The running app uses a **public process-global** instance so page and Route Handler bundles share the same demonstration list. It survives development reloads but not process restarts, provides no authorization, and does not synchronize across servers.
+`TaskRepository` currently has synchronous `list`, `create`, `updateTitle`, `setCompleted`, and `delete` methods. `updateTitle` changes only the normalized title and preserves the task's ID and completion; missing IDs return `undefined`, which the procedure translates to `NOT_FOUND`. `createDemoRepository()` produces isolated state for tests. The running app uses a **public process-global** instance so page and Route Handler bundles share the same demonstration list. It survives development reloads but not process restarts, provides no authorization, and does not synchronize across servers.
 
 For persistent data, inject an authorized repository into each request context in **the RPC, REST, and MCP adapters and the direct server client**. If the database adapter is asynchronous, change the repository signatures to promises and await writes before testing results or calling `onTasksChanged`. Never put request identity, credentials, or user-specific state in the demo global slot. Add authentication and authorization alongside the adapters; they are not supplied by this template. Protect the procedures consistently across transports, and decide which contracts belong in public documentation and tool discovery.
 

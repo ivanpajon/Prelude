@@ -8,7 +8,7 @@ async function discover(page: Page) {
   const widget = playground(page);
   await widget.getByRole("button", { name: "Discover tools", exact: true }).click();
   await expect(widget.getByRole("group", { name: "MCP tools" })).toBeVisible();
-  await expect(widget.getByText("4 tools available.", { exact: false })).toBeVisible();
+  await expect(widget.getByText("5 tools available.", { exact: false })).toBeVisible();
   return widget;
 }
 
@@ -21,12 +21,13 @@ test("discovers real tools, exposes schemas, and handles arguments and tool erro
   await discoverButton.focus();
   await page.keyboard.press("Enter");
   const tools = widget.getByRole("group", { name: "MCP tools" });
-  await expect(tools.getByRole("button")).toHaveCount(4);
+  await expect(tools.getByRole("button")).toHaveCount(5);
   expect((await tools.getByRole("button").allTextContents()).sort()).toEqual([
     "createTask",
     "deleteTask",
     "listTasks",
     "setTaskCompleted",
+    "updateTaskTitle",
   ]);
   await expect(tools.getByRole("button", { name: "listTasks", exact: true })).toHaveAttribute(
     "aria-pressed",
@@ -90,10 +91,10 @@ test("discovers real tools, exposes schemas, and handles arguments and tool erro
   );
 });
 
-test("creates, completes and deletes through MCP while refreshing the RPC workbench without reloading", async ({
+test("creates, edits, completes and deletes through MCP while refreshing the RPC workbench without reloading", async ({
   page,
 }, testInfo) => {
-  const title = `Playground ${testInfo.project.name} ${crypto.randomUUID()}`;
+  let title = `Playground ${testInfo.project.name} ${crypto.randomUUID()}`;
   await page.goto("/playground");
   const workbenchDraft = page.getByRole("textbox", { name: "New task", exact: true });
   await workbenchDraft.fill("Keep this unsaved draft");
@@ -118,6 +119,19 @@ test("creates, completes and deletes through MCP while refreshing the RPC workbe
   const created = JSON.parse(await result.innerText()) as { id: string };
   expect(created).toMatchObject({ id: expect.any(String), title, completed: false });
   const tasks = page.getByRole("list", { name: "Tasks", exact: true });
+  await expect(tasks.getByText(title, { exact: true })).toHaveCount(1);
+  await expect(workbenchDraft).toHaveValue("Keep this unsaved draft");
+
+  await tools.getByRole("button", { name: "updateTaskTitle", exact: true }).click();
+  title = `Edited ${title}`;
+  await argumentsInput.fill(JSON.stringify({ id: created.id, title: `  ${title}  ` }));
+  await run.click();
+  await expect(result).toContainText(title);
+  expect(JSON.parse(await result.innerText())).toMatchObject({
+    id: created.id,
+    title,
+    completed: false,
+  });
   await expect(tasks.getByText(title, { exact: true })).toHaveCount(1);
   await expect(workbenchDraft).toHaveValue("Keep this unsaved draft");
 

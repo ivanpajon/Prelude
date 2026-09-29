@@ -1,6 +1,6 @@
 import { CallToolResultSchema } from "@modelcontextprotocol/core";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { TaskApp, TaskAppView } from "./app";
@@ -18,6 +18,7 @@ const tools = {
   listTasks: "listTasks",
   createTask: "createTask",
   setTaskCompleted: "setTaskCompleted",
+  updateTaskTitle: "updateTaskTitle",
   deleteTask: "deleteTask",
 };
 const result = (value: unknown) => ({ structuredContent: value });
@@ -53,7 +54,145 @@ it("renders host-seeded data accessibly without fetching again and hides exclude
   expect(screen.queryByRole("button", { name: "Add task" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /^Mark / })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /^Delete / })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Edit / })).not.toBeInTheDocument();
   await Promise.resolve();
+  expect(call).not.toHaveBeenCalled();
+});
+
+it("edits through the renamed tool, trims the title, preserves the create draft, and restores focus", async () => {
+  const user = userEvent.setup();
+  const { call } = fixture({ ...tools, updateTaskTitle: "rename_task" });
+  const createdDraft = screen.getByRole("textbox", { name: "New task" });
+  await user.type(createdDraft, "Keep my next task");
+  const edit = screen.getByRole("button", { name: `Edit ${task.title}` });
+  expect(edit).toHaveAttribute("title", "Edit task");
+  expect(edit.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+  edit.focus();
+  await user.keyboard("{Enter}");
+  const title = screen.getByRole("textbox", { name: "Task title" });
+  expect(title).toHaveFocus();
+  expect(title).toHaveValue(task.title);
+  expect((title as HTMLInputElement).selectionStart).toBe(0);
+  expect((title as HTMLInputElement).selectionEnd).toBe(task.title.length);
+  const updated = { ...task, title: "A better title" };
+  call.mockResolvedValueOnce(result(updated)).mockResolvedValueOnce(result([updated]));
+  await user.keyboard("  A better title  {Enter}");
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: `Edit ${updated.title}` })).toHaveFocus(),
+  );
+  expect(call).toHaveBeenNthCalledWith(
+    1,
+    "rename_task",
+    { id: task.id, title: updated.title },
+    expect.any(AbortSignal),
+  );
+  expect(call).toHaveBeenNthCalledWith(2, "listTasks", { status: "all" }, expect.any(AbortSignal));
+  expect(screen.queryByRole("textbox", { name: "Task title" })).not.toBeInTheDocument();
+  expect(screen.getByRole("list", { name: "Tasks" })).toHaveTextContent(updated.title);
+  expect(createdDraft).toHaveValue("Keep my next task");
+});
+
+it("cancels editing with Escape or Cancel without a write and restores the original title", async () => {
+  const user = userEvent.setup();
+  const { call } = fixture();
+  for (const method of ["Escape", "Cancel"]) {
+    await user.click(screen.getByRole("button", { name: `Edit ${task.title}` }));
+    await user.keyboard("Unsubmitted change");
+    if (method === "Escape") await user.keyboard("{Escape}");
+    else await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("textbox", { name: "Task title" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `Edit ${task.title}` })).toHaveFocus();
+    expect(screen.getByRole("list", { name: "Tasks" })).toHaveTextContent(task.title);
+  }
+  expect(call).not.toHaveBeenCalled();
+});
+
+it("validates normalized edited titles without dispatching and permits a 120-character title", async () => {
+  const user = userEvent.setup();
+  const { call } = fixture();
+  await user.click(screen.getByRole("button", { name: `Edit ${task.title}` }));
+  const title = screen.getByRole("textbox", { name: "Task title" });
+  for (const invalid of ["   ", "x".repeat(121)]) {
+    fireEvent.change(title, { target: { value: invalid } });
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("between 1 and 120 characters");
+    expect(title).toHaveAttribute("aria-invalid", "true");
+    expect(title).toHaveFocus();
+    expect(title).toHaveValue(invalid);
+    expect(call).not.toHaveBeenCalled();
+  }
+  const updated = { ...task, title: "x".repeat(120) };
+  call.mockResolvedValueOnce(result(updated)).mockResolvedValueOnce(result([updated]));
+  fireEvent.change(title, { target: { value: `  ${updated.title}  ` } });
+  await user.keyboard("{Enter}");
+  await waitFor(() =>
+    expect(screen.queryByRole("textbox", { name: "Task title" })).not.toBeInTheDocument(),
+  );
+  expect(call).toHaveBeenNthCalledWith(
+    1,
+    "updateTaskTitle",
+    { id: task.id, title: updated.title },
+    expect.any(AbortSignal),
+  );
+});
+
+it("preserves failed edit drafts and blocks duplicate submissions through the follow-up refresh", async () => {
+  const user = userEvent.setup();
+  const { call } = fixture();
+  await user.click(screen.getByRole("button", { name: `Edit ${task.title}` }));
+  const title = screen.getByRole("textbox", { name: "Task title" });
+  call.mockResolvedValueOnce({ isError: true });
+  await user.keyboard("Keep this edit{Enter}");
+  expect(await screen.findByRole("alert")).toHaveTextContent("The tool could not complete");
+  await waitFor(() => expect(title).toHaveFocus());
+  expect(title).toHaveValue("Keep this edit");
+  let finishWrite!: (value: unknown) => void;
+  let finishRead!: (value: unknown) => void;
+  call
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishWrite = resolve;
+        }),
+    )
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishRead = resolve;
+        }),
+    );
+  const form = screen.getByRole("form", { name: `Edit ${task.title}` });
+  fireEvent.submit(form);
+  fireEvent.submit(form);
+  expect(call).toHaveBeenCalledTimes(2);
+  expect(screen.getByRole("button", { name: "Saving…" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+  expect(title).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Refresh tasks" })).toBeDisabled();
+  const updated = { ...task, title: "Keep this edit" };
+  await act(async () => finishWrite(result(updated)));
+  expect(call).toHaveBeenCalledTimes(3);
+  fireEvent.submit(form);
+  expect(call).toHaveBeenCalledTimes(3);
+  expect(screen.getByRole("button", { name: "Saving…" })).toBeDisabled();
+  await act(async () => finishRead(result([updated])));
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: `Edit ${updated.title}` })).toHaveFocus(),
+  );
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+it("releases the editor when new host data removes its task", async () => {
+  const user = userEvent.setup();
+  const { session, call } = fixture();
+  await user.click(screen.getByRole("button", { name: `Edit ${task.title}` }));
+  act(() => {
+    session.hostInput({ status: "completed" });
+    session.hostResult(result([]));
+  });
+  await waitFor(() => expect(screen.getByRole("button", { name: "Refresh tasks" })).toHaveFocus());
+  expect(screen.getByRole("button", { name: "Refresh tasks" })).toBeEnabled();
+  expect(screen.queryByRole("textbox", { name: "Task title" })).not.toBeInTheDocument();
   expect(call).not.toHaveBeenCalled();
 });
 

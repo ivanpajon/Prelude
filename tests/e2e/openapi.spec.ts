@@ -55,7 +55,7 @@ test("executes same-origin reads and mutations in Scalar and shares results with
   page,
 }, testInfo) => {
   test.setTimeout(60_000);
-  const title = `Scalar ${testInfo.project.name} ${crypto.randomUUID()}`;
+  let title = `Scalar ${testInfo.project.name} ${crypto.randomUUID()}`;
   await page.goto("/api/docs");
   const origin = new URL(page.url()).origin;
   await page.getByRole("button", { name: "Test Request (get /v1/tasks)", exact: true }).click();
@@ -93,6 +93,36 @@ test("executes same-origin reads and mutations in Scalar and shares results with
   const createdTask = await created.json();
   expect(createdTask).toMatchObject({ title, completed: false });
   await expect(client.getByRole("link", { name: "201 Created", exact: true })).toBeVisible();
+  await client.getByRole("button", { name: "Close Client", exact: true }).click();
+  await expect(client).toBeHidden();
+
+  await page.goto("/api/docs#tag/tasks/PATCH/v1/tasks/{id}/title");
+  await page
+    .getByRole("button", { name: "Test Request (patch /v1/tasks/{id}/title)", exact: true })
+    .click();
+  const editRequest = client.getByRole("region", {
+    name: "Request: Edit a task title",
+    exact: true,
+  });
+  await editRequest
+    .getByRole("row")
+    .filter({ has: page.getByRole("checkbox", { name: "Include id in request", exact: true }) })
+    .getByRole("combobox", { name: "Value", exact: true })
+    .fill(createdTask.id);
+  title = `Edited ${title}`;
+  await editRequest.getByRole("textbox").fill(JSON.stringify({ title: `  ${title}  ` }));
+  const update = page.waitForResponse(
+    (response) =>
+      response.url() === `${origin}/api/v1/tasks/${createdTask.id}/title` &&
+      response.request().method() === "PATCH",
+  );
+  await client.getByRole("button", { name: /^Send patch request to/ }).click();
+  const updated = await update;
+  expect(updated.status()).toBe(200);
+  expect(updated.headers()["cache-control"]).toBe("no-store");
+  expect(await updated.json()).toEqual({ ...createdTask, title });
+  createdTask.title = title;
+  await expect(client.getByRole("link", { name: "200 OK", exact: true })).toBeVisible();
 
   await page.goto("/playground");
   await expect(

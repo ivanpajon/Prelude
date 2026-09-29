@@ -75,6 +75,90 @@ describe("contract-first task API", () => {
     expect(changed).toHaveBeenCalledOnce();
   });
 
+  it("edits only the requested title, normalizes it, and preserves completion and list order", async () => {
+    const repository = createDemoRepository();
+    const before = repository.list("all");
+    const changed = vi.fn();
+    const client = createApiClient({ repository, onTasksChanged: changed });
+    const title = "x".repeat(120);
+
+    await expect(
+      client.tasks.updateTitle({ id: "explore", title: `  ${title}  ` }),
+    ).resolves.toEqual({ ...before[0], title });
+    expect(repository.list("all")).toEqual([{ ...before[0], title }, before[1], before[2]]);
+    expect(repository.list("completed")).toEqual([{ ...before[0], title }]);
+    await expect(
+      client.tasks.updateTitle({ id: "missing", title: "Valid title" }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND", message: "Task not found" });
+    expect(changed).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    { id: "explore", title: "" },
+    { id: "explore", title: "   " },
+    { id: "explore", title: "x".repeat(121) },
+    { id: "explore", title: 42 },
+    { id: "explore" },
+    { id: "", title: "Valid title" },
+    { id: 42, title: "Valid title" },
+    { title: "Valid title" },
+  ])("rejects invalid title edits before writing: %j", async (input) => {
+    const repository = createDemoRepository();
+    const before = repository.list("all");
+    const update = vi.spyOn(repository, "updateTitle");
+    const changed = vi.fn();
+    const client = createApiClient({ repository, onTasksChanged: changed });
+
+    await expect(
+      client.tasks.updateTitle(input as { id: string; title: string }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(repository.list("all")).toEqual(before);
+    expect(update).not.toHaveBeenCalled();
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it("validates title edit output at the contract boundary", async () => {
+    const repository: TaskRepository = {
+      ...createDemoRepository(),
+      updateTitle: () => ({ id: "broken", title: 42, completed: false }) as unknown as Task,
+    };
+    const client = createApiClient({ repository });
+    await expect(
+      client.tasks.updateTitle({ id: "broken", title: "Valid title" }),
+    ).rejects.toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
+  });
+
+  it("awaits edit invalidation and keeps request repositories isolated", async () => {
+    let finishInvalidation: () => void = () => {};
+    const changed = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishInvalidation = resolve;
+        }),
+    );
+    const first = createApiClient({ repository: createDemoRepository(), onTasksChanged: changed });
+    const second = createApiClient({ repository: createDemoRepository() });
+    let returned = false;
+    const edit = first.tasks.updateTitle({ id: "explore", title: "Edited title" }).then((task) => {
+      returned = true;
+      return task;
+    });
+    await vi.waitFor(() => expect(changed).toHaveBeenCalledOnce());
+    expect(returned).toBe(false);
+    expect(await first.tasks.list({ status: "completed" })).toMatchObject([
+      { title: "Edited title" },
+    ]);
+    expect(await second.tasks.list({ status: "completed" })).toMatchObject([
+      { title: "Explore the workspace" },
+    ]);
+    finishInvalidation();
+    await expect(edit).resolves.toMatchObject({
+      id: "explore",
+      title: "Edited title",
+      completed: true,
+    });
+  });
+
   it.each(["", 42, undefined])("rejects an invalid delete id before writing: %j", async (id) => {
     const repository = createDemoRepository();
     const before = repository.list("all");
@@ -217,8 +301,12 @@ describe("demo repository ownership", () => {
     const updated = repository.setCompleted(created.id, true);
     if (updated) updated.title = "Mutated update";
     expect(repository.list("completed").map((task) => task.title)).toEqual(["Created"]);
+    const renamed = repository.updateTitle(created.id, "Renamed");
+    if (renamed) renamed.title = "Mutated rename";
+    expect(repository.list("completed").map((task) => task.title)).toEqual(["Renamed"]);
+    expect(repository.updateTitle("missing", "Ignored")).toBeUndefined();
     const deleted = repository.delete(created.id);
-    expect(deleted).toEqual({ id: created.id, title: "Created", completed: true });
+    expect(deleted).toEqual({ id: created.id, title: "Renamed", completed: true });
     expect(deleted).not.toBe(updated);
     expect(repository.delete(created.id)).toBeUndefined();
     expect(repository.list("all")).toEqual([{ id: "seed", title: "Original", completed: false }]);

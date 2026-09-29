@@ -36,12 +36,18 @@ test("embedded Inspector discovers generated tools and performs real CRUD agains
   await expect(connection).toBeChecked();
   await inspector.getByText("Tools", { exact: true }).click();
   const tools = inspector.getByTestId("tools-screen");
-  await expect(tools).toHaveAttribute("data-tool-count", "4");
-  for (const name of ["listTasks", "createTask", "setTaskCompleted", "deleteTask"]) {
+  await expect(tools).toHaveAttribute("data-tool-count", "5");
+  for (const name of [
+    "listTasks",
+    "createTask",
+    "setTaskCompleted",
+    "deleteTask",
+    "updateTaskTitle",
+  ]) {
     await expect(tools.getByRole("button", { name: new RegExp(name) })).toBeVisible();
   }
 
-  const title = `Inspector ${crypto.randomUUID()}`;
+  let title = `Inspector ${crypto.randomUUID()}`;
   await tools.getByRole("button", { name: /createTask/ }).click();
   await tools.getByRole("textbox", { name: /^title/ }).fill(`  ${title}  `);
   await tools.getByRole("button", { name: "Execute Tool", exact: true }).click();
@@ -51,6 +57,16 @@ test("embedded Inspector discovers generated tools and performs real CRUD agains
   expect(listed.ok()).toBe(true);
   const created = (await listed.json()).find((task: { title: string }) => task.title === title);
   expect(created).toMatchObject({ id: expect.any(String), title, completed: false });
+
+  await tools.getByRole("button", { name: "Close results", exact: true }).click();
+  await tools.getByRole("button", { name: /updateTaskTitle/ }).click();
+  await tools.getByRole("textbox", { name: /^id/ }).fill(created.id);
+  title = `Edited ${title}`;
+  await tools.getByRole("textbox", { name: /^title/ }).fill(`  ${title}  `);
+  await tools.getByRole("button", { name: "Execute Tool", exact: true }).click();
+  await expect(tools).toHaveAttribute("data-call-status", "ok");
+  await expect(tools).toContainText(title);
+  created.title = title;
 
   await tools.getByRole("button", { name: "Close results", exact: true }).click();
   await tools.getByRole("button", { name: /setTaskCompleted/ }).click();

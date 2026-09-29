@@ -5,6 +5,7 @@ export interface TaskAppTools {
   listTasks: string;
   createTask?: string;
   setTaskCompleted?: string;
+  updateTaskTitle?: string;
   deleteTask?: string;
 }
 
@@ -24,7 +25,7 @@ export function readTools(value: unknown): TaskAppTools {
   if (typeof tools.listTasks !== "string" || !tools.listTasks.trim()) {
     throw new Error("Task listing is unavailable.");
   }
-  for (const name of ["createTask", "setTaskCompleted", "deleteTask"]) {
+  for (const name of ["createTask", "setTaskCompleted", "updateTaskTitle", "deleteTask"]) {
     if (tools[name] !== undefined && (typeof tools[name] !== "string" || !tools[name].trim())) {
       throw new Error("Task App configuration is invalid.");
     }
@@ -155,6 +156,9 @@ export class TaskAppSession {
   cancel() {
     this.fail("The request was cancelled. Refresh to try again.");
   }
+  clearError() {
+    this.update({ error: null });
+  }
 
   async refresh(status = this.state.status): Promise<boolean> {
     if (this.disposed || !this.caller || this.state.mutating) return false;
@@ -184,7 +188,7 @@ export class TaskAppSession {
   }
 
   async mutate(
-    operation: "createTask" | "setTaskCompleted" | "deleteTask",
+    operation: "createTask" | "setTaskCompleted" | "updateTaskTitle" | "deleteTask",
     args: Record<string, unknown>,
   ): Promise<boolean> {
     const name = this.tools[operation];

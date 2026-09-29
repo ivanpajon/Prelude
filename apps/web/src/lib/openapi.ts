@@ -62,7 +62,7 @@ const handler = new OpenAPIHandler(router, {
     async ({ request, next }) => {
       if (
         (request.method === "PATCH" || request.method === "DELETE") &&
-        /^\/api\/v1\/tasks\/[^/]+\/?$/.test(request.url.pathname)
+        /^\/api\/v1\/tasks\/[^/]+(?:\/title)?\/?$/.test(request.url.pathname)
       ) {
         if (request.url.searchParams.has("id")) {
           throw new ORPCError("BAD_REQUEST", { message: "Provide the task id only in the URL." });

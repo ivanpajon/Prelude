@@ -77,6 +77,7 @@ test("serves the standalone app, REST, MCP, docs, and optimized images", async (
       "deleteTask",
       "listTasks",
       "setTaskCompleted",
+      "updateTaskTitle",
     ]);
     const title = `Container ${crypto.randomUUID()}`;
     const created = await client.callTool({ name: "createTask", arguments: { title } });
@@ -92,11 +93,11 @@ test("serves the standalone app, REST, MCP, docs, and optimized images", async (
   expect(errors).toEqual([]);
 });
 
-test("creates, completes and deletes tasks through the browser RPC transport", async ({
+test("creates, edits, completes and deletes tasks through the browser RPC transport", async ({
   page,
   request,
 }) => {
-  const title = `Container RPC ${crypto.randomUUID()}`;
+  let title = `Container RPC ${crypto.randomUUID()}`;
   await page.goto("/playground");
   await page.getByRole("textbox", { name: "New task", exact: true }).fill(title);
   const created = page.waitForResponse(
@@ -110,6 +111,20 @@ test("creates, completes and deletes tasks through the browser RPC transport", a
     page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("textbox", { name: "New task", exact: true })).toHaveValue("");
+
+  await page.getByRole("button", { name: `Edit ${title}`, exact: true }).click();
+  title = `Edited ${title}`;
+  const titleInput = page.getByRole("textbox", { name: "Task title", exact: true });
+  await titleInput.fill(`  ${title}  `);
+  const renamed = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === "/api/rpc/tasks/updateTitle",
+  );
+  await titleInput.press("Enter");
+  expect((await renamed).ok()).toBe(true);
+  await expect(titleInput).toHaveCount(0);
+  await expect(
+    page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
+  ).toBeVisible();
 
   const completed = page.waitForResponse(
     (response) =>
@@ -166,12 +181,13 @@ test("negotiates legacy MCP and executes every generated tool in the standalone 
       "deleteTask",
       "listTasks",
       "setTaskCompleted",
+      "updateTaskTitle",
     ]);
     expect(tools.find((tool) => tool.name === "listTasks")?.outputSchema).toMatchObject({
       type: "object",
       properties: { result: { type: "array" } },
     });
-    const title = `Container legacy ${crypto.randomUUID()}`;
+    let title = `Container legacy ${crypto.randomUUID()}`;
     const created = toolText(
       await client.callTool({ name: "createTask", arguments: { title } }),
     ) as { id: string; title: string; completed: boolean };
@@ -181,6 +197,16 @@ test("negotiates legacy MCP and executes every generated tool in the standalone 
       arguments: { id: created.id, completed: true },
     });
     expect(toolText(completed)).toEqual({ ...created, completed: true });
+    title = `Edited ${title}`;
+    expect(
+      toolText(
+        await client.callTool({
+          name: "updateTaskTitle",
+          arguments: { id: created.id, title: `  ${title}  ` },
+        }),
+      ),
+    ).toEqual({ ...created, title, completed: true });
+    created.title = title;
     const listed = await client.callTool({ name: "listTasks", arguments: { status: "completed" } });
     const tasks = toolText(listed);
     expect(tasks).toEqual(expect.arrayContaining([{ ...created, completed: true }]));

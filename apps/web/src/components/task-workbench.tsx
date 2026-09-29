@@ -1,6 +1,11 @@
 "use client";
 
-import { createTaskInput, type TaskStatus, taskStatuses } from "@repo/contracts";
+import {
+  createTaskInput,
+  type TaskStatus,
+  taskStatuses,
+  updateTaskTitleInput,
+} from "@repo/contracts";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent } from "@repo/ui/components/card";
@@ -10,10 +15,10 @@ import { cn } from "@repo/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type } from "arktype";
 import { LayoutList, List } from "lucide";
-import { CheckIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { CheckIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import * as m from "motion/react-m";
 import { useQueryState } from "nuqs";
-import { type FormEvent, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { orpc } from "@/lib/orpc";
 import { taskSearchParsers } from "@/lib/task-search";
 import { useWorkbenchStore } from "./workbench-store-provider";
@@ -24,6 +29,66 @@ const filterLabels: Record<TaskStatus, string> = {
   completed: "Completed",
 };
 
+function TaskTitleEditor({
+  title,
+  pending,
+  error,
+  onChange,
+  onSubmit,
+  onCancel,
+}: {
+  title: string;
+  pending: boolean;
+  error: string | undefined;
+  onChange: (title: string) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onCancel: () => void;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    input.current?.focus();
+    input.current?.select();
+  }, []);
+  useEffect(() => {
+    if (!pending) input.current?.focus();
+  }, [pending]);
+
+  return (
+    <form className="flex min-w-0 flex-1 flex-wrap gap-2" onSubmit={onSubmit}>
+      <label htmlFor="task-edit-title" className="sr-only">
+        Task title
+      </label>
+      <Input
+        ref={input}
+        id="task-edit-title"
+        value={title}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && !pending) {
+            event.preventDefault();
+            onCancel();
+          }
+        }}
+        disabled={pending}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? "task-edit-feedback" : undefined}
+        className="min-w-0 basis-full sm:flex-1 sm:basis-0"
+      />
+      <Button type="submit" disabled={pending}>
+        {pending ? "Saving…" : "Save"}
+      </Button>
+      <Button type="button" variant="outline" disabled={pending} onClick={onCancel}>
+        Cancel
+      </Button>
+      {error && (
+        <p id="task-edit-feedback" role="alert" className="w-full text-sm text-destructive">
+          {error}
+        </p>
+      )}
+    </form>
+  );
+}
+
 export function TaskWorkbench() {
   const [status, setStatus] = useQueryState(
     "status",
@@ -31,6 +96,10 @@ export function TaskWorkbench() {
   );
   const [title, setTitle] = useState("");
   const [validationError, setValidationError] = useState<string>();
+  const [editing, setEditing] = useState<{ id: string; title: string }>();
+  const [editError, setEditError] = useState<string>();
+  const editTrigger = useRef<HTMLButtonElement | null>(null);
+  const newTaskInput = useRef<HTMLInputElement>(null);
   const submitting = useRef(false);
   const changingTask = useRef(false);
   const compact = useWorkbenchStore((state) => state.compact);
@@ -43,27 +112,75 @@ export function TaskWorkbench() {
     orpc.tasks.setCompleted.mutationOptions({ onSuccess: invalidateTasks }),
   );
   const deleteTask = useMutation(orpc.tasks.delete.mutationOptions({ onSuccess: invalidateTasks }));
-  const taskChangePending = setCompleted.isPending || deleteTask.isPending;
+  const updateTitle = useMutation(
+    orpc.tasks.updateTitle.mutationOptions({ onSuccess: invalidateTasks }),
+  );
+  const taskChangePending = setCompleted.isPending || deleteTask.isPending || updateTitle.isPending;
+
+  useEffect(() => {
+    if (!editing && editTrigger.current) {
+      if (editTrigger.current.isConnected) editTrigger.current.focus();
+      else newTaskInput.current?.focus();
+      editTrigger.current = null;
+    }
+  }, [editing]);
+
+  useEffect(() => {
+    // A refetch or browser history navigation can remove the row being edited.
+    if (
+      editing &&
+      tasks.isSuccess &&
+      !tasks.isFetching &&
+      !taskChangePending &&
+      !tasks.data.some((task) => task.id === editing.id)
+    ) {
+      setEditing(undefined);
+      setEditError(undefined);
+    }
+  }, [editing, taskChangePending, tasks.data, tasks.isFetching, tasks.isSuccess]);
 
   async function changeTask(action: () => Promise<unknown>) {
-    if (changingTask.current) return;
+    if (changingTask.current) return false;
     changingTask.current = true;
     setValidationError(undefined);
     if (!createTask.isPending) createTask.reset();
     setCompleted.reset();
     deleteTask.reset();
+    updateTitle.reset();
     try {
       await action();
+      return true;
     } catch {
       // Keep the task visible and expose the mutation error so the action can be retried.
+      return false;
     } finally {
       changingTask.current = false;
     }
   }
 
+  function cancelEdit() {
+    if (changingTask.current) return;
+    setEditing(undefined);
+    setEditError(undefined);
+    updateTitle.reset();
+  }
+
+  async function saveEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editing || changingTask.current) return;
+    setEditError(undefined);
+    updateTitle.reset();
+    const input = updateTaskTitleInput(editing);
+    if (input instanceof type.errors) {
+      setEditError("Enter a task between 1 and 120 characters.");
+      return;
+    }
+    if (await changeTask(() => updateTitle.mutateAsync(input))) setEditing(undefined);
+  }
+
   async function submitTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitting.current) return;
+    if (submitting.current || editing) return;
     setValidationError(undefined);
     createTask.reset();
     if (!changingTask.current) {
@@ -114,6 +231,7 @@ export function TaskWorkbench() {
             New task
           </label>
           <Input
+            ref={newTaskInput}
             id="task-title"
             name="title"
             value={title}
@@ -124,7 +242,7 @@ export function TaskWorkbench() {
             aria-describedby="task-feedback"
             className="flex-1"
           />
-          <Button type="submit" disabled={createTask.isPending}>
+          <Button type="submit" disabled={createTask.isPending || Boolean(editing)}>
             <PlusIcon aria-hidden="true" />
             {createTask.isPending ? "Adding…" : "Add task"}
           </Button>
@@ -137,11 +255,15 @@ export function TaskWorkbench() {
           {error}
         </div>
         <span role="status" className="sr-only">
-          {deleteTask.isPending
-            ? "Deleting task…"
-            : deleteTask.isSuccess
-              ? `Deleted ${deleteTask.data.title}.`
-              : ""}
+          {updateTitle.isPending
+            ? "Saving task…"
+            : updateTitle.isSuccess
+              ? `Saved ${updateTitle.data.title}.`
+              : deleteTask.isPending
+                ? "Deleting task…"
+                : deleteTask.isSuccess
+                  ? `Deleted ${deleteTask.data.title}.`
+                  : ""}
         </span>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-b pb-4">
           <fieldset className="flex flex-wrap gap-1">
@@ -151,6 +273,7 @@ export function TaskWorkbench() {
                 key={filter}
                 variant={filter === status ? "secondary" : "ghost"}
                 aria-pressed={filter === status}
+                disabled={Boolean(editing)}
                 onClick={() => void setStatus(filter)}
               >
                 {filterLabels[filter]}
@@ -162,18 +285,22 @@ export function TaskWorkbench() {
             Compact view
           </Button>
         </div>
-        {tasks.isPending ? (
-          <p role="status" className="py-8 text-sm text-muted-foreground">
-            Loading tasks…
-          </p>
-        ) : tasks.isError ? (
+        {tasks.isError && (
           <div role="alert" className="flex items-center justify-between gap-4 py-8">
-            <p className="text-sm text-destructive">Could not load tasks. Check your connection.</p>
+            <p className="text-sm text-destructive">
+              {tasks.data ? "Could not refresh tasks." : "Could not load tasks."} Check your
+              connection.
+            </p>
             <Button variant="outline" onClick={() => void tasks.refetch()}>
               Try again
             </Button>
           </div>
-        ) : tasks.data.length === 0 ? (
+        )}
+        {tasks.isPending ? (
+          <p role="status" className="py-8 text-sm text-muted-foreground">
+            Loading tasks…
+          </p>
+        ) : !tasks.data ? null : tasks.data.length === 0 ? (
           <p className="py-10 text-center text-sm text-muted-foreground">No tasks here yet.</p>
         ) : (
           <ul aria-label="Tasks" className="divide-y">
@@ -189,7 +316,7 @@ export function TaskWorkbench() {
                   variant={task.completed ? "default" : "outline"}
                   aria-label={`Mark ${task.title} as ${task.completed ? "active" : "completed"}`}
                   aria-pressed={task.completed}
-                  disabled={taskChangePending}
+                  disabled={taskChangePending || Boolean(editing)}
                   onClick={() =>
                     void changeTask(() =>
                       setCompleted.mutateAsync({ id: task.id, completed: !task.completed }),
@@ -198,22 +325,57 @@ export function TaskWorkbench() {
                 >
                   {task.completed && <CheckIcon aria-hidden="true" />}
                 </Button>
-                <span
-                  className={cn(
-                    "min-w-0 flex-1 wrap-anywhere",
-                    compact ? "text-xs" : "text-base",
-                    task.completed && "text-muted-foreground line-through",
-                  )}
-                >
-                  {task.title}
-                </span>
+                {editing?.id === task.id ? (
+                  <TaskTitleEditor
+                    title={editing.title}
+                    pending={updateTitle.isPending}
+                    error={editError ?? updateTitle.error?.message}
+                    onChange={(title) => setEditing({ id: task.id, title })}
+                    onSubmit={(event) => void saveEdit(event)}
+                    onCancel={cancelEdit}
+                  />
+                ) : (
+                  <span
+                    className={cn(
+                      "min-w-0 flex-1 wrap-anywhere",
+                      compact ? "text-xs" : "text-base",
+                      task.completed && "text-muted-foreground line-through",
+                    )}
+                  >
+                    {task.title}
+                  </span>
+                )}
                 <Button
                   size={compact ? "icon-xs" : "icon-sm"}
                   variant="ghost"
-                  className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  className={editing?.id === task.id ? "hidden" : "text-muted-foreground"}
+                  aria-label={`Edit ${task.title}`}
+                  title={`Edit ${task.title}`}
+                  disabled={taskChangePending || (Boolean(editing) && editing?.id !== task.id)}
+                  onClick={(event) => {
+                    if (changingTask.current) return;
+                    editTrigger.current = event.currentTarget;
+                    setValidationError(undefined);
+                    if (!createTask.isPending) createTask.reset();
+                    setCompleted.reset();
+                    deleteTask.reset();
+                    updateTitle.reset();
+                    setEditError(undefined);
+                    setEditing({ id: task.id, title: task.title });
+                  }}
+                >
+                  <PencilIcon aria-hidden="true" />
+                </Button>
+                <Button
+                  size={compact ? "icon-xs" : "icon-sm"}
+                  variant="ghost"
+                  className={cn(
+                    "text-muted-foreground hover:bg-destructive/10 hover:text-destructive",
+                    editing?.id === task.id && "hidden",
+                  )}
                   aria-label={`Delete ${task.title}`}
                   title={`Delete ${task.title}`}
-                  disabled={taskChangePending}
+                  disabled={taskChangePending || Boolean(editing)}
                   onClick={() => void changeTask(() => deleteTask.mutateAsync({ id: task.id }))}
                 >
                   <Trash2Icon aria-hidden="true" />

@@ -110,9 +110,49 @@ describe("generated OpenAPI specification", () => {
             },
           },
         },
+        "/v1/tasks/{id}/title": {
+          patch: {
+            operationId: "updateTaskTitle",
+            tags: ["Tasks"],
+            parameters: [
+              { name: "id", in: "path", required: true, schema: { type: "string", minLength: 1 } },
+            ],
+            requestBody: {
+              required: true,
+              content: {
+                "application/json": {
+                  example: { title: "Polish a feature" },
+                  schema: {
+                    type: "object",
+                    required: ["title"],
+                    properties: { title: { type: "string" } },
+                  },
+                },
+              },
+            },
+            responses: {
+              "200": {
+                description: "Task title updated",
+                content: {
+                  "application/json": {
+                    schema: {
+                      type: "object",
+                      required: expect.arrayContaining(["id", "title", "completed"]),
+                    },
+                  },
+                },
+              },
+              "404": expect.any(Object),
+            },
+          },
+        },
       },
     });
-    expect(Object.keys(spec.paths ?? {}).sort()).toEqual(["/v1/tasks", "/v1/tasks/{id}"]);
+    expect(Object.keys(spec.paths ?? {}).sort()).toEqual([
+      "/v1/tasks",
+      "/v1/tasks/{id}",
+      "/v1/tasks/{id}/title",
+    ]);
     expect(spec.paths?.["/v1/tasks/{id}"]?.delete?.requestBody).toBeUndefined();
   });
 
@@ -131,6 +171,17 @@ describe("generated OpenAPI specification", () => {
     });
     expect(JSON.stringify(create?.requestBody)).not.toContain('"maxLength":120');
     expect(JSON.stringify(create?.requestBody)).not.toContain('"minLength":1');
+    const edit = spec.paths?.["/v1/tasks/{id}/title"]?.patch;
+    expect(edit?.description).toContain("normalized title must contain 1–120 characters");
+    expect(edit?.responses?.["200"]).toMatchObject({
+      content: {
+        "application/json": {
+          schema: { properties: { title: { type: "string", minLength: 1, maxLength: 120 } } },
+        },
+      },
+    });
+    expect(JSON.stringify(edit?.requestBody)).not.toContain('"maxLength":120');
+    expect(JSON.stringify(edit?.requestBody)).not.toContain('"minLength":1');
   });
 
   it("serves the generated document publicly without caching it", async () => {
@@ -225,10 +276,11 @@ describe("OpenAPI HTTP adapter", () => {
     expect(html).toContain("listTasks");
     expect(html).toContain("createTask");
     expect(html).toContain("deleteTask");
+    expect(html).toContain("updateTaskTitle");
     expect(html).not.toContain("proxy.scalar.com");
   });
 
-  it("creates, completes, filters, and deletes tasks shared with RPC", async () => {
+  it("creates, completes, edits, filters, and deletes tasks shared with RPC", async () => {
     const context: Context = { repository: createDemoRepository([]), onTasksChanged: vi.fn() };
     const create = await request(context, "/v1/tasks", "POST", {
       title: `  ${"x".repeat(120)}  `,
@@ -264,9 +316,27 @@ describe("OpenAPI HTTP adapter", () => {
     await expect(rpcClient.tasks.list({ status: "all" })).resolves.toEqual([
       { ...task, completed: true },
     ]);
+    const edit = await request(context, `/v1/tasks/${task.id}/title`, "PATCH", {
+      title: "  Edited through REST  ",
+    });
+    expect(edit.status).toBe(200);
+    expect(await edit.json()).toEqual({ ...task, title: "Edited through REST", completed: true });
+    await expect(rpcClient.tasks.list({ status: "completed" })).resolves.toEqual([
+      { ...task, title: "Edited through REST", completed: true },
+    ]);
+    await expect(
+      rpcClient.tasks.updateTitle({ id: task.id, title: "  Edited through RPC  " }),
+    ).resolves.toEqual({
+      ...task,
+      title: "Edited through RPC",
+      completed: true,
+    });
+    expect(await (await request(context, "/v1/tasks?status=completed")).json()).toEqual([
+      { ...task, title: "Edited through RPC", completed: true },
+    ]);
     const deleted = await request(context, `/v1/tasks/${task.id}`, "DELETE");
     expect(deleted.status).toBe(200);
-    expect(await deleted.json()).toEqual({ ...task, completed: true });
+    expect(await deleted.json()).toEqual({ ...task, title: "Edited through RPC", completed: true });
     await expect(rpcClient.tasks.list({ status: "all" })).resolves.toEqual([]);
     await expect(rpcClient.tasks.delete({ id: task.id })).rejects.toMatchObject({
       code: "NOT_FOUND",
@@ -274,11 +344,12 @@ describe("OpenAPI HTTP adapter", () => {
     const rpcTask = await rpcClient.tasks.create({ title: "Delete through RPC" });
     await expect(rpcClient.tasks.delete({ id: rpcTask.id })).resolves.toEqual(rpcTask);
     expect(await (await request(context, "/v1/tasks?status=all")).json()).toEqual([]);
-    expect(context.onTasksChanged).toHaveBeenCalledTimes(5);
+    expect(context.onTasksChanged).toHaveBeenCalledTimes(7);
     expect(create.headers.get("Cache-Control")).toBe("no-store");
     expect(active.headers.get("Cache-Control")).toBe("no-store");
     expect(update.headers.get("Cache-Control")).toBe("no-store");
     expect(deleted.headers.get("Cache-Control")).toBe("no-store");
+    expect(edit.headers.get("Cache-Control")).toBe("no-store");
   });
 
   it.each<[path: string, method: string, body?: unknown]>([
@@ -290,6 +361,10 @@ describe("OpenAPI HTTP adapter", () => {
     ["/v1/tasks", "POST", { title: "x".repeat(121) }],
     ["/v1/tasks/explore", "PATCH", { completed: "true" }],
     ["/v1/tasks/explore", "PATCH", {}],
+    ["/v1/tasks/explore/title", "PATCH", {}],
+    ["/v1/tasks/explore/title", "PATCH", { title: 42 }],
+    ["/v1/tasks/explore/title", "PATCH", { title: "   " }],
+    ["/v1/tasks/explore/title", "PATCH", { title: "x".repeat(121) }],
   ])("rejects invalid %s %s input before mutation: %j", async (path, method, body) => {
     const repository = createDemoRepository();
     const before = repository.list("all");
@@ -303,15 +378,19 @@ describe("OpenAPI HTTP adapter", () => {
     expect(changed).not.toHaveBeenCalled();
   });
 
-  it.each(["PATCH", "DELETE"])(
-    "returns the typed missing-task error for %s without invalidating caches",
-    async (method) => {
+  it.each([
+    ["PATCH", "", { completed: true }],
+    ["DELETE", "", undefined],
+    ["PATCH", "/title", { title: "Edited" }],
+  ] as const)(
+    "returns the typed missing-task error for %s %s without invalidating caches",
+    async (method, suffix, body) => {
       const changed = vi.fn();
       const response = await request(
         { repository: createDemoRepository([]), onTasksChanged: changed },
-        "/v1/tasks/missing",
+        `/v1/tasks/missing${suffix}`,
         method,
-        method === "PATCH" ? { completed: true } : undefined,
+        body,
       );
 
       expect(response.status).toBe(404);
@@ -332,7 +411,11 @@ describe("OpenAPI HTTP adapter", () => {
     expect(changed).toHaveBeenCalledOnce();
   });
 
-  it.each(["PATCH", "DELETE"])("rejects a body id overriding the URL for %s", async (method) => {
+  it.each([
+    ["PATCH", ""],
+    ["DELETE", ""],
+    ["PATCH", "/title"],
+  ] as const)("rejects a body id overriding the URL for %s %s", async (method, suffix) => {
     const repository = createDemoRepository([
       { id: "url-task", title: "URL task", completed: false },
       { id: "body-task", title: "Body task", completed: false },
@@ -341,9 +424,9 @@ describe("OpenAPI HTTP adapter", () => {
     const changed = vi.fn();
     const response = await request(
       { repository, onTasksChanged: changed },
-      "/v1/tasks/url-task",
+      `/v1/tasks/url-task${suffix}`,
       method,
-      { id: "body-task", completed: true },
+      { id: "body-task", completed: true, title: "Edited" },
     );
 
     expect(response.status).toBe(400);
@@ -353,17 +436,21 @@ describe("OpenAPI HTTP adapter", () => {
     expect(changed).not.toHaveBeenCalled();
   });
 
-  it.each(["PATCH", "DELETE"])(
-    "rejects a query id overriding the %s path without changing either task",
-    async (method) => {
+  it.each([
+    ["PATCH", ""],
+    ["DELETE", ""],
+    ["PATCH", "/title"],
+  ] as const)(
+    "rejects a query id overriding the %s %s path without changing either task",
+    async (method, suffix) => {
       const repository = createDemoRepository();
       const before = repository.list("all");
       const changed = vi.fn();
       const response = await request(
         { repository, onTasksChanged: changed },
-        "/v1/tasks/explore?id=feature",
+        `/v1/tasks/explore${suffix}?id=feature`,
         method,
-        method === "PATCH" ? { completed: true } : undefined,
+        method === "PATCH" ? { completed: true, title: "Edited" } : undefined,
       );
       expect(response.status).toBe(400);
       expect(await response.json()).toMatchObject({ code: "BAD_REQUEST" });
@@ -372,14 +459,18 @@ describe("OpenAPI HTTP adapter", () => {
     },
   );
 
-  it.each(["PATCH", "DELETE"])(
-    "rejects malformed %s JSON before mutation or cache invalidation",
-    async (method) => {
+  it.each([
+    ["PATCH", ""],
+    ["DELETE", ""],
+    ["PATCH", "/title"],
+  ] as const)(
+    "rejects malformed %s %s JSON before mutation or cache invalidation",
+    async (method, suffix) => {
       const repository = createDemoRepository();
       const before = repository.list("all");
       const changed = vi.fn();
       const response = await handleOpenApiRequest(
-        new Request("http://localhost/api/v1/tasks/explore", {
+        new Request(`http://localhost/api/v1/tasks/explore${suffix}`, {
           method,
           headers: { "Content-Type": "application/json" },
           body: '{"completed":',
@@ -416,6 +507,36 @@ describe("OpenAPI HTTP adapter", () => {
     expect(response.status).toBe(500);
     expect(await response.json()).toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
     expect(response.headers.get("Cache-Control")).toBe("no-store");
+  });
+
+  it("rejects invalid title edit output instead of returning successful JSON", async () => {
+    const repository: TaskRepository = {
+      ...createDemoRepository(),
+      updateTitle: () => ({ id: "broken", title: 42, completed: false }) as unknown as Task,
+    };
+    const response = await request({ repository }, "/v1/tasks/broken/title", "PATCH", {
+      title: "Edited",
+    });
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+  });
+
+  it("normalizes edits at the length limit and isolates HTTP request contexts", async () => {
+    const first = { repository: createDemoRepository(), onTasksChanged: vi.fn() };
+    const second = { repository: createDemoRepository(), onTasksChanged: vi.fn() };
+    const title = "x".repeat(120);
+    const responses = await Promise.all([
+      request(first, "/v1/tasks/explore/title", "PATCH", { title: `  ${title}  ` }),
+      request(second, "/v1/tasks/explore/title", "PATCH", { title: "Second context" }),
+    ]);
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+    expect(first.repository.list("completed")).toEqual([{ id: "explore", title, completed: true }]);
+    expect(second.repository.list("completed")).toEqual([
+      { id: "explore", title: "Second context", completed: true },
+    ]);
+    expect(first.onTasksChanged).toHaveBeenCalledOnce();
+    expect(second.onTasksChanged).toHaveBeenCalledOnce();
   });
 
   it("keeps concurrent HTTP requests bound to their own repository and invalidator", async () => {

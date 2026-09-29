@@ -3,8 +3,8 @@ import type { Task, TaskStatus } from "@repo/contracts";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { CheckIcon, PlusIcon, RefreshCwIcon, Trash2Icon } from "lucide-react";
-import { type FormEvent, useEffect, useState, useSyncExternalStore } from "react";
+import { CheckIcon, PencilIcon, PlusIcon, RefreshCwIcon, Trash2Icon } from "lucide-react";
+import { type FormEvent, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { callHostTool } from "./bridge";
 import { TaskAppSession, type TaskAppTools, taskKey } from "./model";
 
@@ -14,6 +14,104 @@ const filters: [TaskStatus, string][] = [
   ["completed", "Completed"],
 ];
 
+function TaskTitleEditor({
+  task,
+  session,
+  disabled,
+  onClose,
+}: {
+  task: Task;
+  session: TaskAppSession;
+  disabled: boolean;
+  onClose: () => void;
+}) {
+  const [title, setTitle] = useState(task.title);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const pending = useRef(false);
+  const restoreInputFocus = useRef(false);
+  const mounted = useRef(true);
+  const input = useRef<HTMLInputElement>(null);
+  const fieldId = useId();
+  useEffect(() => {
+    mounted.current = true;
+    input.current?.focus();
+    input.current?.select();
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (!saving && restoreInputFocus.current) {
+      input.current?.focus();
+      restoreInputFocus.current = false;
+    }
+  }, [saving]);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending.current || disabled) return;
+    const normalized = title.trim();
+    if (!normalized || normalized.length > 120) {
+      setError("Enter a task between 1 and 120 characters.");
+      input.current?.focus();
+      return;
+    }
+    setError(null);
+    pending.current = true;
+    setSaving(true);
+    const saved = await session.mutate("updateTaskTitle", { id: task.id, title: normalized });
+    pending.current = false;
+    if (!mounted.current) return;
+    restoreInputFocus.current = !saved;
+    setSaving(false);
+    if (saved) onClose();
+  }
+
+  return (
+    <form
+      className="flex min-w-0 flex-1 flex-wrap items-start gap-2"
+      aria-label={`Edit ${task.title}`}
+      onSubmit={submit}
+    >
+      <div className="min-w-0 basis-full sm:flex-1 sm:basis-auto">
+        <label className="sr-only" htmlFor={fieldId}>
+          Task title
+        </label>
+        <Input
+          ref={input}
+          id={fieldId}
+          value={title}
+          disabled={disabled || saving}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${fieldId}-error` : undefined}
+          onChange={(event) => {
+            setTitle(event.target.value);
+            setError(null);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && !pending.current && !disabled) {
+              event.preventDefault();
+              onClose();
+            }
+          }}
+        />
+        {error && (
+          <p id={`${fieldId}-error`} className="mt-1 text-xs text-destructive" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+      <Button type="submit" disabled={disabled || saving}>
+        {saving ? "Saving…" : "Save"}
+      </Button>
+      <Button type="button" variant="outline" disabled={disabled || saving} onClick={onClose}>
+        Cancel
+      </Button>
+    </form>
+  );
+}
+
 export function TaskAppView({ session }: { session: TaskAppSession }) {
   const state = useSyncExternalStore(session.subscribe, session.snapshot);
   const tasks = useQuery<Task[]>({
@@ -22,10 +120,39 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
     enabled: false,
   });
   const [title, setTitle] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const focusAfterEdit = useRef<string | null>(null);
+  const editButtons = useRef(new Map<string, HTMLButtonElement>());
+  const refreshButton = useRef<HTMLButtonElement>(null);
   const busy = !state.connected || state.mutating;
+  const editing = editingId !== null;
+
+  useEffect(() => {
+    if (editingId !== null || focusAfterEdit.current === null) return;
+    (editButtons.current.get(focusAfterEdit.current) ?? refreshButton.current)?.focus();
+    focusAfterEdit.current = null;
+  }, [editingId]);
+
+  function closeEditor(id: string) {
+    focusAfterEdit.current = id;
+    setEditingId(null);
+  }
+
+  useEffect(() => {
+    if (
+      editingId !== null &&
+      !state.loading &&
+      !state.mutating &&
+      !tasks.data?.some((task) => task.id === editingId)
+    ) {
+      focusAfterEdit.current = editingId;
+      setEditingId(null);
+    }
+  }, [editingId, state.loading, state.mutating, tasks.data]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (editing) return;
     const normalized = title.trim();
     if (!normalized || normalized.length > 120) {
       session.fail("Enter a task between 1 and 120 characters.");
@@ -46,8 +173,9 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
           <h1 className="mt-1 text-xl font-semibold">Your tasks, right here.</h1>
         </div>
         <Button
+          ref={refreshButton}
           variant="outline"
-          disabled={busy || state.loading}
+          disabled={busy || state.loading || editing}
           onClick={() => void session.refresh()}
           aria-label="Refresh tasks"
         >
@@ -72,7 +200,7 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
             onChange={(event) => setTitle(event.target.value)}
             disabled={busy}
           />
-          <Button type="submit" disabled={busy}>
+          <Button type="submit" disabled={busy || editing}>
             <PlusIcon aria-hidden="true" />
             Add task
           </Button>
@@ -84,7 +212,7 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
             key={status}
             variant={status === state.status ? "secondary" : "ghost"}
             aria-pressed={status === state.status}
-            disabled={busy}
+            disabled={busy || editing}
             onClick={() => void session.refresh(status)}
           >
             {label}
@@ -117,7 +245,7 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
               <Button
                 size="icon"
                 variant={task.completed ? "default" : "outline"}
-                disabled={busy}
+                disabled={busy || editing}
                 aria-label={`Mark ${task.title} as ${task.completed ? "active" : "completed"}`}
                 aria-pressed={task.completed}
                 onClick={() =>
@@ -134,21 +262,50 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
                 {task.completed ? "Done" : "Active"}
               </span>
             )}
-            <span
-              className={
-                task.completed
-                  ? "min-w-0 flex-1 text-sm wrap-anywhere text-muted-foreground line-through"
-                  : "min-w-0 flex-1 text-sm wrap-anywhere"
-              }
-            >
-              {task.title}
-            </span>
-            {session.tools.deleteTask && (
+            {editingId === task.id ? (
+              <TaskTitleEditor
+                task={task}
+                session={session}
+                disabled={busy}
+                onClose={() => closeEditor(task.id)}
+              />
+            ) : (
+              <span
+                className={
+                  task.completed
+                    ? "min-w-0 flex-1 text-sm wrap-anywhere text-muted-foreground line-through"
+                    : "min-w-0 flex-1 text-sm wrap-anywhere"
+                }
+              >
+                {task.title}
+              </span>
+            )}
+            {session.tools.updateTaskTitle && editingId !== task.id && (
+              <Button
+                ref={(element) => {
+                  if (element) editButtons.current.set(task.id, element);
+                  else editButtons.current.delete(task.id);
+                }}
+                size="icon"
+                variant="ghost"
+                className="text-muted-foreground"
+                disabled={busy || editing}
+                aria-label={`Edit ${task.title}`}
+                title="Edit task"
+                onClick={() => {
+                  session.clearError();
+                  setEditingId(task.id);
+                }}
+              >
+                <PencilIcon aria-hidden="true" />
+              </Button>
+            )}
+            {session.tools.deleteTask && editingId !== task.id && (
               <Button
                 size="icon"
                 variant="ghost"
                 className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                disabled={busy}
+                disabled={busy || editing}
                 aria-label={`Delete ${task.title}`}
                 title="Delete task"
                 onClick={() => void session.mutate("deleteTask", { id: task.id })}

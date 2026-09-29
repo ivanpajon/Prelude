@@ -90,7 +90,7 @@ test("keeps Inspector authenticated and connects through the embedded developmen
   await expect(connection).toBeChecked();
   await inspector.getByText("Tools", { exact: true }).click();
   const tools = inspector.getByTestId("tools-screen");
-  await expect(tools).toHaveAttribute("data-tool-count", "4");
+  await expect(tools).toHaveAttribute("data-tool-count", "5");
   const title = `Docker Inspector ${crypto.randomUUID()}`;
   await tools.getByRole("button", { name: /createTask/ }).click();
   await tools.getByRole("textbox", { name: /^title/ }).fill(title);

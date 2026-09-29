@@ -15,6 +15,27 @@ function tool(operationId: string, name = operationId): McpOpenAPITool {
 }
 
 describe("MCP App tool configuration", () => {
+  it("maps title editing by operation ID after a tool rename", () => {
+    expect(
+      getTaskAppTools([tool("listTasks", "read_tasks"), tool("updateTaskTitle", "rename_task")]),
+    ).toEqual({
+      listTasks: "read_tasks",
+      updateTaskTitle: "rename_task",
+    });
+  });
+
+  it("omits excluded title editing and ignores unrelated tools with the same name", () => {
+    const config = getTaskAppTools([
+      tool("listTasks"),
+      tool("unrelatedOperation", "updateTaskTitle"),
+    ]);
+    expect(config).toEqual({ listTasks: "listTasks" });
+    expect(injectMcpAppConfig(html, config ?? { listTasks: "invalid" })).not.toContain(
+      '"updateTaskTitle"',
+    );
+    expect(getTaskAppTools([tool("updateTaskTitle")])).toBeUndefined();
+  });
+
   it("maps deletion by operation ID after a tool rename", () => {
     expect(
       getTaskAppTools([tool("listTasks", "read_tasks"), tool("deleteTask", "remove_task")]),
@@ -40,6 +61,7 @@ describe("MCP App HTML", () => {
     const tools = {
       listTasks: 'list</script><script>alert("unsafe")</script>$&',
       createTask: "create-renamed",
+      updateTaskTitle: "rename-task",
       deleteTask: "delete-renamed",
     };
     const output = injectMcpAppConfig(html, tools);

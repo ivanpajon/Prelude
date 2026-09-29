@@ -13,6 +13,7 @@ const tools = {
   listTasks: "listTasks",
   createTask: "createTask",
   setTaskCompleted: "setTaskCompleted",
+  updateTaskTitle: "updateTaskTitle",
   deleteTask: "deleteTask",
 };
 const result = (value: unknown) => ({ structuredContent: value });
@@ -80,6 +81,8 @@ describe("host payloads", () => {
       { tools: { ...tools, createTask: false } },
       { tools: { ...tools, deleteTask: false } },
       { tools: { ...tools, deleteTask: " " } },
+      { tools: { ...tools, updateTaskTitle: false } },
+      { tools: { ...tools, updateTaskTitle: " " } },
     ]) {
       expect(() => readTools(config)).toThrow();
     }
@@ -91,9 +94,101 @@ describe("host payloads", () => {
       deleteTask: "remove_task",
     });
   });
+
+  it("preserves configured title-update tool names", () => {
+    expect(
+      readTools({ tools: { listTasks: "tasks_list", updateTaskTitle: "rename_task" } }),
+    ).toEqual({
+      listTasks: "tasks_list",
+      updateTaskTitle: "rename_task",
+    });
+  });
 });
 
 describe("Task App session", () => {
+  it("edits through the configured tool and invalidates every cached filter before refreshing", async () => {
+    const { session, call } = fixture({ ...tools, updateTaskTitle: "rename_task" });
+    session.queryClient.setQueryData(taskKey("active"), [task]);
+    session.queryClient.setQueryData(taskKey("completed"), []);
+    const updated = { ...task, title: "New title" };
+    call.mockResolvedValueOnce(result(updated)).mockResolvedValueOnce(result([updated]));
+    expect(await session.mutate("updateTaskTitle", { id: task.id, title: updated.title })).toBe(
+      true,
+    );
+    expect(call).toHaveBeenNthCalledWith(
+      1,
+      "rename_task",
+      { id: task.id, title: updated.title },
+      expect.any(AbortSignal),
+    );
+    expect(call).toHaveBeenNthCalledWith(
+      2,
+      "listTasks",
+      { status: "all" },
+      expect.any(AbortSignal),
+    );
+    expect(session.queryClient.getQueryData(taskKey("all"))).toEqual([updated]);
+    expect(session.queryClient.getQueryState(taskKey("active"))?.isInvalidated).toBe(true);
+    expect(session.queryClient.getQueryState(taskKey("completed"))?.isInvalidated).toBe(true);
+    expect(session.snapshot()).toMatchObject({ mutating: false, loading: false, error: null });
+  });
+
+  it("preserves the current title on failed or malformed edits and supports retry", async () => {
+    const { session, call } = fixture();
+    for (const payload of [{ isError: true }, result({ id: task.id })]) {
+      call.mockResolvedValueOnce(payload);
+      expect(await session.mutate("updateTaskTitle", { id: task.id, title: "Keep trying" })).toBe(
+        false,
+      );
+      expect(session.queryClient.getQueryData(taskKey("all"))).toEqual([task]);
+      expect(session.snapshot()).toMatchObject({ mutating: false, error: expect.any(String) });
+    }
+    const updated = { ...task, title: "Keep trying" };
+    call.mockResolvedValueOnce(result(updated)).mockResolvedValueOnce(result([updated]));
+    expect(await session.mutate("updateTaskTitle", { id: task.id, title: updated.title })).toBe(
+      true,
+    );
+    expect(session.queryClient.getQueryData(taskKey("all"))).toEqual([updated]);
+  });
+
+  it("guards repeated edits and ignores their late completion after host cancellation", async () => {
+    const { session, call } = fixture();
+    const pending = deferred();
+    call.mockReturnValueOnce(pending.promise);
+    const update = session.mutate("updateTaskTitle", { id: task.id, title: "Changed title" });
+    expect(await session.mutate("updateTaskTitle", { id: task.id, title: "Second title" })).toBe(
+      false,
+    );
+    expect(await session.refresh()).toBe(false);
+    const signal = call.mock.calls[0]?.[2];
+    session.cancel();
+    expect(signal?.aborted).toBe(true);
+    pending.resolve(result({ ...task, title: "Changed title" }));
+    expect(await update).toBe(false);
+    expect(call).toHaveBeenCalledTimes(1);
+    expect(session.queryClient.getQueryData(taskKey("all"))).toEqual([task]);
+    expect(session.snapshot().error).toContain("cancelled");
+  });
+
+  it("does not dispatch excluded title updates or keep an edit alive after disposal", async () => {
+    const excluded = fixture({ listTasks: "listTasks" });
+    expect(await excluded.session.mutate("updateTaskTitle", { id: task.id, title: "No" })).toBe(
+      false,
+    );
+    expect(excluded.call).not.toHaveBeenCalled();
+    const { session, call } = fixture();
+    const pending = deferred();
+    call.mockReturnValueOnce(pending.promise);
+    const update = session.mutate("updateTaskTitle", { id: task.id, title: "Late title" });
+    const signal = call.mock.calls[0]?.[2];
+    session.dispose();
+    expect(signal?.aborted).toBe(true);
+    pending.resolve(result({ ...task, title: "Late title" }));
+    expect(await update).toBe(false);
+    expect(call).toHaveBeenCalledTimes(1);
+    expect(session.queryClient.getQueryCache().getAll()).toHaveLength(0);
+  });
+
   it("deletes through the configured tool name, invalidates filters, and refreshes the list", async () => {
     const { session, call } = fixture({
       ...tools,

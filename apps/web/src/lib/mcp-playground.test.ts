@@ -139,6 +139,7 @@ describe("homepage MCP protocol client", () => {
           outputSchema: expect.objectContaining({ type: "array", items: expect.any(Object) }),
         }),
         expect.objectContaining({ name: "createTask", inputSchema: expect.any(Object) }),
+        expect.objectContaining({ name: "updateTaskTitle", inputSchema: expect.any(Object) }),
         expect.objectContaining({
           name: "deleteTask",
           inputSchema: expect.any(Object),
@@ -161,20 +162,27 @@ describe("homepage MCP protocol client", () => {
       ok: true,
       result: { structuredContent: { ...task, completed: true } },
     });
+    const edited = { ...task, title: "Edited through MCP", completed: true };
+    expect(
+      await playground.execute(headers, "updateTaskTitle", {
+        id: task.id,
+        title: "  Edited through MCP  ",
+      }),
+    ).toMatchObject({ ok: true, result: { structuredContent: edited } });
     expect(await playground.execute(headers, "listTasks", { status: "completed" })).toMatchObject({
       ok: true,
-      result: { structuredContent: [{ ...task, completed: true }] },
+      result: { structuredContent: [edited] },
     });
     expect(await playground.execute(headers, "deleteTask", { id: task.id })).toMatchObject({
       ok: true,
-      result: { structuredContent: { ...task, completed: true } },
+      result: { structuredContent: edited },
     });
     expect(await playground.execute(headers, "listTasks", { status: "all" })).toMatchObject({
       ok: true,
       result: { structuredContent: [] },
     });
-    expect(context.onTasksChanged).toHaveBeenCalledTimes(3);
-    expect(closed).toHaveBeenCalledTimes(6);
+    expect(context.onTasksChanged).toHaveBeenCalledTimes(4);
+    expect(closed).toHaveBeenCalledTimes(7);
     expect(contexts.length).toBeGreaterThan(4);
     for (const request of contexts) {
       expect(request.headers.get("cookie")).toBe("session=example");
@@ -214,6 +222,7 @@ describe("homepage MCP protocol client", () => {
         expect.objectContaining({ name: "listTasks" }),
         expect.objectContaining({ name: "createTask" }),
         expect.objectContaining({ name: "setTaskCompleted" }),
+        expect.objectContaining({ name: "updateTaskTitle" }),
         expect.objectContaining({ name: "deleteTask" }),
       ]),
     });
@@ -226,6 +235,8 @@ describe("homepage MCP protocol client", () => {
       ["createTask", { title: "   " }],
       ["listTasks", { status: "invalid" }],
       ["setTaskCompleted", { id: "missing", completed: true }],
+      ["updateTaskTitle", { id: "missing", title: "Changed" }],
+      ["updateTaskTitle", { id: "missing", title: "   " }],
       ["deleteTask", { id: "missing" }],
       ["deleteTask", { id: "" }],
     ] as const) {

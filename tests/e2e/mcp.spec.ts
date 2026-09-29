@@ -56,6 +56,7 @@ for (const mode of ["modern", "legacy"] as const) {
         "deleteTask",
         "listTasks",
         "setTaskCompleted",
+        "updateTaskTitle",
       ]);
       const listTool = tools.find((tool) => tool.name === "listTasks");
       expect(listTool).toMatchObject({
@@ -84,10 +85,17 @@ for (const mode of ["modern", "legacy"] as const) {
         inputSchema: { type: "object", required: ["id"], properties: { id: { type: "string" } } },
         annotations: { destructiveHint: true },
       });
+      expect(tools.find((tool) => tool.name === "updateTaskTitle")).toMatchObject({
+        inputSchema: {
+          type: "object",
+          required: expect.arrayContaining(["id", "title"]),
+          properties: { id: { type: "string" }, title: { type: "string" } },
+        },
+      });
       const specification = await (await request.get("/api/openapi.json")).json();
       expect(specification.paths["/v1/tasks"].get.operationId).toBe(listTool?.name);
 
-      const title = `MCP ${mode} ${crypto.randomUUID()}`;
+      let title = `MCP ${mode} ${crypto.randomUUID()}`;
       const createdResult = await client.callTool({
         name: "createTask",
         arguments: { title: `  ${title}  ` },
@@ -99,6 +107,13 @@ for (const mode of ["modern", "legacy"] as const) {
         arguments: { id: created.id, completed: true },
       });
       expect(toolText(completed)).toEqual({ ...created, completed: true });
+      title = `Edited ${title}`;
+      const edited = await client.callTool({
+        name: "updateTaskTitle",
+        arguments: { id: created.id, title: `  ${title}  ` },
+      });
+      expect(toolText(edited)).toEqual({ ...created, title, completed: true });
+      created.title = title;
       const listed = await client.callTool({
         name: "listTasks",
         arguments: { status: "completed" },
@@ -135,6 +150,12 @@ for (const mode of ["modern", "legacy"] as const) {
       const missing = await client.callTool({ name: "deleteTask", arguments: { id: created.id } });
       expect(missing.isError).toBe(true);
       expect(JSON.stringify(missing.content)).toContain("NOT_FOUND");
+      const missingEdit = await client.callTool({
+        name: "updateTaskTitle",
+        arguments: { id: created.id, title: "Cannot edit a deleted task" },
+      });
+      expect(missingEdit.isError).toBe(true);
+      expect(JSON.stringify(missingEdit.content)).toContain("NOT_FOUND");
 
       expect(exchanges.map((exchange) => exchange.method)).toContain(
         mode === "modern" ? "server/discover" : "initialize",

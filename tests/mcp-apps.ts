@@ -39,6 +39,7 @@ export async function expectTaskAppResource(client: Client) {
       createTask: "createTask",
       deleteTask: "deleteTask",
       setTaskCompleted: "setTaskCompleted",
+      updateTaskTitle: "updateTaskTitle",
     },
   });
 }
@@ -124,7 +125,8 @@ export async function exerciseTaskApp({
       );
   expect(await observedCalls()).toEqual([]);
 
-  const title = `MCP App ${crypto.randomUUID()}`;
+  const originalTitle = `MCP App ${crypto.randomUUID()}`;
+  let title = originalTitle;
   const input = widget.getByRole("textbox", { name: "New task", exact: true });
   await input.fill(`  ${title}  `);
   await input.press("Enter");
@@ -138,6 +140,35 @@ export async function exerciseTaskApp({
   await expect(
     widget.getByRole("button", { name: `Mark ${title} as active`, exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
+  await input.fill("Keep this widget draft");
+  const edit = widget.getByRole("button", { name: `Edit ${title}`, exact: true });
+  await edit.press("Enter");
+  const titleInput = widget.getByRole("textbox", { name: "Task title", exact: true });
+  await expect(titleInput).toBeFocused();
+  await titleInput.fill("A cancelled edit");
+  await titleInput.press("Escape");
+  await expect(titleInput).toHaveCount(0);
+  await expect(edit).toBeFocused();
+  await edit.press("Enter");
+  await titleInput.fill("   ");
+  await titleInput.press("Enter");
+  await expect(
+    widget.getByText("Enter a task between 1 and 120 characters.", { exact: true }),
+  ).toBeVisible();
+  title = `Edited ${title}`;
+  await titleInput.fill(`  ${title}  `);
+  await widget
+    .getByRole("button", { name: "Save", exact: true })
+    .evaluate((button: HTMLButtonElement) => {
+      button.click();
+      button.click();
+    });
+  await expect(titleInput).toHaveCount(0);
+  await expect(widget.getByRole("button", { name: `Edit ${title}`, exact: true })).toBeFocused();
+  await expect(input).toHaveValue("Keep this widget draft");
+  expect(await (await request.get("/api/v1/tasks?status=completed")).json()).toEqual(
+    expect.arrayContaining([{ ...created, title, completed: true }]),
+  );
   await widget.getByRole("button", { name: "Active", exact: true }).click();
   await expect(tasks).toHaveAttribute("aria-busy", "false");
   await expect(tasks.getByText(title, { exact: true })).toHaveCount(0);
@@ -172,6 +203,14 @@ export async function exerciseTaskApp({
   expect(await externalDelete.json()).toEqual({ ...outsideTask, completed: true });
   // Another client changed the shared demo. A stale row remains until a refetch.
   await expect(tasks.getByText(outsideTitle, { exact: true })).toBeVisible();
+  await widget.getByRole("button", { name: `Edit ${outsideTitle}`, exact: true }).click();
+  const failedTitle = `Edited ${outsideTitle}`;
+  await titleInput.fill(failedTitle);
+  await titleInput.press("Enter");
+  await expect(widget.getByRole("alert")).toContainText("The tool could not complete the request.");
+  await expect(titleInput).toHaveValue(failedTitle);
+  await expect(input).toHaveValue("Keep this widget draft");
+  await widget.getByRole("button", { name: "Cancel", exact: true }).click();
   await widget.getByRole("button", { name: `Delete ${outsideTitle}`, exact: true }).click();
   await expect(widget.getByRole("alert")).toContainText("The tool could not complete the request.");
   await expect(input).toHaveValue("Keep this widget draft");
@@ -180,15 +219,18 @@ export async function exerciseTaskApp({
   await expect(tasks).toHaveAttribute("aria-busy", "false");
   await expect(input).toHaveValue("Keep this widget draft");
   expect(await observedCalls()).toEqual([
-    { name: "createTask", arguments: { title } },
+    { name: "createTask", arguments: { title: originalTitle } },
     { name: "listTasks", arguments: { status: "all" } },
     { name: "setTaskCompleted", arguments: { id: created.id, completed: true } },
+    { name: "listTasks", arguments: { status: "all" } },
+    { name: "updateTaskTitle", arguments: { id: created.id, title } },
     { name: "listTasks", arguments: { status: "all" } },
     { name: "listTasks", arguments: { status: "active" } },
     { name: "listTasks", arguments: { status: "completed" } },
     { name: "listTasks", arguments: { status: "completed" } },
     { name: "deleteTask", arguments: { id: created.id } },
     { name: "listTasks", arguments: { status: "completed" } },
+    { name: "updateTaskTitle", arguments: { id: outsideTask.id, title: failedTitle } },
     { name: "deleteTask", arguments: { id: outsideTask.id } },
     { name: "listTasks", arguments: { status: "completed" } },
   ]);
