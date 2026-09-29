@@ -7,6 +7,7 @@ allowBuilds:
   '@modelcontextprotocol/inspector': false
   # Tailwind CLI uses the published platform binaries, not a local node-gyp build.
   '@parcel/watcher': false
+  '@swc/core': true
   esbuild: true
 
 minimumReleaseAge: 0

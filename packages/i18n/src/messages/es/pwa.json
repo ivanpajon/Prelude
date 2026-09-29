@@ -1,0 +1,21 @@
+{
+  "availableTitle": "Actualización disponible",
+  "availableDescription": "Hay una nueva versión lista. Actualiza ahora para recargar esta página.",
+  "availableAction": "Actualizar ahora",
+  "updatingTitle": "Actualizando…",
+  "updatingDescription": "Esta página se recargará cuando se active la actualización.",
+  "updatingAction": "Actualizando…",
+  "readyTitle": "Actualización lista",
+  "readyDescription": "Otra pestaña ha aplicado la actualización. Recarga cuando quieras.",
+  "readyAction": "Recargar ahora",
+  "errorTitle": "No se pudo actualizar",
+  "errorDescription": "No se ha podido activar la actualización. Inténtalo de nuevo.",
+  "errorAction": "Reintentar",
+  "offlineTitle": "No tienes conexión.",
+  "offlineDescription": "Esta página necesita conexión. Tus tareas de demostración no se guardan sin conexión. Vuelve a conectarte e inténtalo de nuevo.",
+  "offlineAction": "Reintentar",
+  "offlineDocumentTitle": "Sin conexión — Prelude",
+  "manifestDescription": "Un punto de partida conectado para tu próximo proyecto.",
+  "toastClose": "Cerrar notificación",
+  "toastRegion": "Notificaciones"
+}

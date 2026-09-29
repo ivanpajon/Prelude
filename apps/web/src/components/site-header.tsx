@@ -1,14 +1,17 @@
 import { ArrowUpRightIcon } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
+import { getTranslations } from "next-intl/server";
+import { Link } from "@/i18n/navigation";
+import { LanguageSelector } from "./language-selector";
 
-export function SiteHeader({ activePage }: { activePage?: "playground" }) {
+export async function SiteHeader({ activePage }: { activePage?: "playground" }) {
+  const t = await getTranslations("Common");
   return (
     <header className="flex min-h-24 items-center justify-between gap-4 border-b border-border py-4">
       <Link
         href="/"
         className="shrink-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-        aria-label="Prelude home"
+        aria-label={t("home")}
       >
         <Image
           src="/branding/prelude-logo.png"
@@ -21,7 +24,7 @@ export function SiteHeader({ activePage }: { activePage?: "playground" }) {
         />
       </Link>
       <nav
-        aria-label="Main navigation"
+        aria-label={t("navigation")}
         className="flex flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-6"
       >
         <Link
@@ -29,13 +32,13 @@ export function SiteHeader({ activePage }: { activePage?: "playground" }) {
           aria-current={activePage === "playground" ? "page" : undefined}
           className="rounded-sm py-1 text-xs whitespace-nowrap text-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring sm:text-sm"
         >
-          Playground
+          {t("playground")}
         </Link>
         <a
           href="/api/docs"
           className="rounded-sm py-1 text-xs whitespace-nowrap text-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring sm:text-sm"
         >
-          API docs
+          {t("apiDocs")}
         </a>
         <a
           href="https://nextjs.org/docs"
@@ -43,10 +46,11 @@ export function SiteHeader({ activePage }: { activePage?: "playground" }) {
           rel="noreferrer"
           className="inline-flex items-center gap-2 rounded-sm py-1 text-xs whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring sm:text-sm"
         >
-          Next.js docs
+          {t("nextDocs")}
           <ArrowUpRightIcon className="size-4" aria-hidden="true" />
-          <span className="sr-only">(opens in a new tab)</span>
+          <span className="sr-only">{t("newTab")}</span>
         </a>
+        <LanguageSelector />
       </nav>
     </header>
   );

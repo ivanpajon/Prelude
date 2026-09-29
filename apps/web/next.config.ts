@@ -1,5 +1,6 @@
 import path from "node:path";
 import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
@@ -9,9 +10,16 @@ const nextConfig: NextConfig = {
   ...(process.env.NEXT_OUTPUT_STANDALONE === "true"
     ? { output: "standalone", outputFileTracingRoot: path.resolve(import.meta.dirname, "../..") }
     : {}),
-  transpilePackages: ["@repo/ui", "@repo/contracts", "@repo/api", "@repo/temporal"],
+  transpilePackages: ["@repo/ui", "@repo/contracts", "@repo/api", "@repo/temporal", "@repo/i18n"],
   async headers() {
     return [
+      {
+        source: "/manifest.webmanifest",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store" },
+          { key: "Vary", value: "Cookie, Accept-Language" },
+        ],
+      },
       {
         source: "/sw.js",
         headers: [
@@ -23,4 +31,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default createNextIntlPlugin("./src/i18n/request.ts")(nextConfig);

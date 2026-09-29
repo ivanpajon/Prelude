@@ -12,6 +12,7 @@ export default defineConfig({
         test: {
           name: "node",
           environment: "node",
+          server: { deps: { inline: ["next-intl"] } },
           include: ["packages/**/*.test.ts", "apps/**/*.test.ts", "scripts/**/*.test.mjs"],
         },
       },

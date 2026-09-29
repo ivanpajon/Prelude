@@ -1,0 +1,21 @@
+{
+  "availableTitle": "Update available",
+  "availableDescription": "A new version is ready. Update now to reload this page.",
+  "availableAction": "Update now",
+  "updatingTitle": "Updating…",
+  "updatingDescription": "This page will reload when the update takes control.",
+  "updatingAction": "Updating…",
+  "readyTitle": "Update ready",
+  "readyDescription": "Another tab applied the update. Reload when you’re ready.",
+  "readyAction": "Reload now",
+  "errorTitle": "Couldn’t update",
+  "errorDescription": "The update could not be activated. Please try again.",
+  "errorAction": "Try again",
+  "offlineTitle": "You’re offline.",
+  "offlineDescription": "This page needs a connection. Your demo tasks aren’t saved offline. Reconnect, then try again.",
+  "offlineAction": "Try again",
+  "offlineDocumentTitle": "You’re offline — Prelude",
+  "manifestDescription": "A connected starting point for your next project.",
+  "toastClose": "Dismiss notification",
+  "toastRegion": "Notifications"
+}
