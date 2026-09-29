@@ -1,5 +1,6 @@
 import "server-only";
 
+import { RESOURCE_URI_META_KEY, registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 import {
   type CallToolResult,
   createMcpHandler,
@@ -8,6 +9,7 @@ import {
   type JsonSchemaType,
   type McpHttpHandler,
   McpServer,
+  type ServerContext,
 } from "@modelcontextprotocol/server";
 import type { Context } from "@repo/api";
 import {
@@ -16,6 +18,13 @@ import {
   type McpOpenAPITool,
   OpenAPIToolGenerator,
 } from "mcp-from-openapi";
+import {
+  createMcpAppHtmlLoader,
+  getTaskAppTools,
+  type McpAppHtmlLoader,
+  mcpAppResourceUri,
+  registerTaskAppResource,
+} from "./mcp-app-resource";
 import { generateOpenApiSpec, handleOpenApiRequest } from "./openapi";
 
 // Requests are dispatched in process. This origin is never contacted over the network.
@@ -86,6 +95,7 @@ export interface McpEndpointOptions {
   getContext: (request: Request) => Context | Promise<Context>;
   getSpec?: () => object | Promise<object>;
   dispatch?: (request: Request, context: Context) => Promise<Response>;
+  getAppHtml?: McpAppHtmlLoader;
 }
 
 function toolError(message: string, code = "INTERNAL_SERVER_ERROR"): CallToolResult {
@@ -135,6 +145,7 @@ export function createMcpEndpoint({
   getContext,
   getSpec = generateOpenApiSpec,
   dispatch = handleOpenApiRequest,
+  getAppHtml = createMcpAppHtmlLoader(),
 }: McpEndpointOptions): McpHttpHandler {
   let catalog: Promise<readonly McpOpenAPITool[]> | undefined;
   const getCatalog = () => {
@@ -153,22 +164,43 @@ export function createMcpEndpoint({
     const tools = await getCatalog();
     const context = await getContext(requestInfo);
     const server = new McpServer({ name: "prelude", version: "1.0.0" });
+    const appTools = getTaskAppTools(tools);
+    if (appTools) registerTaskAppResource(server, appTools, getAppHtml);
     for (const tool of tools) {
-      server.registerTool(
-        tool.name,
-        {
-          description: tool.description,
-          inputSchema: compileSchema<Record<string, unknown>>(tool.inputSchema),
-          ...(tool.outputSchema === undefined
-            ? {}
-            : { outputSchema: compileSchema<JSONValue>(tool.outputSchema) }),
-          ...(tool.title === undefined ? {} : { title: tool.title }),
-          ...(tool.annotations === undefined ? {} : { annotations: tool.annotations }),
-          ...(tool.icons === undefined ? {} : { icons: tool.icons }),
-          ...(tool._meta === undefined ? {} : { _meta: tool._meta }),
-        },
-        (input, { mcpReq }) => executeTool(tool, input, context, mcpReq.signal, dispatch),
-      );
+      const config = {
+        description: tool.description,
+        inputSchema: compileSchema<Record<string, unknown>>(tool.inputSchema),
+        ...(tool.outputSchema === undefined
+          ? {}
+          : { outputSchema: compileSchema<JSONValue>(tool.outputSchema) }),
+        ...(tool.title === undefined ? {} : { title: tool.title }),
+        ...(tool.annotations === undefined ? {} : { annotations: tool.annotations }),
+        ...(tool.icons === undefined ? {} : { icons: tool.icons }),
+        ...(tool._meta === undefined ? {} : { _meta: tool._meta }),
+      };
+      const execute = (input: Record<string, unknown>, { mcpReq }: ServerContext) =>
+        executeTool(tool, input, context, mcpReq.signal, dispatch);
+      if (appTools && tool.metadata.operationId === "listTasks") {
+        const existingUi = tool._meta?.ui;
+        registerAppTool(
+          server,
+          tool.name,
+          {
+            ...config,
+            _meta: {
+              ...tool._meta,
+              [RESOURCE_URI_META_KEY]: mcpAppResourceUri,
+              ui: {
+                ...(existingUi !== null && typeof existingUi === "object" ? existingUi : {}),
+                resourceUri: mcpAppResourceUri,
+              },
+            },
+          },
+          execute,
+        );
+      } else {
+        server.registerTool(tool.name, config, execute);
+      }
     }
     return server;
   });

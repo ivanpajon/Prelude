@@ -5,6 +5,8 @@ packages:
 allowBuilds:
   # Published Inspector assets are prebuilt; its postinstall is for source checkouts.
   '@modelcontextprotocol/inspector': false
+  # Tailwind CLI uses the published platform binaries, not a local node-gyp build.
+  '@parcel/watcher': false
   esbuild: true
 
 minimumReleaseAge: 0

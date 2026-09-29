@@ -23,7 +23,8 @@ Options:
   --help, -h                Show this help
 
 MCP_INSPECTOR_PORT selects the Inspector port (default 6274).
-Both ports must be free. Neither server changes ports or reuses another process.
+MCP_SANDBOX_PORT selects its app preview sandbox port (default 6275).
+All three ports must be free. No server reuses another process.
 Container ports must be published on the host's loopback interface only.
 `;
 
@@ -55,8 +56,11 @@ export function parseDevOptions(args, env = process.env) {
   }
   const port = parsePort(values.port ?? env.PORT ?? "3000", "Next.js port");
   const inspectorPort = parsePort(env.MCP_INSPECTOR_PORT ?? "6274", "MCP_INSPECTOR_PORT");
-  if (port === inspectorPort) throw new Error("Next.js and Inspector need different ports.");
-  return { port, inspectorPort, hostname: values.container ? "0.0.0.0" : "127.0.0.1" };
+  const sandboxPort = parsePort(env.MCP_SANDBOX_PORT ?? "6275", "MCP_SANDBOX_PORT");
+  if (new Set([port, inspectorPort, sandboxPort]).size !== 3) {
+    throw new Error("Next.js, Inspector and its sandbox need different ports.");
+  }
+  return { port, inspectorPort, sandboxPort, hostname: values.container ? "0.0.0.0" : "127.0.0.1" };
 }
 
 export function resolvePackageBin(packageName, binName, from = workspaceRoot) {
@@ -104,7 +108,8 @@ export function inspectorEnvironment(root, options, env = process.env) {
     // settings were scrubbed above. Compose publishes these ports on loopback.
     ...(options.hostname === "0.0.0.0" ? { DANGEROUSLY_BIND_ALL_INTERFACES: "true" } : {}),
     CLIENT_PORT: String(options.inspectorPort),
-    MCP_SANDBOX_PORT: "0",
+    MCP_SANDBOX_PORT: String(options.sandboxPort ?? 6275),
+    MCP_SANDBOX_FULL_ADDRESS: `http://127.0.0.1:${options.sandboxPort ?? 6275}/sandbox`,
     MCP_APP_ORIGIN_PORT: "0",
     ALLOWED_ORIGINS: origins.join(","),
     MCP_AUTO_OPEN_ENABLED: "false",
@@ -131,6 +136,15 @@ export function devCommands(root, options, env = process.env, binaries) {
   );
   return [
     {
+      name: "MCP App builder",
+      script: path.join(root, "scripts/build-mcp-apps.mjs"),
+      args: ["--watch"],
+      cwd: root,
+      env: nextEnv,
+      readyMessage: "mcp-apps-ready",
+      beforeServers: true,
+    },
+    {
       name: "MCP Inspector",
       script:
         binaries?.inspector ??
@@ -147,6 +161,14 @@ export function devCommands(root, options, env = process.env, binaries) {
       cwd: root,
       env: inspectorEnvironment(root, options, env),
       port: options.inspectorPort,
+      listeners: [
+        {
+          name: "MCP App sandbox",
+          port: options.sandboxPort ?? 6275,
+          method: "GET",
+          path: "/sandbox",
+        },
+      ],
       hostname: options.hostname ?? "127.0.0.1",
     },
     {
@@ -165,6 +187,7 @@ export function devCommands(root, options, env = process.env, binaries) {
         ...nextEnv,
         PORT: String(options.port),
         MCP_INSPECTOR_PORT: String(options.inspectorPort),
+        MCP_SANDBOX_PORT: String(options.sandboxPort ?? 6275),
       },
       port: options.port,
       hostname: options.hostname ?? "127.0.0.1",
@@ -175,7 +198,10 @@ export function devCommands(root, options, env = process.env, binaries) {
 async function assertPortsAvailable(commands) {
   const reservations = [];
   try {
-    for (const command of commands) {
+    for (const command of commands.flatMap((command) => [
+      ...(command.port ? [command] : []),
+      ...(command.listeners ?? []).map((listener) => ({ ...command, ...listener })),
+    ])) {
       const hostname = command.hostname ?? "127.0.0.1";
       const reservation = createServer();
       reservations.push(reservation);
@@ -198,10 +224,17 @@ async function assertPortsAvailable(commands) {
   }
 }
 
-function probe(port, signal) {
+function probe(listener, signal) {
   return new Promise((resolve) => {
     const req = request(
-      { hostname: "127.0.0.1", port, path: "/", method: "HEAD", signal, timeout: 1000 },
+      {
+        hostname: "127.0.0.1",
+        port: listener.port,
+        path: listener.path ?? "/",
+        method: listener.method ?? "HEAD",
+        signal,
+        timeout: 1000,
+      },
       (response) => {
         response.resume();
         resolve(response.statusCode >= 200 && response.statusCode < 400);
@@ -213,9 +246,40 @@ function probe(port, signal) {
   });
 }
 
-async function waitUntilReady(command, signal) {
+async function waitUntilReady(owned, signal) {
+  const { command } = owned;
+  if (command.readyMessage) {
+    if (owned.isReady()) return;
+    await new Promise((resolve, reject) => {
+      const ready = (message) => {
+        if (message?.type === command.readyMessage) {
+          cleanup();
+          resolve();
+        }
+      };
+      const aborted = () => {
+        cleanup();
+        reject(signal.reason);
+      };
+      const cleanup = () => {
+        owned.child.removeListener("message", ready);
+        signal.removeEventListener("abort", aborted);
+      };
+      owned.child.on("message", ready);
+      signal.addEventListener("abort", aborted, { once: true });
+      if (signal.aborted) aborted();
+    });
+    return;
+  }
   while (!signal.aborted) {
-    if (await probe(command.port, signal)) return;
+    if (
+      (
+        await Promise.all(
+          [command, ...(command.listeners ?? [])].map((listener) => probe(listener, signal)),
+        )
+      ).every(Boolean)
+    )
+      return;
     await delay(100, undefined, { signal });
   }
   signal.throwIfAborted();
@@ -240,6 +304,10 @@ function startChild(command, stdio) {
     detached: process.platform !== "win32",
   });
   let ended = false;
+  let ready = false;
+  child.on("message", (message) => {
+    if (message?.type === command.readyMessage) ready = true;
+  });
   const done = new Promise((resolve) => {
     child.once("error", (error) => {
       ended = true;
@@ -250,7 +318,7 @@ function startChild(command, stdio) {
       resolve({ code, signal });
     });
   });
-  return { child, done, command, hasEnded: () => ended };
+  return { child, done, command, hasEnded: () => ended, isReady: () => ready };
 }
 
 async function stopChild(owned) {
@@ -296,20 +364,22 @@ export async function supervise(
   const lifetime = signal ? AbortSignal.any([signal, failed.signal]) : failed.signal;
   const owned = [];
   try {
-    for (const command of commands) {
-      const process = startChild(command, stdio);
-      owned.push(process);
-      process.done.then((result) => {
-        failed.abort(
-          new Error(
-            `${command.name} stopped${result.error ? `: ${result.error.message}` : ` (${result.signal ?? `exit ${result.code}`})`}. Both development servers are shutting down.`,
-          ),
-        );
-      });
-    }
     const startup = AbortSignal.any([lifetime, AbortSignal.timeout(startupTimeoutMs)]);
     try {
-      await Promise.all(commands.map((command) => waitUntilReady(command, startup)));
+      for (const command of commands) {
+        startup.throwIfAborted();
+        const process = startChild(command, stdio);
+        owned.push(process);
+        process.done.then((result) => {
+          failed.abort(
+            new Error(
+              `${command.name} stopped${result.error ? `: ${result.error.message}` : ` (${result.signal ?? `exit ${result.code}`})`}. Development processes are shutting down.`,
+            ),
+          );
+        });
+        if (command.beforeServers) await waitUntilReady(process, startup);
+      }
+      await Promise.all(owned.map((process) => waitUntilReady(process, startup)));
       startup.throwIfAborted();
     } catch {
       if (signal?.aborted) return;

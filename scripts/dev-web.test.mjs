@@ -43,9 +43,10 @@ async function freePorts(count = 2) {
 
 const fixture = `
 import { createServer } from "node:http";
-import { writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 if (process.env.FIXTURE_MODE === "crash") process.exit(23);
+if (process.env.FIXTURE_REQUIRED_FILE && !existsSync(process.env.FIXTURE_REQUIRED_FILE)) process.exit(42);
 if (process.env.FIXTURE_OWN_PID_FILE) writeFileSync(process.env.FIXTURE_OWN_PID_FILE, String(process.pid));
 if (process.env.FIXTURE_GRANDCHILD_PORT) {
   const child = spawn(process.execPath, ["-e",
@@ -60,6 +61,10 @@ createServer((req, res) => {
   res.end("fixture");
   if (req.url === "/exit") setTimeout(() => process.exit(23), 20);
 }).listen(Number(process.env.FIXTURE_PORT), process.env.FIXTURE_HOST ?? "127.0.0.1");
+if (process.env.FIXTURE_SANDBOX_PORT) createServer((req, res) => {
+  if (req.method !== "GET" || req.url !== "/sandbox") res.statusCode = 404;
+  res.end("sandbox");
+}).listen(Number(process.env.FIXTURE_SANDBOX_PORT), "127.0.0.1");
 `;
 
 function fixtureCommand(port, mode = "ready", extraEnv = {}) {
@@ -147,14 +152,16 @@ describe("development options and isolation", () => {
     expect(parseDevOptions([], {})).toEqual({
       port: 3000,
       inspectorPort: 6274,
+      sandboxPort: 6275,
       hostname: "127.0.0.1",
     });
     expect(
       parseDevOptions(["-p", "3102", "-H", "localhost", "--turbopack"], {
         PORT: "4000",
         MCP_INSPECTOR_PORT: "6280",
+        MCP_SANDBOX_PORT: "6286",
       }),
-    ).toEqual({ port: 3102, inspectorPort: 6280, hostname: "127.0.0.1" });
+    ).toEqual({ port: 3102, inspectorPort: 6280, sandboxPort: 6286, hostname: "127.0.0.1" });
     expect(parseDevOptions([], { PORT: "4000" }).port).toBe(4000);
   });
 
@@ -163,12 +170,15 @@ describe("development options and isolation", () => {
     (port) => {
       expect(() => parseDevOptions(["--port", port], {})).toThrow();
       expect(() => parseDevOptions([], { MCP_INSPECTOR_PORT: port })).toThrow();
+      expect(() => parseDevOptions([], { MCP_SANDBOX_PORT: port })).toThrow();
     },
   );
 
   it("rejects non-loopback hosts, port collisions and unrecognized flags", () => {
     expect(() => parseDevOptions(["-H", "0.0.0.0"], {})).toThrow(/127\.0\.0\.1/);
     expect(() => parseDevOptions(["-p", "6274"], {})).toThrow(/different ports/);
+    expect(() => parseDevOptions(["-p", "6275"], {})).toThrow(/different ports/);
+    expect(() => parseDevOptions([], { MCP_INSPECTOR_PORT: "6275" })).toThrow(/different ports/);
     expect(() => parseDevOptions(["--experimental-https"], {})).toThrow();
     expect(() => parseDevOptions(["--server-url", "http://remote.test"], {})).toThrow();
     expect(() => parseDevOptions(["--container", "-H", "127.0.0.1"], {})).toThrow(
@@ -182,6 +192,7 @@ describe("development options and isolation", () => {
     expect(parseDevOptions(["--container"], { PORT: "3102", MCP_INSPECTOR_PORT: "6284" })).toEqual({
       port: 3102,
       inspectorPort: 6284,
+      sandboxPort: 6275,
       hostname: "0.0.0.0",
     });
   });
@@ -216,7 +227,8 @@ describe("development options and isolation", () => {
     expect(env).toMatchObject({
       HOST: "127.0.0.1",
       CLIENT_PORT: "6274",
-      MCP_SANDBOX_PORT: "0",
+      MCP_SANDBOX_PORT: "6275",
+      MCP_SANDBOX_FULL_ADDRESS: "http://127.0.0.1:6275/sandbox",
       MCP_APP_ORIGIN_PORT: "0",
       MCP_AUTO_OPEN_ENABLED: "false",
       MCP_INSPECTOR_SECRET_STORE: "memory",
@@ -230,7 +242,6 @@ describe("development options and isolation", () => {
       "MCP_CATALOG_PATH",
       "MCP_INSPECTOR_SECRET_KEY_FILE",
       "MCP_LOG_FILE",
-      "MCP_SANDBOX_FULL_ADDRESS",
       "SERVER_PORT",
     ])
       expect(env[key]).toBeUndefined();
@@ -253,7 +264,13 @@ describe("development options and isolation", () => {
       { MCP_INSPECTOR_API_TOKEN: "secret" },
       { next: "next.js", inspector: "inspector.js" },
     );
-    expect(commands[0].args).toEqual([
+    expect(commands[0]).toMatchObject({
+      name: "MCP App builder",
+      args: ["--watch"],
+      readyMessage: "mcp-apps-ready",
+      beforeServers: true,
+    });
+    expect(commands[1].args).toEqual([
       "--web",
       "--server-url",
       "http://127.0.0.1:3102/api/mcp",
@@ -262,7 +279,7 @@ describe("development options and isolation", () => {
       "--protocol-era",
       "auto",
     ]);
-    expect(commands[1].args).toEqual([
+    expect(commands[2].args).toEqual([
       "dev",
       "--turbopack",
       "--hostname",
@@ -270,7 +287,11 @@ describe("development options and isolation", () => {
       "--port",
       "3102",
     ]);
-    expect(commands[1].env).toEqual({ PORT: "3102", MCP_INSPECTOR_PORT: "6280" });
+    expect(commands[2].env).toEqual({
+      PORT: "3102",
+      MCP_INSPECTOR_PORT: "6280",
+      MCP_SANDBOX_PORT: "6275",
+    });
   });
 
   it("preserves Inspector authentication and loopback URLs inside the container", () => {
@@ -285,13 +306,15 @@ describe("development options and isolation", () => {
       },
       { next: "next.js", inspector: "inspector.js" },
     );
-    const inspector = commands[0];
+    const inspector = commands[1];
     expect(inspector.hostname).toBe("0.0.0.0");
     expect(inspector.args).toContain("http://127.0.0.1:3102/api/mcp");
     expect(inspector.env).toMatchObject({
       HOST: "0.0.0.0",
       DANGEROUSLY_BIND_ALL_INTERFACES: "true",
       CLIENT_PORT: "6284",
+      MCP_SANDBOX_PORT: "6275",
+      MCP_SANDBOX_FULL_ADDRESS: "http://127.0.0.1:6275/sandbox",
       MCP_INSPECTOR_SECRET_STORE: "memory",
       MCP_AUTO_OPEN_ENABLED: "false",
       ALLOWED_ORIGINS:
@@ -299,7 +322,7 @@ describe("development options and isolation", () => {
     });
     expect(inspector.env.DANGEROUSLY_OMIT_AUTH).toBeUndefined();
     expect(inspector.env.MCP_INSPECTOR_API_TOKEN).toBeUndefined();
-    expect(commands[1].args).toEqual([
+    expect(commands[2].args).toEqual([
       "dev",
       "--turbopack",
       "--hostname",
@@ -307,8 +330,8 @@ describe("development options and isolation", () => {
       "--port",
       "3102",
     ]);
-    expect(commands[1].hostname).toBe("0.0.0.0");
-    expect(commands[1].env.MCP_INSPECTOR_API_TOKEN).toBeUndefined();
+    expect(commands[2].hostname).toBe("0.0.0.0");
+    expect(commands[2].env.MCP_INSPECTOR_API_TOKEN).toBeUndefined();
   });
 
   it("loads Next development dotenv precedence before resolving helper options", () => {
@@ -351,6 +374,62 @@ describe("development options and isolation", () => {
 });
 
 describe("owned development process lifecycle", () => {
+  it("waits for the initial builder IPC message before launching HTTP servers", async () => {
+    const root = temporaryDirectory();
+    const script = path.join(root, "builder.mjs");
+    const output = path.join(root, "tasks.html");
+    writeFileSync(
+      script,
+      `import { writeFileSync } from 'node:fs';
+      setTimeout(() => { writeFileSync(process.env.FIXTURE_OUTPUT, 'ready'); process.send({ type: 'mcp-apps-ready' }); }, 100);
+      setInterval(() => {}, 1000);`,
+    );
+    const [port] = await freePorts(1);
+    const run = start([
+      {
+        name: "builder",
+        script,
+        args: [],
+        cwd: root,
+        env: { ...process.env, FIXTURE_OUTPUT: output },
+        readyMessage: "mcp-apps-ready",
+        beforeServers: true,
+      },
+      fixtureCommand(port, "ready", { FIXTURE_REQUIRED_FILE: output }),
+    ]);
+    await run.whenReady;
+    expect((await fetch(`http://127.0.0.1:${port}`)).status).toBe(200);
+    run.controller.abort();
+    await run.done;
+    await expectClosed(port);
+  }, 10_000);
+
+  it("checks auxiliary GET-only sandbox readiness and closes its listener", async () => {
+    const [port, sandboxPort] = await freePorts();
+    const run = start([
+      {
+        ...fixtureCommand(port, "ready", { FIXTURE_SANDBOX_PORT: String(sandboxPort) }),
+        listeners: [{ name: "sandbox", port: sandboxPort, method: "GET", path: "/sandbox" }],
+      },
+    ]);
+    await run.whenReady;
+    expect((await fetch(`http://127.0.0.1:${sandboxPort}/sandbox`)).status).toBe(200);
+    run.controller.abort();
+    await run.done;
+    await Promise.all([port, sandboxPort].map(expectClosed));
+  }, 10_000);
+
+  it("refuses a sandbox collision before launching any child", async () => {
+    const sandboxPort = await listen(createServer((_req, res) => res.end("unrelated")));
+    const [port] = await freePorts(1);
+    const run = start([
+      { ...fixtureCommand(port), listeners: [{ name: "sandbox", port: sandboxPort }] },
+    ]);
+    await expect(run.done).rejects.toThrow(/sandbox cannot use/);
+    expect(await (await fetch(`http://127.0.0.1:${sandboxPort}`)).text()).toBe("unrelated");
+    await expectClosed(port);
+  });
+
   it("waits for both children, then shuts down both ports on cancellation", async () => {
     const ports = await freePorts();
     const run = start(ports.map((port) => fixtureCommand(port)));

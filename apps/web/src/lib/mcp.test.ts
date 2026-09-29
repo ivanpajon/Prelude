@@ -4,6 +4,7 @@ import type { Task } from "@repo/contracts";
 import { OpenAPIToolGenerator } from "mcp-from-openapi";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMcpEndpoint, generateMcpCatalog, type McpEndpointOptions } from "./mcp";
+import { mcpAppResourceUri } from "./mcp-app-resource";
 import { generateOpenApiSpec, handleOpenApiRequest } from "./openapi";
 
 type Endpoint = ReturnType<typeof createMcpEndpoint>;
@@ -278,6 +279,209 @@ describe.each(["modern", "legacy"] as const)("MCP %s HTTP compatibility", (era) 
     );
     expect(malformed.status).toBe(400);
     expect(dispatch).not.toHaveBeenCalled();
+  });
+});
+
+describe.each(["modern", "legacy"] as const)("MCP %s App resources", (era) => {
+  const appHtml =
+    "<!doctype html><html><head><!--PRELUDE_MCP_APP_CONFIG--></head><body>Task widget</body></html>";
+
+  it("associates only listTasks and serves a lazy resource with a restrictive CSP", async () => {
+    const getAppHtml = vi.fn(() => appHtml);
+    const client = await connect(
+      endpoint({
+        getContext: () => ({ repository: createDemoRepository([]) }),
+        getAppHtml,
+      }),
+      era,
+    );
+    const { tools } = await client.listTools();
+    expect(tools).toHaveLength(3);
+    expect(tools.find((tool) => tool.name === "listTasks")).toMatchObject({
+      _meta: {
+        ui: { resourceUri: mcpAppResourceUri },
+        "ui/resourceUri": mcpAppResourceUri,
+      },
+    });
+    for (const tool of tools.filter((entry) => entry.name !== "listTasks")) {
+      expect(tool._meta?.ui).toBeUndefined();
+    }
+    const { resources } = await client.listResources();
+    expect(resources).toHaveLength(1);
+    expect(resources[0]).toMatchObject({
+      uri: mcpAppResourceUri,
+      mimeType: "text/html;profile=mcp-app",
+    });
+    expect(getAppHtml).not.toHaveBeenCalled();
+    const { contents } = await client.readResource({ uri: mcpAppResourceUri });
+    expect(contents).toHaveLength(1);
+    expect(contents[0]).toMatchObject({
+      uri: mcpAppResourceUri,
+      mimeType: "text/html;profile=mcp-app",
+      _meta: { ui: { csp: { connectDomains: [], resourceDomains: [], frameDomains: [] } } },
+    });
+    expect(contents[0]?._meta).toEqual(resources[0]?._meta);
+    const result = contents[0];
+    expect(result && "text" in result ? result.text : "").toContain(
+      JSON.stringify({
+        tools: {
+          listTasks: "listTasks",
+          createTask: "createTask",
+          setTaskCompleted: "setTaskCompleted",
+        },
+      }),
+    );
+    expect(getAppHtml).toHaveBeenCalledOnce();
+    await expect(client.readResource({ uri: "ui://prelude/missing.html" })).rejects.toThrow();
+    expect(getAppHtml).toHaveBeenCalledOnce();
+  });
+
+  it("follows operation IDs through renames and preserves unrelated metadata and annotations", async () => {
+    const spec = fixtureSpec({
+      "/tasks": {
+        get: {
+          ...operation("listTasks", { type: "array", items: { type: "string" } }),
+          "x-mcp": {
+            name: "renamedList",
+            annotations: { readOnlyHint: true, idempotentHint: false },
+            meta: {
+              "example.com/category": "tasks",
+              "ui/resourceUri": "ui://old/resource.html",
+              ui: { resourceUri: "ui://old/resource.html", visibility: ["model", "app"] },
+            },
+          },
+        },
+        post: { ...operation("createTask"), "x-mcp": { name: "renamedCreate" } },
+      },
+      "/tasks/completion": {
+        patch: { ...operation("setTaskCompleted"), "x-mcp": { name: "renamedCompletion" } },
+      },
+    });
+    const before = structuredClone(spec);
+    const client = await connect(
+      endpoint({
+        getContext: () => ({ repository: createDemoRepository([]) }),
+        getSpec: () => spec,
+        getAppHtml: () => appHtml,
+        dispatch: async () => Response.json(["unchanged output"]),
+      }),
+      era,
+    );
+    const { tools } = await client.listTools();
+    expect(tools.find((tool) => tool.name === "renamedList")).toMatchObject({
+      annotations: { readOnlyHint: true, idempotentHint: false },
+      _meta: {
+        "example.com/category": "tasks",
+        "ui/resourceUri": mcpAppResourceUri,
+        ui: { resourceUri: mcpAppResourceUri, visibility: ["model", "app"] },
+      },
+    });
+    const { contents } = await client.readResource({ uri: mcpAppResourceUri });
+    expect(contents[0] && "text" in contents[0] ? contents[0].text : "").toContain(
+      JSON.stringify({
+        tools: {
+          listTasks: "renamedList",
+          createTask: "renamedCreate",
+          setTaskCompleted: "renamedCompletion",
+        },
+      }),
+    );
+    const output = await client.callTool({ name: "renamedList", arguments: {} });
+    expect(output.structuredContent).toEqual(
+      era === "modern" ? ["unchanged output"] : { result: ["unchanged output"] },
+    );
+    expect(spec).toEqual(before);
+  });
+
+  it("omits excluded mutations from the widget configuration", async () => {
+    const client = await connect(
+      endpoint({
+        getContext: () => ({ repository: createDemoRepository([]) }),
+        getSpec: () => ({
+          ...fixtureSpec({
+            "/tasks": {
+              get: { ...operation("listTasks"), "x-mcp": true },
+              post: operation("createTask"),
+            },
+            "/tasks/completion": {
+              "x-mcp": true,
+              patch: { ...operation("setTaskCompleted"), "x-mcp": false },
+            },
+          }),
+          "x-mcp": false,
+        }),
+        getAppHtml: () => appHtml,
+      }),
+      era,
+    );
+    const { tools } = await client.listTools();
+    expect(tools.map((tool) => tool.name)).toEqual(["listTasks"]);
+    const { contents } = await client.readResource({ uri: mcpAppResourceUri });
+    expect(contents[0] && "text" in contents[0] ? contents[0].text : "").toContain(
+      JSON.stringify({ tools: { listTasks: "listTasks" } }),
+    );
+  });
+
+  it("does not publish the App resource when the list operation is excluded", async () => {
+    const getAppHtml = vi.fn(() => appHtml);
+    const client = await connect(
+      endpoint({
+        getContext: () => ({ repository: createDemoRepository([]) }),
+        getSpec: () =>
+          fixtureSpec({
+            "/tasks": {
+              "x-mcp": false,
+              get: operation("listTasks"),
+              post: { ...operation("createTask"), "x-mcp": true },
+            },
+          }),
+        getAppHtml,
+      }),
+      era,
+    );
+    expect((await client.listTools()).tools.map((tool) => tool.name)).toEqual(["createTask"]);
+    await expect(client.readResource({ uri: mcpAppResourceUri })).rejects.toThrow();
+    expect(getAppHtml).not.toHaveBeenCalled();
+  });
+
+  it("masks missing asset errors without breaking JSON tools and can recover", async () => {
+    const getAppHtml = vi
+      .fn(async () => appHtml)
+      .mockRejectedValueOnce(new Error("ENOENT /private/deployment/secrets/path"));
+    const client = await connect(
+      endpoint({
+        getContext: () => ({ repository: createDemoRepository([]) }),
+        getAppHtml,
+      }),
+      era,
+    );
+    const error = await client
+      .readResource({ uri: mcpAppResourceUri })
+      .catch((error: unknown) => error);
+    expect(error).toBeInstanceOf(Error);
+    expect(String(error)).toContain("The MCP App is unavailable.");
+    expect(String(error)).not.toContain("private");
+    expect(
+      await client.callTool({ name: "listTasks", arguments: { status: "all" } }),
+    ).toMatchObject({
+      structuredContent: era === "modern" ? [] : { result: [] },
+    });
+    await expect(client.readResource({ uri: mcpAppResourceUri })).resolves.toMatchObject({
+      contents: [{ uri: mcpAppResourceUri }],
+    });
+  });
+
+  it("masks malformed HTML assets as resource errors", async () => {
+    const client = await connect(
+      endpoint({
+        getContext: () => ({ repository: createDemoRepository([]) }),
+        getAppHtml: () => "<html>Missing configuration</html>",
+      }),
+      era,
+    );
+    await expect(client.readResource({ uri: mcpAppResourceUri })).rejects.toThrow(
+      "The MCP App is unavailable.",
+    );
   });
 });
 

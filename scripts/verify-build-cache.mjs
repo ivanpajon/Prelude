@@ -27,13 +27,14 @@ function build() {
 build();
 const publicDirectory = path.resolve(root, "apps/web/public");
 const worker = path.resolve(publicDirectory, "sw.js");
-const artifacts = [worker, `${worker}.map`].filter(existsSync);
+const widget = path.resolve(root, "apps/web/.generated/mcp-apps/tasks.html");
+const artifacts = [worker, `${worker}.map`, widget].filter(existsSync);
 assert(artifacts.includes(worker), "Build did not produce a service worker.");
+assert(artifacts.includes(widget), "Build did not produce the MCP App HTML.");
 const saved = artifacts.map((file) => {
-  assert.equal(
-    path.dirname(file),
-    publicDirectory,
-    "Artifact must be inside the web public directory.",
+  assert(
+    path.dirname(file) === publicDirectory || file === widget,
+    "Artifact must be a known generated service worker or MCP App file.",
   );
   return { file, bytes: readFileSync(file) };
 });
@@ -51,7 +52,9 @@ try {
       `Cache restoration changed ${path.basename(file)}.`,
     );
   }
-  console.log(`Verified byte-for-byte restoration of ${saved.length} service-worker artifact(s).`);
+  console.log(
+    `Verified byte-for-byte restoration of ${saved.length} service-worker/MCP App artifacts.`,
+  );
 } finally {
   for (const { file, bytes } of saved) writeFileSync(file, bytes);
 }

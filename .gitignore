@@ -3,6 +3,7 @@ node_modules/
 .tools/
 .husky/_/
 .next/
+.generated/
 .turbo/
 dist/
 coverage/

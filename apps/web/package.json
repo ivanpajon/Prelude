@@ -5,13 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "node ../../scripts/dev-web.mjs",
-    "build": "next build --turbopack && serwist build",
+    "build": "node ../../scripts/build-mcp-apps.mjs && next build --turbopack && serwist build",
     "start": "next start",
     "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
     "@ark/schema": "0.56.4",
     "@modelcontextprotocol/client": "2.2.0",
+    "@modelcontextprotocol/core": "2.2.0",
+    "@modelcontextprotocol/ext-apps": "2.0.3",
     "@modelcontextprotocol/server": "2.2.0",
     "@orpc/arktype": "1.15.4",
     "@orpc/client": "1.15.4",
@@ -40,6 +42,7 @@
   },
   "devDependencies": {
     "@serwist/cli": "9.5.12",
+    "@tailwindcss/cli": "4.3.3",
     "@tailwindcss/postcss": "4.3.3",
     "@testing-library/dom": "10.4.2",
     "@testing-library/jest-dom": "7.0.1",
@@ -51,6 +54,7 @@
     "esbuild": "0.28.2",
     "serwist": "9.5.12",
     "tailwindcss": "4.3.3",
+    "tsdown": "0.23.0",
     "typescript": "6.0.3",
     "vitest": "5.0.2"
   }
