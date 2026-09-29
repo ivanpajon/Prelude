@@ -1,13 +1,46 @@
+import type { McpOpenAPITool } from "mcp-from-openapi";
 import { describe, expect, it, vi } from "vitest";
-import { createMcpAppHtmlLoader, injectMcpAppConfig } from "./mcp-app-resource";
+import { createMcpAppHtmlLoader, getTaskAppTools, injectMcpAppConfig } from "./mcp-app-resource";
 
 const html = "<!doctype html><html><head><!--PRELUDE_MCP_APP_CONFIG--></head><body></body></html>";
+
+function tool(operationId: string, name = operationId): McpOpenAPITool {
+  return {
+    name,
+    description: operationId,
+    inputSchema: { type: "object" },
+    mapper: [],
+    metadata: { operationId, method: "get", path: "/tasks" },
+  };
+}
+
+describe("MCP App tool configuration", () => {
+  it("maps deletion by operation ID after a tool rename", () => {
+    expect(
+      getTaskAppTools([tool("listTasks", "read_tasks"), tool("deleteTask", "remove_task")]),
+    ).toEqual({ listTasks: "read_tasks", deleteTask: "remove_task" });
+  });
+
+  it("omits deletion when excluded without treating an unrelated tool name as the operation", () => {
+    const config = getTaskAppTools([
+      tool("listTasks"),
+      tool("createTask"),
+      tool("unrelatedOperation", "deleteTask"),
+    ]);
+    expect(config).toEqual({ listTasks: "listTasks", createTask: "createTask" });
+    expect(injectMcpAppConfig(html, config ?? { listTasks: "invalid" })).not.toContain(
+      '"deleteTask"',
+    );
+    expect(getTaskAppTools([tool("deleteTask")])).toBeUndefined();
+  });
+});
 
 describe("MCP App HTML", () => {
   it("injects exact tool names without permitting HTML or replacement-string injection", () => {
     const tools = {
       listTasks: 'list</script><script>alert("unsafe")</script>$&',
       createTask: "create-renamed",
+      deleteTask: "delete-renamed",
     };
     const output = injectMcpAppConfig(html, tools);
     const match = output.match(

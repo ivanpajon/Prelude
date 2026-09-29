@@ -6,6 +6,7 @@ export interface TaskRepository {
   list(status: TaskStatus): Task[];
   create(title: string): Task;
   setCompleted(id: string, completed: boolean): Task | undefined;
+  delete(id: string): Task | undefined;
 }
 
 const initialTasks: readonly Task[] = [
@@ -38,6 +39,12 @@ export function createDemoRepository(seed: readonly Task[] = initialTasks): Task
       const updated = { ...task, completed };
       tasks.set(id, updated);
       return { ...updated };
+    },
+    delete(id) {
+      const task = tasks.get(id);
+      if (!task) return undefined;
+      tasks.delete(id);
+      return { ...task };
     },
   };
 }

@@ -37,6 +37,8 @@ Open [localhost:3000](http://localhost:3000), then follow **API docs** to [the S
 
 Choose **Open playground** for [the task workspace and MCP explorer](http://localhost:3000/playground). Create tasks, try URL filters and compact view, then discover the generated MCP tools, edit JSON arguments, and execute real calls that refresh the same list. Motion and Morphicons previews stay on the homepage.
 
+The task example supports listing, creating, completing, and deleting through the workbench, REST, and MCP. Deletion returns the removed task; missing IDs return `NOT_FOUND`.
+
 The same contracts provide native MCP tools at `/api/mcp`. A compatible host can render the task widget associated with `listTasks`, using the official MCP Apps SDK. `pnpm dev` builds the widget and starts an authenticated local MCP Inspector, available through **Open Inspector** on the playground. Use Inspector's **Apps** interface to preview it; the website itself is not an MCP Apps host. Run `pnpm mcp:check` from another terminal for a CLI connectivity check. MCP is public and enabled by default; `MCP_ENABLED=false` disables its tools, resources, and JSON explorer actions. See [MCP usage](docs/mcp.md) and [the MCP App guide](docs/mcp-apps.md) for connections, sandbox ports, builds, and example removal.
 
 To run the production build and PWA on a separate origin:

@@ -74,6 +74,7 @@ test("serves the standalone app, REST, MCP, docs, and optimized images", async (
     await expectTaskAppResource(client);
     expect((await client.listTools()).tools.map((tool) => tool.name).sort()).toEqual([
       "createTask",
+      "deleteTask",
       "listTasks",
       "setTaskCompleted",
     ]);
@@ -91,7 +92,10 @@ test("serves the standalone app, REST, MCP, docs, and optimized images", async (
   expect(errors).toEqual([]);
 });
 
-test("creates and completes tasks through the browser RPC transport", async ({ page, request }) => {
+test("creates, completes and deletes tasks through the browser RPC transport", async ({
+  page,
+  request,
+}) => {
   const title = `Container RPC ${crypto.randomUUID()}`;
   await page.goto("/playground");
   await page.getByRole("textbox", { name: "New task", exact: true }).fill(title);
@@ -121,6 +125,17 @@ test("creates and completes tasks through the browser RPC transport", async ({ p
   );
   await page.reload();
   await expect(checkbox).toHaveAttribute("aria-pressed", "true");
+  const deleted = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === "/api/rpc/tasks/delete",
+  );
+  await page.getByRole("button", { name: `Delete ${title}`, exact: true }).click();
+  expect((await deleted).ok()).toBe(true);
+  await expect(
+    page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
+  ).toHaveCount(0);
+  expect(await (await request.get("/api/v1/tasks?status=all")).json()).not.toEqual(
+    expect.arrayContaining([expect.objectContaining({ title })]),
+  );
 });
 
 test("negotiates legacy MCP and executes every generated tool in the standalone runtime", async ({
@@ -148,6 +163,7 @@ test("negotiates legacy MCP and executes every generated tool in the standalone 
     const { tools } = await client.listTools();
     expect(tools.map((tool) => tool.name).sort()).toEqual([
       "createTask",
+      "deleteTask",
       "listTasks",
       "setTaskCompleted",
     ]);
@@ -172,6 +188,12 @@ test("negotiates legacy MCP and executes every generated tool in the standalone 
     expect(methods).toContain("initialize");
     expect(await (await request.get("/api/v1/tasks?status=completed")).json()).toEqual(
       expect.arrayContaining([{ ...created, completed: true }]),
+    );
+    expect(
+      toolText(await client.callTool({ name: "deleteTask", arguments: { id: created.id } })),
+    ).toEqual({ ...created, completed: true });
+    expect(await (await request.get("/api/v1/tasks?status=all")).json()).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: created.id })]),
     );
   } finally {
     await client.close();

@@ -1,5 +1,13 @@
 # Verification
 
+## Task deletion checks
+
+Verified on 2026-09-29 with Node 26.10.0 and pnpm 12.6.0 on Windows: frozen installation, Biome, strict TypeScript, 293 unit/component/script tests with coverage, three native development browser scenarios, 51 production browser scenarios, the production build, and byte-for-byte Turbo restoration of the widget HTML and service worker passed. The verification commands ran separately, with Scalar's desktop/mobile deletion scenarios rerun after correcting navigation and path-parameter selectors in the browser test.
+
+Coverage includes deletion through RPC, REST, Scalar, modern/legacy MCP, the live workbench, and the real Inspector-hosted MCP App. Checks verify missing IDs, path-ID protection, output validation, isolated repositories, awaited callbacks, duplicate-action prevention, preserved drafts on failure, filter invalidation, and renamed/excluded widget tools.
+
+`pnpm test:stack --samples 1` passed all 16 container browser scenarios across the distroless runtime, slim baseline, and development Inspector. Runtime MCP toggling, source-change dependency reuse, manifest-triggered rebuilding, unchanged host source, and cleanup passed. This was a functional regression run; its single runtime sample does not establish a new performance baseline.
+
 ## Playground and MCP App checks
 
 Verified on 2026-09-29 with Node 26.10.0 and pnpm 12.6.0 on Windows: frozen installation and `pnpm verify` passed, including Biome, strict TypeScript, 271 unit/component/script tests with coverage, three native development browser scenarios, 47 production browser scenarios, the production build, and byte-for-byte Turbo restoration of the widget HTML and service worker.
@@ -39,9 +47,9 @@ Verified on 2026-09-28 with Node 26.10.0 and pnpm 12.6.0 on Windows:
 
 The MCP unit suite covers tool generation from the shared OpenAPI document, flat parameter/body mapping, ArkType validation, protocol output conversion, immutable catalog reuse, failed generation retries, request isolation, and awaited mutation callbacks. Transport tests cover disabled access, development loopback restrictions, exact production Origin rules, no-store responses, and a development-only Inspector wrapper.
 
-The production `mcp` Playwright project connects real SDK clients using both modern discovery and the legacy initialize handshake. It executes all three tools and checks that writes are visible through REST, RPC, and the rendered workbench. A separately owned production process starts with `MCP_ENABLED=false` against the existing build to prove that the switch applies at runtime while REST remains available. The test terminates only its own process tree. Production also checks that the Inspector wrapper and nested asset/backend paths return 404.
+The production `mcp` Playwright project connects real SDK clients using both modern discovery and the legacy initialize handshake. It executes all four tools and checks that writes are visible through REST, RPC, and the rendered workbench. A separately owned production process starts with `MCP_ENABLED=false` against the existing build to prove that the switch applies at runtime while REST remains available. The test terminates only its own process tree. Production also checks that the Inspector wrapper and nested asset/backend paths return 404.
 
-Development acceptance starts the actual pinned Inspector alongside Next.js on dedicated ports. It checks its authentication and origin protections, the full-viewport token-free iframe, manual connection, generated forms, and real create/update/list calls. The resulting data is checked through REST and the RPC workbench. The wrapper never proxies Inspector backend or asset routes. The test saves `mcp-inspector.png` for visual review.
+Development acceptance starts the actual pinned Inspector alongside Next.js on dedicated ports. It checks its authentication and origin protections, the full-viewport token-free iframe, manual connection, generated forms, and real create/update/delete/list calls. The resulting data is checked through REST and the RPC workbench. The wrapper never proxies Inspector backend or asset routes. The test saves `mcp-inspector.png` for visual review.
 
 Run `pnpm test:dev` separately from an ordinary development session because both use the Next.js development output. The production MCP project runs within `pnpm test:e2e`; `pnpm verify` includes both. Do not run the production build or worker-cache checks concurrently with these servers. `pnpm mcp:check` provides a separate read-only Inspector CLI discovery check against a running application.
 
@@ -94,7 +102,7 @@ No CI provider is configured. A future CI job can run these commands; on Linux r
 | `pnpm test:e2e` | Build, then check production hydration, mutations, Scalar docs and requests, URL navigation, local state, offline fallback, and worker updates. |
 | `pnpm test:cache` | Build, remove only known generated widget/worker artifacts, then confirm a Turbo cache hit restores identical bytes. |
 
-`pnpm test:e2e` builds automatically and starts its own production server at `http://127.0.0.1:3100`; leave that port free. Desktop and mobile app scenarios block service workers to isolate UI behavior, while the PWA project allows them. The tests detect hydration errors, verify initial data without an immediate duplicate RPC fetch, create/complete tasks, navigate filters with history, check failed-request recovery, and verify compact view stays local to its browser context. Reports, traces, and failure screenshots go to ignored test output directories.
+`pnpm test:e2e` builds automatically and starts its own production server at `http://127.0.0.1:3100`; leave that port free. Desktop and mobile app scenarios block service workers to isolate UI behavior, while the PWA project allows them. The tests detect hydration errors, verify initial data without an immediate duplicate RPC fetch, create/complete/delete tasks, navigate filters with history, check failed-request recovery, and verify compact view stays local to its browser context. Reports, traces, and failure screenshots go to ignored test output directories.
 
 `pnpm test:dev` starts its own development server at `http://127.0.0.1:3102`. Stop ordinary `pnpm dev` first because both use the application's development output directory and lock. The smoke test captures all console errors and uncaught exceptions, exercises both animation previews, reloads, and checks Next.js's issues overlay. `pnpm verify` runs this check before building production; development-only validation errors can pass a production build.
 

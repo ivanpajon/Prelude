@@ -53,6 +53,7 @@ for (const mode of ["modern", "legacy"] as const) {
       const { tools } = await client.listTools();
       expect(tools.map((tool) => tool.name).sort()).toEqual([
         "createTask",
+        "deleteTask",
         "listTasks",
         "setTaskCompleted",
       ]);
@@ -78,6 +79,10 @@ for (const mode of ["modern", "legacy"] as const) {
           required: expect.arrayContaining(["id", "completed"]),
           properties: { id: { type: "string" }, completed: { type: "boolean" } },
         },
+      });
+      expect(tools.find((tool) => tool.name === "deleteTask")).toMatchObject({
+        inputSchema: { type: "object", required: ["id"], properties: { id: { type: "string" } } },
+        annotations: { destructiveHint: true },
       });
       const specification = await (await request.get("/api/openapi.json")).json();
       expect(specification.paths["/v1/tasks"].get.operationId).toBe(listTool?.name);
@@ -117,6 +122,19 @@ for (const mode of ["modern", "legacy"] as const) {
       await expect(
         page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
       ).toBeVisible();
+
+      const deleted = await client.callTool({ name: "deleteTask", arguments: { id: created.id } });
+      expect(toolText(deleted)).toEqual({ ...created, completed: true });
+      expect(await (await request.get("/api/v1/tasks?status=all")).json()).not.toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: created.id })]),
+      );
+      await page.reload();
+      await expect(
+        page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
+      ).toHaveCount(0);
+      const missing = await client.callTool({ name: "deleteTask", arguments: { id: created.id } });
+      expect(missing.isError).toBe(true);
+      expect(JSON.stringify(missing.content)).toContain("NOT_FOUND");
 
       expect(exchanges.map((exchange) => exchange.method)).toContain(
         mode === "modern" ? "server/discover" : "initialize",

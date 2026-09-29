@@ -90,7 +90,8 @@ test("executes same-origin reads and mutations in Scalar and shares results with
   await client.getByRole("button", { name: /^Send post request to/ }).click();
   const created = await create;
   expect(created.status()).toBe(201);
-  expect(await created.json()).toMatchObject({ title, completed: false });
+  const createdTask = await created.json();
+  expect(createdTask).toMatchObject({ title, completed: false });
   await expect(client.getByRole("link", { name: "201 Created", exact: true })).toBeVisible();
 
   await page.goto("/playground");
@@ -103,4 +104,40 @@ test("executes same-origin reads and mutations in Scalar and shares results with
   await expect(
     page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
   ).toBeVisible();
+
+  // Scalar renders later operations lazily; navigate to the documented operation first.
+  await page.goto("/api/docs#tag/tasks/DELETE/v1/tasks/{id}");
+  await page
+    .getByRole("button", { name: "Test Request (delete /v1/tasks/{id})", exact: true })
+    .click();
+  const target = `${origin}/api/v1/tasks/${createdTask.id}`;
+  await client
+    .getByRole("region", { name: "Request: Delete a task", exact: true })
+    .getByRole("row")
+    .filter({ has: page.getByRole("checkbox", { name: "Include id in request", exact: true }) })
+    .getByRole("combobox", { name: "Value", exact: true })
+    .fill(createdTask.id);
+  const remove = page.waitForResponse(
+    (response) => response.url() === target && response.request().method() === "DELETE",
+  );
+  await client.getByRole("button", { name: /^Send delete request to/ }).click();
+  const deleted = await remove;
+  expect(deleted.status()).toBe(200);
+  expect(deleted.headers()["cache-control"]).toBe("no-store");
+  expect(await deleted.json()).toEqual(createdTask);
+  await expect(client.getByRole("link", { name: "200 OK", exact: true })).toBeVisible();
+
+  const repeatedDelete = page.waitForResponse(
+    (response) => response.url() === target && response.request().method() === "DELETE",
+  );
+  await client.getByRole("button", { name: /^Send delete request to/ }).click();
+  const missing = await repeatedDelete;
+  expect(missing.status()).toBe(404);
+  expect(await missing.json()).toMatchObject({ code: "NOT_FOUND" });
+  await expect(client.getByRole("link", { name: "404 Not Found", exact: true })).toBeVisible();
+
+  await page.goto("/playground?status=active");
+  await expect(
+    page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
+  ).toHaveCount(0);
 });

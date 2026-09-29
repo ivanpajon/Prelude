@@ -57,6 +57,74 @@ describe("contract-first task API", () => {
     });
   });
 
+  it("deletes exactly the requested task and rejects repeated deletion without invalidation", async () => {
+    const repository = createDemoRepository();
+    const before = repository.list("all");
+    const changed = vi.fn();
+    const client = createApiClient({ repository, onTasksChanged: changed });
+
+    await expect(client.tasks.delete({ id: "feature" })).resolves.toEqual(before[1]);
+    await expect(client.tasks.list({ status: "all" })).resolves.toEqual([before[0], before[2]]);
+    await expect(client.tasks.delete({ id: "feature" })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+      message: "Task not found",
+    });
+    await expect(client.tasks.delete({ id: "missing" })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    expect(changed).toHaveBeenCalledOnce();
+  });
+
+  it.each(["", 42, undefined])("rejects an invalid delete id before writing: %j", async (id) => {
+    const repository = createDemoRepository();
+    const before = repository.list("all");
+    const remove = vi.spyOn(repository, "delete");
+    const changed = vi.fn();
+    const client = createApiClient({ repository, onTasksChanged: changed });
+
+    await expect(client.tasks.delete({ id: id as string })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    expect(repository.list("all")).toEqual(before);
+    expect(remove).not.toHaveBeenCalled();
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it("validates the deleted task output at the contract boundary", async () => {
+    const repository: TaskRepository = {
+      ...createDemoRepository(),
+      delete: () => ({ id: "broken", title: 42, completed: false }) as unknown as Task,
+    };
+    const client = createApiClient({ repository });
+    await expect(client.tasks.delete({ id: "broken" })).rejects.toMatchObject({
+      code: "INTERNAL_SERVER_ERROR",
+    });
+  });
+
+  it("awaits delete invalidation and keeps separate repositories isolated", async () => {
+    let finishInvalidation: () => void = () => {};
+    const invalidation = new Promise<void>((resolve) => {
+      finishInvalidation = resolve;
+    });
+    const changed = vi.fn(() => invalidation);
+    const first = createApiClient({
+      repository: createDemoRepository(),
+      onTasksChanged: changed,
+    });
+    const second = createApiClient({ repository: createDemoRepository() });
+    let returned = false;
+    const deletion = first.tasks.delete({ id: "explore" }).then((task) => {
+      returned = true;
+      return task;
+    });
+    await vi.waitFor(() => expect(changed).toHaveBeenCalledOnce());
+    expect(returned).toBe(false);
+    expect(await first.tasks.list({ status: "completed" })).toEqual([]);
+    expect(await second.tasks.list({ status: "completed" })).toHaveLength(1);
+    finishInvalidation();
+    await expect(deletion).resolves.toMatchObject({ id: "explore", completed: true });
+  });
+
   it("validates runtime types even through an in-process client", async () => {
     const client = createApiClient({ repository: createDemoRepository() });
     await expect(client.tasks.create({ title: 42 as unknown as string })).rejects.toMatchObject({
@@ -149,5 +217,10 @@ describe("demo repository ownership", () => {
     const updated = repository.setCompleted(created.id, true);
     if (updated) updated.title = "Mutated update";
     expect(repository.list("completed").map((task) => task.title)).toEqual(["Created"]);
+    const deleted = repository.delete(created.id);
+    expect(deleted).toEqual({ id: created.id, title: "Created", completed: true });
+    expect(deleted).not.toBe(updated);
+    expect(repository.delete(created.id)).toBeUndefined();
+    expect(repository.list("all")).toEqual([{ id: "seed", title: "Original", completed: false }]);
   });
 });

@@ -1,3 +1,4 @@
+import { CallToolResultSchema } from "@modelcontextprotocol/core";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -17,6 +18,7 @@ const tools = {
   listTasks: "listTasks",
   createTask: "createTask",
   setTaskCompleted: "setTaskCompleted",
+  deleteTask: "deleteTask",
 };
 const result = (value: unknown) => ({ structuredContent: value });
 const sessions: TaskAppSession[] = [];
@@ -50,8 +52,50 @@ it("renders host-seeded data accessibly without fetching again and hides exclude
   expect(screen.queryByRole("textbox", { name: "New task" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Add task" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /^Mark / })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Delete / })).not.toBeInTheDocument();
   await Promise.resolve();
   expect(call).not.toHaveBeenCalled();
+});
+
+it("keeps delete visible and keyboard accessible, reports failures, and removes only successful deletions", async () => {
+  const user = userEvent.setup();
+  const { call } = fixture({ ...tools, deleteTask: "remove_task" });
+  const remove = screen.getByRole("button", { name: `Delete ${task.title}` });
+  expect(remove).toBeVisible();
+  expect(remove).toHaveAttribute("title", "Delete task");
+  expect(remove.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+  call.mockResolvedValueOnce({ isError: true });
+  remove.focus();
+  await user.keyboard("{Enter}");
+  expect(await screen.findByRole("alert")).toHaveTextContent("The tool could not complete");
+  expect(screen.getByRole("list", { name: "Tasks" })).toHaveTextContent(task.title);
+  expect(remove).toBeEnabled();
+
+  let finishDeletion!: (value: unknown) => void;
+  call
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishDeletion = resolve;
+        }),
+    )
+    .mockResolvedValueOnce(result([]));
+  await user.keyboard("{Enter}");
+  expect(remove).toBeDisabled();
+  expect(screen.getByRole("button", { name: `Mark ${task.title} as completed` })).toBeDisabled();
+  expect(screen.getByRole("status")).toHaveTextContent("Updating tasks…");
+  expect(screen.getByRole("list", { name: "Tasks" })).toHaveAttribute("aria-busy", "true");
+  expect(screen.getByRole("list", { name: "Tasks" })).toHaveTextContent(task.title);
+  await act(async () => finishDeletion(result(task)));
+  await screen.findByText("No tasks in this view.");
+  expect(screen.queryByRole("button", { name: `Delete ${task.title}` })).not.toBeInTheDocument();
+  expect(screen.getByRole("status")).toHaveTextContent("0 tasks in this view");
+  expect(call.mock.calls.map(([name]) => name)).toEqual([
+    "remove_task",
+    "remove_task",
+    "listTasks",
+  ]);
+  expect(call).toHaveBeenNthCalledWith(2, "remove_task", { id: task.id }, expect.any(AbortSignal));
 });
 
 it("creates a trimmed task with the keyboard, refreshes the list, and clears only successful input", async () => {
@@ -199,5 +243,3 @@ it("shows host connection failures and keeps mutation controls disabled before c
   expect(screen.getByRole("button", { name: "Add task" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Refresh tasks" })).toBeDisabled();
 });
-
-import { CallToolResultSchema } from "@modelcontextprotocol/core";

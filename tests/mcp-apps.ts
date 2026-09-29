@@ -37,6 +37,7 @@ export async function expectTaskAppResource(client: Client) {
     tools: {
       listTasks: "listTasks",
       createTask: "createTask",
+      deleteTask: "deleteTask",
       setTaskCompleted: "setTaskCompleted",
     },
   });
@@ -155,6 +156,29 @@ export async function exerciseTaskApp({
   await expect(tasks.getByText(outsideTitle, { exact: true })).toHaveCount(0);
   await widget.getByRole("button", { name: "Refresh tasks", exact: true }).click();
   await expect(tasks.getByText(outsideTitle, { exact: true })).toBeVisible();
+  await input.fill("Keep this widget draft");
+  const remove = widget.getByRole("button", { name: `Delete ${title}`, exact: true });
+  await remove.focus();
+  await remove.press("Enter");
+  await expect(tasks.getByText(title, { exact: true })).toHaveCount(0);
+  await expect(tasks).toHaveAttribute("aria-busy", "false");
+  await expect(input).toHaveValue("Keep this widget draft");
+  expect(await (await request.get("/api/v1/tasks?status=all")).json()).not.toEqual(
+    expect.arrayContaining([expect.objectContaining({ id: created.id })]),
+  );
+
+  const externalDelete = await request.delete(`/api/v1/tasks/${outsideTask.id}`);
+  expect(externalDelete.status()).toBe(200);
+  expect(await externalDelete.json()).toEqual({ ...outsideTask, completed: true });
+  // Another client changed the shared demo. A stale row remains until a refetch.
+  await expect(tasks.getByText(outsideTitle, { exact: true })).toBeVisible();
+  await widget.getByRole("button", { name: `Delete ${outsideTitle}`, exact: true }).click();
+  await expect(widget.getByRole("alert")).toContainText("The tool could not complete the request.");
+  await expect(input).toHaveValue("Keep this widget draft");
+  await widget.getByRole("button", { name: "Refresh tasks", exact: true }).click();
+  await expect(tasks.getByText(outsideTitle, { exact: true })).toHaveCount(0);
+  await expect(tasks).toHaveAttribute("aria-busy", "false");
+  await expect(input).toHaveValue("Keep this widget draft");
   expect(await observedCalls()).toEqual([
     { name: "createTask", arguments: { title } },
     { name: "listTasks", arguments: { status: "all" } },
@@ -162,6 +186,10 @@ export async function exerciseTaskApp({
     { name: "listTasks", arguments: { status: "all" } },
     { name: "listTasks", arguments: { status: "active" } },
     { name: "listTasks", arguments: { status: "completed" } },
+    { name: "listTasks", arguments: { status: "completed" } },
+    { name: "deleteTask", arguments: { id: created.id } },
+    { name: "listTasks", arguments: { status: "completed" } },
+    { name: "deleteTask", arguments: { id: outsideTask.id } },
     { name: "listTasks", arguments: { status: "completed" } },
   ]);
   expect(widgetRequests).toEqual([]);
@@ -191,8 +219,8 @@ export async function exerciseTaskApp({
   await page.goto("/playground?status=completed");
   await expect(
     page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(
     page.getByRole("list", { name: "Tasks" }).getByText(outsideTitle, { exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
 }

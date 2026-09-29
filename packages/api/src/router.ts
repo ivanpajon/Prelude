@@ -26,6 +26,12 @@ export const router = api.router({
       await context.onTasksChanged?.();
       return task;
     }),
+    delete: api.tasks.delete.handler(async ({ input, context, errors }) => {
+      const task = context.repository.delete(input.id);
+      if (!task) throw errors.NOT_FOUND();
+      await context.onTasksChanged?.();
+      return task;
+    }),
   },
 });
 

@@ -5,6 +5,7 @@ export interface TaskAppTools {
   listTasks: string;
   createTask?: string;
   setTaskCompleted?: string;
+  deleteTask?: string;
 }
 
 export type ToolCaller = (
@@ -23,7 +24,7 @@ export function readTools(value: unknown): TaskAppTools {
   if (typeof tools.listTasks !== "string" || !tools.listTasks.trim()) {
     throw new Error("Task listing is unavailable.");
   }
-  for (const name of ["createTask", "setTaskCompleted"]) {
+  for (const name of ["createTask", "setTaskCompleted", "deleteTask"]) {
     if (tools[name] !== undefined && (typeof tools[name] !== "string" || !tools[name].trim())) {
       throw new Error("Task App configuration is invalid.");
     }
@@ -183,7 +184,7 @@ export class TaskAppSession {
   }
 
   async mutate(
-    operation: "createTask" | "setTaskCompleted",
+    operation: "createTask" | "setTaskCompleted" | "deleteTask",
     args: Record<string, unknown>,
   ): Promise<boolean> {
     const name = this.tools[operation];

@@ -3,7 +3,7 @@ import type { Task, TaskStatus } from "@repo/contracts";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { CheckIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
+import { CheckIcon, PlusIcon, RefreshCwIcon, Trash2Icon } from "lucide-react";
 import { type FormEvent, useEffect, useState, useSyncExternalStore } from "react";
 import { callHostTool } from "./bridge";
 import { TaskAppSession, type TaskAppTools, taskKey } from "./model";
@@ -93,7 +93,7 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
       </nav>
       <div className="mt-3 text-sm" aria-live="polite" role="status">
         {state.mutating
-          ? "Saving task…"
+          ? "Updating tasks…"
           : state.loading
             ? "Loading tasks…"
             : `${tasks.data?.length ?? 0} tasks in this view`}
@@ -137,12 +137,25 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
             <span
               className={
                 task.completed
-                  ? "min-w-0 text-sm break-words text-muted-foreground line-through"
-                  : "min-w-0 text-sm break-words"
+                  ? "min-w-0 flex-1 text-sm wrap-anywhere text-muted-foreground line-through"
+                  : "min-w-0 flex-1 text-sm wrap-anywhere"
               }
             >
               {task.title}
             </span>
+            {session.tools.deleteTask && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                disabled={busy}
+                aria-label={`Delete ${task.title}`}
+                title="Delete task"
+                onClick={() => void session.mutate("deleteTask", { id: task.id })}
+              >
+                <Trash2Icon aria-hidden="true" />
+              </Button>
+            )}
           </li>
         ))}
       </ul>

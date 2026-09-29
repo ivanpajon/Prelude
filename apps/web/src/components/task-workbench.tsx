@@ -10,7 +10,7 @@ import { cn } from "@repo/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type } from "arktype";
 import { LayoutList, List } from "lucide";
-import { CheckIcon, PlusIcon } from "lucide-react";
+import { CheckIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import * as m from "motion/react-m";
 import { useQueryState } from "nuqs";
 import { type FormEvent, useRef, useState } from "react";
@@ -32,6 +32,7 @@ export function TaskWorkbench() {
   const [title, setTitle] = useState("");
   const [validationError, setValidationError] = useState<string>();
   const submitting = useRef(false);
+  const changingTask = useRef(false);
   const compact = useWorkbenchStore((state) => state.compact);
   const toggleCompact = useWorkbenchStore((state) => state.toggleCompact);
   const queryClient = useQueryClient();
@@ -41,12 +42,34 @@ export function TaskWorkbench() {
   const setCompleted = useMutation(
     orpc.tasks.setCompleted.mutationOptions({ onSuccess: invalidateTasks }),
   );
+  const deleteTask = useMutation(orpc.tasks.delete.mutationOptions({ onSuccess: invalidateTasks }));
+  const taskChangePending = setCompleted.isPending || deleteTask.isPending;
+
+  async function changeTask(action: () => Promise<unknown>) {
+    if (changingTask.current) return;
+    changingTask.current = true;
+    setValidationError(undefined);
+    if (!createTask.isPending) createTask.reset();
+    setCompleted.reset();
+    deleteTask.reset();
+    try {
+      await action();
+    } catch {
+      // Keep the task visible and expose the mutation error so the action can be retried.
+    } finally {
+      changingTask.current = false;
+    }
+  }
 
   async function submitTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting.current) return;
     setValidationError(undefined);
     createTask.reset();
+    if (!changingTask.current) {
+      setCompleted.reset();
+      deleteTask.reset();
+    }
     const input = createTaskInput({ title: title.trim() });
     if (input instanceof type.errors) {
       setValidationError("Enter a task between 1 and 120 characters.");
@@ -63,7 +86,11 @@ export function TaskWorkbench() {
     }
   }
 
-  const error = validationError ?? createTask.error?.message ?? setCompleted.error?.message;
+  const error =
+    validationError ??
+    createTask.error?.message ??
+    setCompleted.error?.message ??
+    deleteTask.error?.message;
 
   return (
     <Card className="overflow-hidden bg-card shadow-none">
@@ -109,6 +136,13 @@ export function TaskWorkbench() {
         >
           {error}
         </div>
+        <span role="status" className="sr-only">
+          {deleteTask.isPending
+            ? "Deleting task…"
+            : deleteTask.isSuccess
+              ? `Deleted ${deleteTask.data.title}.`
+              : ""}
+        </span>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-b pb-4">
           <fieldset className="flex flex-wrap gap-1">
             <legend className="sr-only">Filter tasks</legend>
@@ -155,19 +189,35 @@ export function TaskWorkbench() {
                   variant={task.completed ? "default" : "outline"}
                   aria-label={`Mark ${task.title} as ${task.completed ? "active" : "completed"}`}
                   aria-pressed={task.completed}
-                  disabled={setCompleted.isPending}
-                  onClick={() => setCompleted.mutate({ id: task.id, completed: !task.completed })}
+                  disabled={taskChangePending}
+                  onClick={() =>
+                    void changeTask(() =>
+                      setCompleted.mutateAsync({ id: task.id, completed: !task.completed }),
+                    )
+                  }
                 >
                   {task.completed && <CheckIcon aria-hidden="true" />}
                 </Button>
                 <span
                   className={cn(
+                    "min-w-0 flex-1 wrap-anywhere",
                     compact ? "text-xs" : "text-base",
                     task.completed && "text-muted-foreground line-through",
                   )}
                 >
                   {task.title}
                 </span>
+                <Button
+                  size={compact ? "icon-xs" : "icon-sm"}
+                  variant="ghost"
+                  className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  aria-label={`Delete ${task.title}`}
+                  title={`Delete ${task.title}`}
+                  disabled={taskChangePending}
+                  onClick={() => void changeTask(() => deleteTask.mutateAsync({ id: task.id }))}
+                >
+                  <Trash2Icon aria-hidden="true" />
+                </Button>
               </m.li>
             ))}
           </ul>

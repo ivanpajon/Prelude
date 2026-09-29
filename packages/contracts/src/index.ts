@@ -18,6 +18,7 @@ export type Task = typeof taskSchema.infer;
 export const listTasksInput = type({ status: taskStatusSchema });
 export const createTaskInput = type({ title: titleSchema });
 export const setCompletedInput = type({ id: "string > 0", completed: "boolean" });
+export const deleteTaskInput = type({ id: "string > 0" });
 
 // Extend the generated body without replacing its schema or validation constraints.
 function jsonExample(example: Record<string, unknown>) {
@@ -86,6 +87,21 @@ export const contract = {
         spec: jsonExample({ completed: true }),
       })
       .input(setCompletedInput)
+      .output(taskSchema)
+      .errors({ NOT_FOUND: { message: "Task not found" } }),
+    delete: oc
+      .route({
+        method: "DELETE",
+        path: "/v1/tasks/{id}",
+        operationId: "deleteTask",
+        tags: ["Tasks"],
+        summary: "Delete a task",
+        description:
+          "Remove a task from the shared demo list and return the deleted task. Returns NOT_FOUND if the task does not exist or has already been deleted.",
+        successStatus: 200,
+        successDescription: "Task deleted",
+      })
+      .input(deleteTaskInput)
       .output(taskSchema)
       .errors({ NOT_FOUND: { message: "Task not found" } }),
   },

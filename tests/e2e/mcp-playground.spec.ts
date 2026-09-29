@@ -8,7 +8,7 @@ async function discover(page: Page) {
   const widget = playground(page);
   await widget.getByRole("button", { name: "Discover tools", exact: true }).click();
   await expect(widget.getByRole("group", { name: "MCP tools" })).toBeVisible();
-  await expect(widget.getByText("3 tools available.", { exact: false })).toBeVisible();
+  await expect(widget.getByText("4 tools available.", { exact: false })).toBeVisible();
   return widget;
 }
 
@@ -21,9 +21,10 @@ test("discovers real tools, exposes schemas, and handles arguments and tool erro
   await discoverButton.focus();
   await page.keyboard.press("Enter");
   const tools = widget.getByRole("group", { name: "MCP tools" });
-  await expect(tools.getByRole("button")).toHaveCount(3);
+  await expect(tools.getByRole("button")).toHaveCount(4);
   expect((await tools.getByRole("button").allTextContents()).sort()).toEqual([
     "createTask",
+    "deleteTask",
     "listTasks",
     "setTaskCompleted",
   ]);
@@ -89,7 +90,7 @@ test("discovers real tools, exposes schemas, and handles arguments and tool erro
   );
 });
 
-test("creates and completes through MCP while refreshing the RPC workbench without reloading", async ({
+test("creates, completes and deletes through MCP while refreshing the RPC workbench without reloading", async ({
   page,
 }, testInfo) => {
   const title = `Playground ${testInfo.project.name} ${crypto.randomUUID()}`;
@@ -133,6 +134,16 @@ test("creates and completes through MCP while refreshing the RPC workbench witho
     tasks.getByRole("button", { name: `Mark ${title} as active`, exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   await expect(workbenchDraft).toHaveValue("Keep this unsaved draft");
+
+  await tools.getByRole("button", { name: "deleteTask", exact: true }).click();
+  await argumentsInput.fill(JSON.stringify({ id: created.id }));
+  await run.click();
+  await expect(result).toContainText(title);
+  await expect(tasks.getByText(title, { exact: true })).toHaveCount(0);
+  await expect(workbenchDraft).toHaveValue("Keep this unsaved draft");
+  await run.click();
+  await expect(result).toContainText("NOT_FOUND");
+  await expect(run).toBeEnabled();
 
   await tools.getByRole("button", { name: "createTask", exact: true }).click();
   await expect(argumentsInput).toHaveValue(createDraft);

@@ -88,10 +88,32 @@ describe("generated OpenAPI specification", () => {
             },
             responses: { "200": expect.any(Object), "404": expect.any(Object) },
           },
+          delete: {
+            operationId: "deleteTask",
+            tags: ["Tasks"],
+            parameters: [
+              { name: "id", in: "path", required: true, schema: { type: "string", minLength: 1 } },
+            ],
+            responses: {
+              "200": {
+                description: "Task deleted",
+                content: {
+                  "application/json": {
+                    schema: {
+                      type: "object",
+                      required: expect.arrayContaining(["id", "title", "completed"]),
+                    },
+                  },
+                },
+              },
+              "404": expect.any(Object),
+            },
+          },
         },
       },
     });
     expect(Object.keys(spec.paths ?? {}).sort()).toEqual(["/v1/tasks", "/v1/tasks/{id}"]);
+    expect(spec.paths?.["/v1/tasks/{id}"]?.delete?.requestBody).toBeUndefined();
   });
 
   it("documents normalized output limits without rejecting padded raw input", async () => {
@@ -202,10 +224,11 @@ describe("OpenAPI HTTP adapter", () => {
     expect(html).toContain('"agent":{"disabled":true}');
     expect(html).toContain("listTasks");
     expect(html).toContain("createTask");
+    expect(html).toContain("deleteTask");
     expect(html).not.toContain("proxy.scalar.com");
   });
 
-  it("creates normalized tasks, patches completion, and filters the shared RPC data", async () => {
+  it("creates, completes, filters, and deletes tasks shared with RPC", async () => {
     const context: Context = { repository: createDemoRepository([]), onTasksChanged: vi.fn() };
     const create = await request(context, "/v1/tasks", "POST", {
       title: `  ${"x".repeat(120)}  `,
@@ -241,10 +264,21 @@ describe("OpenAPI HTTP adapter", () => {
     await expect(rpcClient.tasks.list({ status: "all" })).resolves.toEqual([
       { ...task, completed: true },
     ]);
-    expect(context.onTasksChanged).toHaveBeenCalledTimes(2);
+    const deleted = await request(context, `/v1/tasks/${task.id}`, "DELETE");
+    expect(deleted.status).toBe(200);
+    expect(await deleted.json()).toEqual({ ...task, completed: true });
+    await expect(rpcClient.tasks.list({ status: "all" })).resolves.toEqual([]);
+    await expect(rpcClient.tasks.delete({ id: task.id })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    const rpcTask = await rpcClient.tasks.create({ title: "Delete through RPC" });
+    await expect(rpcClient.tasks.delete({ id: rpcTask.id })).resolves.toEqual(rpcTask);
+    expect(await (await request(context, "/v1/tasks?status=all")).json()).toEqual([]);
+    expect(context.onTasksChanged).toHaveBeenCalledTimes(5);
     expect(create.headers.get("Cache-Control")).toBe("no-store");
     expect(active.headers.get("Cache-Control")).toBe("no-store");
     expect(update.headers.get("Cache-Control")).toBe("no-store");
+    expect(deleted.headers.get("Cache-Control")).toBe("no-store");
   });
 
   it.each<[path: string, method: string, body?: unknown]>([
@@ -269,22 +303,36 @@ describe("OpenAPI HTTP adapter", () => {
     expect(changed).not.toHaveBeenCalled();
   });
 
-  it("returns the typed missing-task error without invalidating caches", async () => {
-    const changed = vi.fn();
-    const response = await request(
-      { repository: createDemoRepository([]), onTasksChanged: changed },
-      "/v1/tasks/missing",
-      "PATCH",
-      { completed: true },
-    );
+  it.each(["PATCH", "DELETE"])(
+    "returns the typed missing-task error for %s without invalidating caches",
+    async (method) => {
+      const changed = vi.fn();
+      const response = await request(
+        { repository: createDemoRepository([]), onTasksChanged: changed },
+        "/v1/tasks/missing",
+        method,
+        method === "PATCH" ? { completed: true } : undefined,
+      );
 
-    expect(response.status).toBe(404);
-    expect(await response.json()).toMatchObject({ code: "NOT_FOUND", message: "Task not found" });
-    expect(response.headers.get("Cache-Control")).toBe("no-store");
-    expect(changed).not.toHaveBeenCalled();
+      expect(response.status).toBe(404);
+      expect(await response.json()).toMatchObject({ code: "NOT_FOUND", message: "Task not found" });
+      expect(response.headers.get("Cache-Control")).toBe("no-store");
+      expect(changed).not.toHaveBeenCalled();
+    },
+  );
+
+  it("returns NOT_FOUND for a repeated HTTP deletion and invalidates only once", async () => {
+    const repository = createDemoRepository();
+    const changed = vi.fn();
+    const context = { repository, onTasksChanged: changed };
+    expect((await request(context, "/v1/tasks/explore", "DELETE")).status).toBe(200);
+    const repeated = await request(context, "/v1/tasks/explore", "DELETE");
+    expect(repeated.status).toBe(404);
+    expect(await repeated.json()).toMatchObject({ code: "NOT_FOUND", message: "Task not found" });
+    expect(changed).toHaveBeenCalledOnce();
   });
 
-  it("rejects a body id that would otherwise override the task id in the URL", async () => {
+  it.each(["PATCH", "DELETE"])("rejects a body id overriding the URL for %s", async (method) => {
     const repository = createDemoRepository([
       { id: "url-task", title: "URL task", completed: false },
       { id: "body-task", title: "Body task", completed: false },
@@ -294,7 +342,7 @@ describe("OpenAPI HTTP adapter", () => {
     const response = await request(
       { repository, onTasksChanged: changed },
       "/v1/tasks/url-task",
-      "PATCH",
+      method,
       { id: "body-task", completed: true },
     );
 
@@ -305,25 +353,47 @@ describe("OpenAPI HTTP adapter", () => {
     expect(changed).not.toHaveBeenCalled();
   });
 
-  it("rejects malformed JSON before updating a task or invalidating caches", async () => {
-    const repository = createDemoRepository();
-    const before = repository.list("all");
-    const changed = vi.fn();
-    const response = await handleOpenApiRequest(
-      new Request("http://localhost/api/v1/tasks/explore", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: '{"completed":',
-      }),
-      { repository, onTasksChanged: changed },
-    );
+  it.each(["PATCH", "DELETE"])(
+    "rejects a query id overriding the %s path without changing either task",
+    async (method) => {
+      const repository = createDemoRepository();
+      const before = repository.list("all");
+      const changed = vi.fn();
+      const response = await request(
+        { repository, onTasksChanged: changed },
+        "/v1/tasks/explore?id=feature",
+        method,
+        method === "PATCH" ? { completed: true } : undefined,
+      );
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({ code: "BAD_REQUEST" });
+      expect(repository.list("all")).toEqual(before);
+      expect(changed).not.toHaveBeenCalled();
+    },
+  );
 
-    expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({ code: "BAD_REQUEST" });
-    expect(response.headers.get("Cache-Control")).toBe("no-store");
-    expect(repository.list("all")).toEqual(before);
-    expect(changed).not.toHaveBeenCalled();
-  });
+  it.each(["PATCH", "DELETE"])(
+    "rejects malformed %s JSON before mutation or cache invalidation",
+    async (method) => {
+      const repository = createDemoRepository();
+      const before = repository.list("all");
+      const changed = vi.fn();
+      const response = await handleOpenApiRequest(
+        new Request("http://localhost/api/v1/tasks/explore", {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: '{"completed":',
+        }),
+        { repository, onTasksChanged: changed },
+      );
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({ code: "BAD_REQUEST" });
+      expect(response.headers.get("Cache-Control")).toBe("no-store");
+      expect(repository.list("all")).toEqual(before);
+      expect(changed).not.toHaveBeenCalled();
+    },
+  );
 
   it("rejects invalid repository output instead of exposing it as a successful response", async () => {
     const repository: TaskRepository = {
@@ -332,6 +402,17 @@ describe("OpenAPI HTTP adapter", () => {
     };
     const response = await request({ repository }, "/v1/tasks?status=all");
 
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+  });
+
+  it("rejects invalid DELETE output instead of returning successful JSON", async () => {
+    const repository: TaskRepository = {
+      ...createDemoRepository(),
+      delete: () => ({ id: "broken", title: 42, completed: false }) as unknown as Task,
+    };
+    const response = await request({ repository }, "/v1/tasks/broken", "DELETE");
     expect(response.status).toBe(500);
     expect(await response.json()).toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
     expect(response.headers.get("Cache-Control")).toBe("no-store");

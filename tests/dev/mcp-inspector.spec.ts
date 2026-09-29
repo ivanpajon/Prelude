@@ -36,8 +36,8 @@ test("embedded Inspector discovers generated tools and performs real CRUD agains
   await expect(connection).toBeChecked();
   await inspector.getByText("Tools", { exact: true }).click();
   const tools = inspector.getByTestId("tools-screen");
-  await expect(tools).toHaveAttribute("data-tool-count", "3");
-  for (const name of ["listTasks", "createTask", "setTaskCompleted"]) {
+  await expect(tools).toHaveAttribute("data-tool-count", "4");
+  for (const name of ["listTasks", "createTask", "setTaskCompleted", "deleteTask"]) {
     await expect(tools.getByRole("button", { name: new RegExp(name) })).toBeVisible();
   }
 
@@ -73,10 +73,19 @@ test("embedded Inspector discovers generated tools and performs real CRUD agains
 
   const completed = await request.get("/api/v1/tasks?status=completed");
   expect(await completed.json()).toEqual(expect.arrayContaining([{ ...created, completed: true }]));
+  await tools.getByRole("button", { name: "Close results", exact: true }).click();
+  await tools.getByRole("button", { name: /deleteTask/ }).click();
+  await tools.getByRole("textbox", { name: /^id/ }).fill(created.id);
+  await tools.getByRole("button", { name: "Execute Tool", exact: true }).click();
+  await expect(tools).toHaveAttribute("data-call-status", "ok");
+  await expect(tools).toContainText(title);
+  expect(await (await request.get("/api/v1/tasks?status=all")).json()).not.toEqual(
+    expect.arrayContaining([expect.objectContaining({ id: created.id })]),
+  );
   await page.goto("/playground");
   await expect(
     page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   const rpc = page.waitForResponse((result) =>
     new URL(result.url()).pathname.startsWith("/api/rpc/"),
   );
@@ -84,5 +93,5 @@ test("embedded Inspector discovers generated tools and performs real CRUD agains
   expect((await rpc).ok()).toBe(true);
   await expect(
     page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
 });

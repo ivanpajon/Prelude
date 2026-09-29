@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 const listRpc = /\/api\/rpc\/tasks\/list(?:\?|$)/;
 const createRpc = /\/api\/rpc\/tasks\/create(?:\?|$)/;
+const deleteRpc = /\/api\/rpc\/tasks\/delete(?:\?|$)/;
 
 test.describe("server rendering", () => {
   test.use({ javaScriptEnabled: false });
@@ -210,7 +211,10 @@ test("prevents duplicate creation when a form submits twice before rendering", a
   expect(requests).toHaveLength(1);
 });
 
-test("creates and completes a task that survives a hard reload", async ({ page }, testInfo) => {
+test("creates, completes and deletes a task across hard reloads", async ({
+  page,
+  request,
+}, testInfo) => {
   const title = `Build ${testInfo.project.name} ${crypto.randomUUID()}`;
   await page.goto("/playground");
   await page.getByRole("textbox", { name: "New task", exact: true }).fill(title);
@@ -225,9 +229,75 @@ test("creates and completes a task that survives a hard reload", async ({ page }
   await expect(completed).toHaveAttribute("aria-pressed", "true");
   await page.reload();
   await expect(completed).toHaveAttribute("aria-pressed", "true");
+  // Populate multiple filter caches before deletion, then revisit them afterward.
+  await page.getByRole("button", { name: "Completed", exact: true }).click();
   await expect(
     page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
   ).toBeVisible();
+  const deletion = page.waitForResponse(deleteRpc);
+  const remove = page.getByRole("button", { name: `Delete ${title}`, exact: true });
+  await remove.focus();
+  await remove.press("Enter");
+  expect((await deletion).ok()).toBe(true);
+  const tasks = page.getByRole("list", { name: "Tasks" });
+  await expect(tasks.getByText(title, { exact: true })).toHaveCount(0);
+  expect(await (await request.get("/api/v1/tasks?status=all")).json()).not.toEqual(
+    expect.arrayContaining([expect.objectContaining({ title })]),
+  );
+  for (const filter of ["All tasks", "Active", "Completed"]) {
+    await page.getByRole("button", { name: filter, exact: true }).click();
+    await expect(tasks.getByText(title, { exact: true })).toHaveCount(0);
+  }
+  await page.reload();
+  await expect(tasks.getByText(title, { exact: true })).toHaveCount(0);
+});
+
+test("retains a task after failed deletion and supports retry without losing a draft", async ({
+  page,
+}) => {
+  const title = `Delete retry ${crypto.randomUUID()}`;
+  await page.goto("/playground");
+  const input = page.getByRole("textbox", { name: "New task", exact: true });
+  await input.fill(title);
+  await page.getByRole("button", { name: "Add task", exact: true }).click();
+  const remove = page.getByRole("button", { name: `Delete ${title}`, exact: true });
+  await expect(remove).toBeVisible();
+  await input.fill("   ");
+  await page.getByRole("button", { name: "Add task", exact: true }).click();
+  await expect(page.locator("#task-feedback")).toContainText("Enter a task");
+  await input.fill("Keep this deletion draft");
+  await page.route(deleteRpc, (route) => route.abort("internetdisconnected"));
+  await remove.click();
+  await expect(page.locator("#task-feedback")).toContainText(/\S/);
+  await expect(page.locator("#task-feedback")).not.toContainText("Enter a task");
+  await expect(remove).toBeEnabled();
+  await expect(input).toHaveValue("Keep this deletion draft");
+  await page.unroute(deleteRpc);
+  await remove.click();
+  await expect(remove).toHaveCount(0);
+  await expect(input).toHaveValue("Keep this deletion draft");
+  await expect(page.locator("#task-feedback")).toBeEmpty();
+});
+
+test("sends only one deletion when its button is clicked twice before rendering", async ({
+  page,
+}) => {
+  const title = `Single deletion ${crypto.randomUUID()}`;
+  await page.goto("/playground");
+  await page.getByRole("textbox", { name: "New task", exact: true }).fill(title);
+  await page.getByRole("button", { name: "Add task", exact: true }).click();
+  const remove = page.getByRole("button", { name: `Delete ${title}`, exact: true });
+  await expect(remove).toBeEnabled();
+  const requests: string[] = [];
+  page.on("request", (request) => {
+    if (deleteRpc.test(request.url())) requests.push(request.url());
+  });
+  await remove.evaluate((button: HTMLButtonElement) => {
+    button.click();
+    button.click();
+  });
+  await expect(remove).toHaveCount(0);
+  expect(requests).toHaveLength(1);
 });
 
 test("keeps URL filters consistent through history, reloads, and invalid values", async ({

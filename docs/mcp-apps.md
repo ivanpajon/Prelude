@@ -1,6 +1,6 @@
 # MCP Apps
 
-Prelude publishes a removable task widget using the official **`@modelcontextprotocol/ext-apps` 2.0.3** package and MCP SDK **2.2.0**. A compatible MCP client can render it when calling `listTasks`. The existing three tools keep their input schemas, JSON results, and OpenAPI contracts; the widget adds a presentation layer, not another API.
+Prelude publishes a removable task widget using the official **`@modelcontextprotocol/ext-apps` 2.0.3** package and MCP SDK **2.2.0**. A compatible MCP client can render it when calling `listTasks`. All four task tools use the same input schemas, JSON results, and OpenAPI contracts as the other transports; the widget adds a presentation layer, not another API.
 
 The website and the MCP App have different roles:
 
@@ -14,7 +14,9 @@ The website and the MCP App have different roles:
 
 Run `pnpm dev`, open `/playground`, and choose **Open Inspector**. The managed launcher builds the widget before starting Next.js and Inspector. Enable the Inspector's connection to the predefined Prelude server, open **Apps**, select **List tasks** (`listTasks`), fill the required `status` argument, and choose **Open App**. Status accepts `all`, `active`, or `completed`; in its JSON editor include the quotes, for example `"all"`.
 
-The widget receives the originating tool input and result from the host. It displays that result without immediately fetching it again. Its filters and Refresh action call `listTasks`; creating and completing tasks call `createTask` and `setTaskCompleted`, then refresh the selected filter. Errors and cancellation remain visible for retry. Refresh another open browser page or client to see changes made outside it.
+The widget receives the originating tool input and result from the host. It displays that result without immediately fetching it again. Its filters and Refresh action call `listTasks`; creating, completing, and deleting tasks call `createTask`, `setTaskCompleted`, and `deleteTask`, then refresh the selected filter. Errors and cancellation remain visible for retry. Refresh another open browser page or client to see changes made outside it.
+
+Each task has a keyboard-accessible delete button. Successful deletion removes its row and preserves the new-task draft. If another client already deleted a task, the failed call keeps the stale row and draft and displays an error; use **Refresh tasks** to reconcile the view.
 
 Inspector's **Tools** interface and the website's JSON explorer remain available for inspecting raw arguments, schemas, and results. A client without MCP Apps support still receives normal JSON tool results.
 
@@ -49,12 +51,13 @@ Production contains the generated widget resource, but no running Inspector, dev
   "tools": {
     "listTasks": "listTasks",
     "createTask": "createTask",
-    "setTaskCompleted": "setTaskCompleted"
+    "setTaskCompleted": "setTaskCompleted",
+    "deleteTask": "deleteTask"
   }
 }
 ```
 
-JSON is escaped before insertion into the HTML. Renaming a tool through the generator's operation metadata updates this configuration. Excluding either mutation omits its name and hides that control; excluding `listTasks` removes the example resource and association. Business schemas remain in `@repo/contracts`; this map contains names only.
+JSON is escaped before insertion into the HTML. Renaming a tool through the generator's operation metadata updates this configuration. Excluding any mutation omits its name and hides that control; excluding `listTasks` removes the example resource and association. Business schemas remain in `@repo/contracts`; this map contains names only.
 
 Modern MCP clients receive a list as a natural JSON array. Legacy clients receive `{ "result": [...] }` in structured content, while their text content contains the original array. The widget accepts both, uses text JSON only when structured content is absent, and validates the display shape before rendering. It distinguishes a tool's `isError` response from transport failures. Task objects retain their normal shape through both protocol versions.
 

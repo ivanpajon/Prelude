@@ -139,6 +139,11 @@ describe("homepage MCP protocol client", () => {
           outputSchema: expect.objectContaining({ type: "array", items: expect.any(Object) }),
         }),
         expect.objectContaining({ name: "createTask", inputSchema: expect.any(Object) }),
+        expect.objectContaining({
+          name: "deleteTask",
+          inputSchema: expect.any(Object),
+          annotations: expect.objectContaining({ destructiveHint: true }),
+        }),
       ]),
     });
     const created = await playground.execute(headers, "createTask", { title: "  From MCP  " });
@@ -160,8 +165,16 @@ describe("homepage MCP protocol client", () => {
       ok: true,
       result: { structuredContent: [{ ...task, completed: true }] },
     });
-    expect(context.onTasksChanged).toHaveBeenCalledTimes(2);
-    expect(closed).toHaveBeenCalledTimes(4);
+    expect(await playground.execute(headers, "deleteTask", { id: task.id })).toMatchObject({
+      ok: true,
+      result: { structuredContent: { ...task, completed: true } },
+    });
+    expect(await playground.execute(headers, "listTasks", { status: "all" })).toMatchObject({
+      ok: true,
+      result: { structuredContent: [] },
+    });
+    expect(context.onTasksChanged).toHaveBeenCalledTimes(3);
+    expect(closed).toHaveBeenCalledTimes(6);
     expect(contexts.length).toBeGreaterThan(4);
     for (const request of contexts) {
       expect(request.headers.get("cookie")).toBe("session=example");
@@ -201,6 +214,7 @@ describe("homepage MCP protocol client", () => {
         expect.objectContaining({ name: "listTasks" }),
         expect.objectContaining({ name: "createTask" }),
         expect.objectContaining({ name: "setTaskCompleted" }),
+        expect.objectContaining({ name: "deleteTask" }),
       ]),
     });
     expect(cursors).toEqual([undefined, "second"]);
@@ -212,6 +226,8 @@ describe("homepage MCP protocol client", () => {
       ["createTask", { title: "   " }],
       ["listTasks", { status: "invalid" }],
       ["setTaskCompleted", { id: "missing", completed: true }],
+      ["deleteTask", { id: "missing" }],
+      ["deleteTask", { id: "" }],
     ] as const) {
       expect(await playground.execute(pageHeaders(), name, args)).toMatchObject({
         ok: true,

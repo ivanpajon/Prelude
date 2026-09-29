@@ -9,16 +9,17 @@ Prelude exposes a Model Context Protocol server at **`/api/mcp`**. It derives to
 | `listTasks` | `{ "status": "all" }` | Read all tasks, or filter with `active` or `completed`. |
 | `createTask` | `{ "title": "Build a feature" }` | Create a task; trim its title before validating the 1–120-character limit. |
 | `setTaskCompleted` | `{ "id": "task-id", "completed": true }` | Change an existing task's completion state. |
+| `deleteTask` | `{ "id": "task-id" }` | Remove a task and return its previous data; missing or already-deleted IDs return `NOT_FOUND`. |
 
 The tools execute real operations against the **public, shared, process-local demo repository**. All visitors and transports see the same data in one server process. Data resets on restart and is not synchronized across instances. MCP mutations become visible through REST, RPC, and server rendering; an already-open workbench needs a refetch or reload.
 
-`mcp-from-openapi` **2.8.0** generates tool definitions and request mappings from `generateOpenApiSpec()`. The bridge dispatches mapped requests directly to the existing REST adapter with request-scoped context. It does not make an HTTP request back to itself or bypass ArkType validation, typed errors, the PATCH path-ID guard, or awaited mutation callbacks. The MCP SDK server and client are pinned to **2.2.0**. Zod is infrastructure for the SDK/tooling; ArkType remains the application schema source.
+`mcp-from-openapi` **2.8.0** generates tool definitions and request mappings from `generateOpenApiSpec()`. The bridge dispatches mapped requests directly to the existing REST adapter with request-scoped context. It does not make an HTTP request back to itself or bypass ArkType validation, typed errors, the task mutation path-ID guards, or awaited mutation callbacks. The MCP SDK server and client are pinned to **2.2.0**. Zod is infrastructure for the SDK/tooling; ArkType remains the application schema source.
 
 ## Website playground
 
 Open `/playground#mcp` for the live JSON tool explorer; `/playground#tasks` contains the browser workbench above it. Choose **Discover tools**, select a generated tool, edit its JSON arguments, and choose **Run tool**. Nothing is executed automatically. Tool descriptions, schemas, and read-only hints come from MCP discovery rather than a second hard-coded catalog. Starter arguments use schema defaults, examples, enums, and required fields; they are suggestions and may need editing. The homepage retains its separate Motion and Morphicons previews.
 
-Results display natural JSON, including arrays, and tool failures remain visible for correction and retry. `createTask` and `setTaskCompleted` change the same public demo data as REST and RPC. Successful playground calls invalidate the workbench's task queries, so this page reflects changes without reloading. Other tabs still need their own refetch or reload.
+Results display natural JSON, including arrays, and tool failures remain visible for correction and retry. `createTask`, `setTaskCompleted`, and `deleteTask` change the same public demo data as REST and RPC. Successful playground calls invalidate the workbench's task queries, so this page reflects changes without reloading. Other tabs still need their own refetch or reload. Deletion is marked destructive in tool annotations and returns the removed task.
 
 The browser calls same-origin Next.js Server Actions. Each action verifies the actual Host and Origin, respects development loopback restrictions and runtime `MCP_ENABLED`, then creates a fresh official MCP SDK client. The client exchanges real discovery/tool protocol messages with the shared endpoint in process, without a network request back to the application. Identity headers reach the same context factory in `apps/web/src/lib/mcp-endpoint.ts`; the SDK remains outside the browser bundle. Add future authorization there and in the shared procedures, not only in the widget.
 
@@ -49,7 +50,7 @@ This invokes the pinned Inspector CLI to list tools without mutating application
 
 ## Exposure and configuration
 
-The endpoint is **enabled by default**, including in production, to match the public demonstration API. No token, OAuth provider, user identity, or authorization policy is supplied. Both mutation tools are available. Origin checks are transport protections, not authentication.
+The endpoint is **enabled by default**, including in production, to match the public demonstration API. No token, OAuth provider, user identity, or authorization policy is supplied. All mutation tools are available. Origin checks are transport protections, not authentication.
 
 | Variable | Behavior |
 | --- | --- |
@@ -103,7 +104,7 @@ To remove MCP entirely, remove both examples and the widget build/resource integ
 
 ## Verification
 
-Unit tests exercise tool generation, request mapping, validation, response conversion, context isolation, transport guards, and mutation callbacks. Production acceptance connects a real SDK client, checks protocol compatibility and tool discovery, executes all three tools, and confirms MCP writes through REST/RPC and the page. Development browser acceptance uses the embedded Inspector to discover and execute the same tools. Production checks confirm the Inspector wrapper is absent and MCP responses are not cacheable.
+Unit tests exercise tool generation, request mapping, validation, response conversion, context isolation, transport guards, and mutation callbacks. Production acceptance connects a real SDK client, checks protocol compatibility and tool discovery, executes all four tools, and confirms MCP writes through REST/RPC and the page. Development browser acceptance uses the embedded Inspector to discover and execute the same tools. Production checks confirm the Inspector wrapper is absent and MCP responses are not cacheable.
 
 Run `pnpm check`, `pnpm test`, and `pnpm verify` after changing the contract, SDK, converter, or Inspector. Do not run managed development acceptance alongside an ordinary development server: they share the Next.js development output and Inspector ports. Package upgrades must keep the SDK server/client versions aligned and verify that the generator's parameter mapping and output representation still match the bridge.
 

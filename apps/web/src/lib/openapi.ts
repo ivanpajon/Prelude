@@ -60,14 +60,20 @@ const handler = new OpenAPIHandler(router, {
   ],
   interceptors: [
     async ({ request, next }) => {
-      if (request.method === "PATCH" && /^\/api\/v1\/tasks\/[^/]+\/?$/.test(request.url.pathname)) {
+      if (
+        (request.method === "PATCH" || request.method === "DELETE") &&
+        /^\/api\/v1\/tasks\/[^/]+\/?$/.test(request.url.pathname)
+      ) {
+        if (request.url.searchParams.has("id")) {
+          throw new ORPCError("BAD_REQUEST", { message: "Provide the task id only in the URL." });
+        }
         let body: unknown;
         try {
           body = await request.body();
         } catch (cause) {
           throw new ORPCError("BAD_REQUEST", { message: "Malformed request body.", cause });
         }
-        // oRPC compact inputs merge the body over path params; IDs belong only in the URL.
+        // oRPC compact inputs combine parameters and the body; IDs belong only in the URL path.
         if (body !== null && typeof body === "object" && Object.hasOwn(body, "id")) {
           throw new ORPCError("BAD_REQUEST", { message: "Provide the task id only in the URL." });
         }

@@ -66,6 +66,7 @@ describe("generated MCP catalog", () => {
 
     expect(catalog.map((tool) => tool.name).sort()).toEqual([
       "createTask",
+      "deleteTask",
       "listTasks",
       "setTaskCompleted",
     ]);
@@ -82,6 +83,19 @@ describe("generated MCP catalog", () => {
         type: "object",
         required: expect.arrayContaining(["id", "title", "completed"]),
       },
+    });
+    expect(catalog.find((tool) => tool.name === "deleteTask")).toMatchObject({
+      inputSchema: {
+        type: "object",
+        properties: { id: { type: "string", minLength: 1 } },
+        required: ["id"],
+      },
+      outputSchema: {
+        type: "object",
+        required: expect.arrayContaining(["id", "title", "completed"]),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
+      metadata: { operationId: "deleteTask", method: "delete", path: "/v1/tasks/{id}" },
     });
     expect(spec).toEqual(before);
     expect(Object.isFrozen(catalog)).toBe(true);
@@ -170,6 +184,7 @@ describe.each(["modern", "legacy"] as const)("MCP %s HTTP compatibility", (era) 
     const { tools } = await client.listTools();
     expect(tools.map((tool) => tool.name).sort()).toEqual([
       "createTask",
+      "deleteTask",
       "listTasks",
       "setTaskCompleted",
     ]);
@@ -196,14 +211,26 @@ describe.each(["modern", "legacy"] as const)("MCP %s HTTP compatibility", (era) 
     const expected = [{ ...task, completed: true }];
     expect(listed.structuredContent).toEqual(era === "modern" ? expected : { result: expected });
     expect(listed.content).toContainEqual({ type: "text", text: JSON.stringify(expected) });
-    expect(context.onTasksChanged).toHaveBeenCalledTimes(2);
+    const deleted = await client.callTool({ name: "deleteTask", arguments: { id: task.id } });
+    expect(deleted.isError).not.toBe(true);
+    expect(deleted.structuredContent).toEqual({ ...task, completed: true });
+    expect(context.repository.list("all")).toEqual([]);
+    const repeated = await client.callTool({ name: "deleteTask", arguments: { id: task.id } });
+    expect(repeated.isError).toBe(true);
+    expect(JSON.stringify(repeated.content)).toContain("NOT_FOUND");
+    expect(context.onTasksChanged).toHaveBeenCalledTimes(3);
     expect(dispatch.mock.calls.map(([request]) => request.url)).toEqual([
       "http://prelude.internal/api/v1/tasks",
       `http://prelude.internal/api/v1/tasks/${task.id}`,
       "http://prelude.internal/api/v1/tasks?status=completed",
+      `http://prelude.internal/api/v1/tasks/${task.id}`,
+      `http://prelude.internal/api/v1/tasks/${task.id}`,
     ]);
     const patch = dispatch.mock.calls[1]?.[0];
     expect(patch?.method).toBe("PATCH");
+    const deletion = dispatch.mock.calls[3]?.[0];
+    expect(deletion?.method).toBe("DELETE");
+    expect(deletion?.body).toBeNull();
     expect(networkFetch).not.toHaveBeenCalled();
   });
 
@@ -226,6 +253,12 @@ describe.each(["modern", "legacy"] as const)("MCP %s HTTP compatibility", (era) 
     expect(missing.isError).toBe(true);
     expect(JSON.stringify(missing.content)).toContain("NOT_FOUND");
     expect(missing.structuredContent).toBeUndefined();
+    for (const args of [{}, { id: "" }, { id: 42 }, { id: "missing" }]) {
+      const deleted = await client.callTool({ name: "deleteTask", arguments: args });
+      expect(deleted.isError).toBe(true);
+      expect(deleted.structuredContent).toBeUndefined();
+      if (args.id === "missing") expect(JSON.stringify(deleted.content)).toContain("NOT_FOUND");
+    }
     expect(context.repository.list("all")).toEqual([]);
     expect(context.onTasksChanged).not.toHaveBeenCalled();
   });
@@ -237,11 +270,13 @@ describe.each(["modern", "legacy"] as const)("MCP %s HTTP compatibility", (era) 
       create: () => {
         throw new Error("PRIVATE_DATABASE_PASSWORD");
       },
+      delete: () => ({ id: "broken", title: 42, completed: false }) as unknown as Task,
     };
     const client = await connect(endpoint({ getContext: () => ({ repository }) }), era);
     for (const request of [
       { name: "listTasks", arguments: { status: "all" } },
       { name: "createTask", arguments: { title: "Safe error" } },
+      { name: "deleteTask", arguments: { id: "broken" } },
     ]) {
       const result = await client.callTool(request);
       expect(result.isError).toBe(true);
@@ -296,7 +331,7 @@ describe.each(["modern", "legacy"] as const)("MCP %s App resources", (era) => {
       era,
     );
     const { tools } = await client.listTools();
-    expect(tools).toHaveLength(3);
+    expect(tools).toHaveLength(4);
     expect(tools.find((tool) => tool.name === "listTasks")).toMatchObject({
       _meta: {
         ui: { resourceUri: mcpAppResourceUri },
@@ -328,6 +363,7 @@ describe.each(["modern", "legacy"] as const)("MCP %s App resources", (era) => {
           listTasks: "listTasks",
           createTask: "createTask",
           setTaskCompleted: "setTaskCompleted",
+          deleteTask: "deleteTask",
         },
       }),
     );
@@ -355,6 +391,7 @@ describe.each(["modern", "legacy"] as const)("MCP %s App resources", (era) => {
       },
       "/tasks/completion": {
         patch: { ...operation("setTaskCompleted"), "x-mcp": { name: "renamedCompletion" } },
+        delete: { ...operation("deleteTask"), "x-mcp": { name: "renamedDelete" } },
       },
     });
     const before = structuredClone(spec);
@@ -383,6 +420,7 @@ describe.each(["modern", "legacy"] as const)("MCP %s App resources", (era) => {
           listTasks: "renamedList",
           createTask: "renamedCreate",
           setTaskCompleted: "renamedCompletion",
+          deleteTask: "renamedDelete",
         },
       }),
     );
@@ -406,6 +444,7 @@ describe.each(["modern", "legacy"] as const)("MCP %s App resources", (era) => {
             "/tasks/completion": {
               "x-mcp": true,
               patch: { ...operation("setTaskCompleted"), "x-mcp": false },
+              delete: { ...operation("deleteTask"), "x-mcp": false },
             },
           }),
           "x-mcp": false,
@@ -486,39 +525,47 @@ describe.each(["modern", "legacy"] as const)("MCP %s App resources", (era) => {
 });
 
 describe("MCP endpoint lifecycle", () => {
-  it("awaits asynchronous mutation invalidation before returning success", async () => {
-    let finishInvalidation: (() => void) | undefined;
-    const invalidation = new Promise<void>((resolve) => {
-      finishInvalidation = resolve;
-    });
-    let signalInvalidationStarted: (() => void) | undefined;
-    const invalidationStarted = new Promise<void>((resolve) => {
-      signalInvalidationStarted = resolve;
-    });
-    const onTasksChanged = vi.fn(async () => {
-      signalInvalidationStarted?.();
-      await invalidation;
-    });
-    const client = await connect(
-      endpoint({ getContext: () => ({ repository: createDemoRepository([]), onTasksChanged }) }),
-    );
-    let returned = false;
-    const call = client
-      .callTool({ name: "createTask", arguments: { title: "Await invalidation" } })
-      .then((result) => {
-        returned = true;
-        return result;
+  it.each(["createTask", "deleteTask"])(
+    "awaits asynchronous invalidation for %s before returning success",
+    async (name) => {
+      let finishInvalidation: (() => void) | undefined;
+      const invalidation = new Promise<void>((resolve) => {
+        finishInvalidation = resolve;
       });
+      let signalInvalidationStarted: (() => void) | undefined;
+      const invalidationStarted = new Promise<void>((resolve) => {
+        signalInvalidationStarted = resolve;
+      });
+      const onTasksChanged = vi.fn(async () => {
+        signalInvalidationStarted?.();
+        await invalidation;
+      });
+      const client = await connect(
+        endpoint({ getContext: () => ({ repository: createDemoRepository(), onTasksChanged }) }),
+      );
+      let returned = false;
+      const call = client
+        .callTool({
+          name,
+          arguments: name === "createTask" ? { title: "Await invalidation" } : { id: "explore" },
+        })
+        .then((result) => {
+          returned = true;
+          return result;
+        });
 
-    await invalidationStarted;
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    expect(returned).toBe(false);
-    finishInvalidation?.();
-    await expect(call).resolves.toMatchObject({
-      structuredContent: { title: "Await invalidation" },
-    });
-    expect(onTasksChanged).toHaveBeenCalledOnce();
-  });
+      await invalidationStarted;
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(returned).toBe(false);
+      finishInvalidation?.();
+      await expect(call).resolves.toMatchObject({
+        structuredContent: {
+          title: name === "createTask" ? "Await invalidation" : "Explore the workspace",
+        },
+      });
+      expect(onTasksChanged).toHaveBeenCalledOnce();
+    },
+  );
 
   it("validates constraints on newly generated tools, including local references and output", async () => {
     const schema = {
@@ -619,8 +666,17 @@ describe("MCP endpoint lifecycle", () => {
     expect(second.repository.list("all").map((task) => task.title)).toEqual(["Second context"]);
     expect(first.onTasksChanged).toHaveBeenCalledOnce();
     expect(second.onTasksChanged).toHaveBeenCalledOnce();
+    const firstTask = first.repository.list("all")[0];
+    expect(firstTask).toBeDefined();
+    await expect(
+      firstClient.callTool({ name: "deleteTask", arguments: { id: firstTask?.id } }),
+    ).resolves.toMatchObject({ structuredContent: firstTask });
+    expect(first.repository.list("all")).toEqual([]);
+    expect(second.repository.list("all").map((task) => task.title)).toEqual(["Second context"]);
+    expect(first.onTasksChanged).toHaveBeenCalledTimes(2);
+    expect(second.onTasksChanged).toHaveBeenCalledOnce();
     expect(getSpec).toHaveBeenCalledOnce();
-    expect(getContext).toHaveBeenCalledTimes(4);
+    expect(getContext).toHaveBeenCalledTimes(5);
   });
 
   it("retries failed specification generation instead of caching a failed catalog", async () => {

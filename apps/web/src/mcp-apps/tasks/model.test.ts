@@ -1,11 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { readTasks, readTools, TaskAppSession, type ToolCaller, taskKey } from "./model";
+import {
+  readTasks,
+  readTools,
+  TaskAppSession,
+  type TaskAppTools,
+  type ToolCaller,
+  taskKey,
+} from "./model";
 
 const task = { id: "task-1", title: "Build something", completed: false };
 const tools = {
   listTasks: "listTasks",
   createTask: "createTask",
   setTaskCompleted: "setTaskCompleted",
+  deleteTask: "deleteTask",
 };
 const result = (value: unknown) => ({ structuredContent: value });
 const sessions: TaskAppSession[] = [];
@@ -18,8 +26,8 @@ function deferred() {
   return { promise, resolve };
 }
 
-function fixture() {
-  const session = new TaskAppSession(tools);
+function fixture(config: TaskAppTools = tools) {
+  const session = new TaskAppSession(config);
   const call = vi.fn<ToolCaller>();
   session.connect(call);
   session.hostInput({ status: "all" });
@@ -70,13 +78,91 @@ describe("host payloads", () => {
       { tools: {} },
       { tools: { listTasks: " " } },
       { tools: { ...tools, createTask: false } },
+      { tools: { ...tools, deleteTask: false } },
+      { tools: { ...tools, deleteTask: " " } },
     ]) {
       expect(() => readTools(config)).toThrow();
     }
   });
+
+  it("preserves configured deletion tool names", () => {
+    expect(readTools({ tools: { listTasks: "tasks_list", deleteTask: "remove_task" } })).toEqual({
+      listTasks: "tasks_list",
+      deleteTask: "remove_task",
+    });
+  });
 });
 
 describe("Task App session", () => {
+  it("deletes through the configured tool name, invalidates filters, and refreshes the list", async () => {
+    const { session, call } = fixture({
+      ...tools,
+      deleteTask: "remove_task",
+      listTasks: "read_tasks",
+    });
+    session.queryClient.setQueryData(taskKey("active"), [task]);
+    call.mockResolvedValueOnce(result(task)).mockResolvedValueOnce(result([]));
+    expect(await session.mutate("deleteTask", { id: task.id })).toBe(true);
+    expect(call).toHaveBeenNthCalledWith(
+      1,
+      "remove_task",
+      { id: task.id },
+      expect.any(AbortSignal),
+    );
+    expect(call).toHaveBeenNthCalledWith(
+      2,
+      "read_tasks",
+      { status: "all" },
+      expect.any(AbortSignal),
+    );
+    expect(session.queryClient.getQueryData(taskKey("all"))).toEqual([]);
+    expect(session.queryClient.getQueryState(taskKey("active"))?.isInvalidated).toBe(true);
+    expect(session.snapshot()).toMatchObject({ mutating: false, loading: false, error: null });
+  });
+
+  it("leaves a failed deletion in the list and retries without optimistic removal", async () => {
+    const { session, call } = fixture();
+    for (const payload of [{ isError: true }, result({ id: task.id })]) {
+      call.mockResolvedValueOnce(payload);
+      expect(await session.mutate("deleteTask", { id: task.id })).toBe(false);
+      expect(session.queryClient.getQueryData(taskKey("all"))).toEqual([task]);
+      expect(session.snapshot()).toMatchObject({ mutating: false, error: expect.any(String) });
+    }
+    expect(call).toHaveBeenCalledTimes(2);
+    call.mockResolvedValueOnce(result(task)).mockResolvedValueOnce(result([]));
+    expect(await session.mutate("deleteTask", { id: task.id })).toBe(true);
+    expect(session.queryClient.getQueryData(taskKey("all"))).toEqual([]);
+  });
+
+  it("guards duplicate deletion, cancels its pending bridge call, and recovers by refreshing", async () => {
+    const { session, call } = fixture();
+    const pending = deferred();
+    call.mockReturnValueOnce(pending.promise);
+    const deletion = session.mutate("deleteTask", { id: task.id });
+    expect(await session.mutate("deleteTask", { id: task.id })).toBe(false);
+    expect(await session.refresh()).toBe(false);
+    expect(call).toHaveBeenCalledTimes(1);
+    const signal = call.mock.calls[0]?.[2];
+    session.cancel();
+    expect(signal?.aborted).toBe(true);
+    pending.resolve(result(task));
+    expect(await deletion).toBe(false);
+    expect(call).toHaveBeenCalledTimes(1);
+    expect(session.queryClient.getQueryData(taskKey("all"))).toEqual([task]);
+    expect(session.snapshot().error).toContain("cancelled");
+    // Cancellation does not undo a write already accepted by the server.
+    call.mockResolvedValueOnce(result([]));
+    expect(await session.refresh()).toBe(true);
+    expect(session.queryClient.getQueryData(taskKey("all"))).toEqual([]);
+    expect(session.snapshot().error).toBeNull();
+  });
+
+  it("does not dispatch a deletion excluded from the generated catalog", async () => {
+    const { session, call } = fixture({ listTasks: "listTasks" });
+    expect(await session.mutate("deleteTask", { id: task.id })).toBe(false);
+    expect(call).not.toHaveBeenCalled();
+    expect(session.queryClient.getQueryData(taskKey("all"))).toEqual([task]);
+  });
   it("seeds one instance from host data without an immediate duplicate fetch", async () => {
     const { session, call } = fixture();
     const other = fixture().session;
