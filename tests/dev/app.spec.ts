@@ -8,7 +8,6 @@ test("development rendering and reloads have no framework errors", async ({ page
   });
 
   await page.goto("/");
-  await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
   await page.getByRole("button", { name: "Move to end", exact: true }).click();
   await expect(page.getByText("Tile at the end.", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Save idea", exact: true }).click();
@@ -17,6 +16,8 @@ test("development rendering and reloads have no framework errors", async ({ page
     "true",
   );
 
+  await page.getByRole("link", { name: "Open playground", exact: true }).click();
+  await expect(page).toHaveURL(/\/playground$/);
   await page.reload();
   await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
   await page.getByRole("button", { name: "Compact view", exact: true }).click();

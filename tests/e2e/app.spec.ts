@@ -9,7 +9,7 @@ test.describe("server rendering", () => {
   test("includes the task list in server-rendered HTML without browser JavaScript", async ({
     page,
   }) => {
-    const response = await page.goto("/");
+    const response = await page.goto("/playground");
     expect(response?.ok()).toBe(true);
     // A streamed Suspense segment may be hidden until React's reveal script runs.
     // Assert its real HTML list exists, rather than relying on that script.
@@ -21,6 +21,20 @@ test.describe("server rendering", () => {
       .locator("svg");
     await expect(icon).toHaveAttribute("aria-hidden", "true");
     await expect(icon.locator("path").first()).toHaveAttribute("d", /\S/);
+  });
+
+  test("renders the homepage and animation previews without loading the task workbench", async ({
+    page,
+  }) => {
+    const response = await page.goto("/");
+    expect(response?.ok()).toBe(true);
+    await expect(page.getByRole("heading", { level: 1, includeHidden: true })).toHaveText(
+      /Less setup\.\s*More building\./,
+    );
+    await expect(
+      page.getByRole("link", { name: "Open playground", exact: true, includeHidden: true }),
+    ).toHaveAttribute("href", "/playground");
+    await expect(page.getByRole("list", { name: "Tasks", includeHidden: true })).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: "Move to end", exact: true, includeHidden: true }),
     ).toHaveCount(1);
@@ -28,6 +42,44 @@ test.describe("server rendering", () => {
       page.getByRole("button", { name: "Save idea", exact: true, includeHidden: true }),
     ).toHaveAttribute("aria-pressed", "false");
   });
+});
+
+test("opens the playground from home and supports browser history on narrow screens", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const navigation = page.getByRole("link", { name: "Playground", exact: true });
+  const open = page.getByRole("link", { name: "Open playground", exact: true });
+  await expect(navigation).toHaveAttribute("href", "/playground");
+  await expect(open).toHaveAttribute("href", "/playground");
+  await expect(page.getByRole("region", { name: "Small details. More life." })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Tasks" })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+
+  await open.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/playground$/);
+  await expect(page).toHaveTitle("Playground — Prelude");
+  await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Discover tools", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Move to end", exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+
+  await page.goBack();
+  await expect(page).toHaveURL((url) => url.pathname === "/");
+  await expect(open).toBeVisible();
+  await page.goForward();
+  await expect(page).toHaveURL(/\/playground$/);
+  await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
+  await page.getByRole("link", { name: "Prelude home", exact: true }).click();
+  await expect(page).toHaveURL((url) => url.pathname === "/");
+  await navigation.click();
+  await expect(page).toHaveURL(/\/playground$/);
+  await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
 });
 
 test("hydrates without an immediate duplicate RPC or hydration errors", async ({ page }) => {
@@ -44,7 +96,7 @@ test("hydrates without an immediate duplicate RPC or hydration errors", async ({
     }
   });
 
-  await page.goto("/");
+  await page.goto("/playground");
   await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
   const compact = page.getByRole("button", { name: "Compact view", exact: true });
   await expect(compact).toHaveAttribute("aria-pressed", "false");
@@ -130,7 +182,7 @@ test("prevents duplicate creation when a form submits twice before rendering", a
   page.on("request", (request) => {
     if (createRpc.test(request.url())) requests.push(request.url());
   });
-  await page.goto("/");
+  await page.goto("/playground");
   await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
   await page.getByRole("textbox", { name: "New task" }).fill(title);
   await page.locator("form").evaluate((form: HTMLFormElement) => {
@@ -146,7 +198,7 @@ test("prevents duplicate creation when a form submits twice before rendering", a
 
 test("creates and completes a task that survives a hard reload", async ({ page }, testInfo) => {
   const title = `Build ${testInfo.project.name} ${crypto.randomUUID()}`;
-  await page.goto("/");
+  await page.goto("/playground");
   await page.getByRole("textbox", { name: "New task", exact: true }).fill(title);
   await page.getByRole("button", { name: "Add task", exact: true }).click();
   await expect(
@@ -167,7 +219,7 @@ test("creates and completes a task that survives a hard reload", async ({ page }
 test("keeps URL filters consistent through history, reloads, and invalid values", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/playground");
   const active = page.getByRole("button", { name: "Active", exact: true });
   const completed = page.getByRole("button", { name: "Completed", exact: true });
   const all = page.getByRole("button", { name: "All tasks", exact: true });
@@ -196,14 +248,14 @@ test("keeps URL filters consistent through history, reloads, and invalid values"
   await expect(completed).toHaveAttribute("aria-pressed", "true");
   await expect(tasks.getByText("Explore the workspace", { exact: true })).toBeVisible();
 
-  await page.goto("/?status=invalid");
+  await page.goto("/playground?status=invalid");
   await expect(all).toHaveAttribute("aria-pressed", "true");
   await expect(tasks.getByText("Explore the workspace", { exact: true })).toBeVisible();
   await expect(tasks.getByText("Create your first feature", { exact: true })).toBeVisible();
 });
 
 test("keeps compact view local while filters change", async ({ page, browser }) => {
-  await page.goto("/");
+  await page.goto("/playground");
   const compact = page.getByRole("button", { name: "Compact view", exact: true });
   await compact.click();
   await expect(compact).toHaveAttribute("aria-pressed", "true");
@@ -215,7 +267,7 @@ test("keeps compact view local while filters change", async ({ page, browser }) 
   const isolated = await browser.newContext({ serviceWorkers: "block" });
   try {
     const freshPage = await isolated.newPage();
-    await freshPage.goto(new URL("/", page.url()).href);
+    await freshPage.goto(new URL("/playground", page.url()).href);
     await expect(
       freshPage.getByRole("button", { name: "Compact view", exact: true }),
     ).toHaveAttribute("aria-pressed", "false");
@@ -227,7 +279,7 @@ test("keeps compact view local while filters change", async ({ page, browser }) 
 
 test("supports keyboard density changes with reduced motion", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/");
+  await page.goto("/playground");
   const tasks = page.getByRole("list", { name: "Tasks" });
   const compact = page.getByRole("button", { name: "Compact view", exact: true });
   const icon = compact.locator("svg");
@@ -262,7 +314,7 @@ test("supports keyboard density changes with reduced motion", async ({ page }) =
 });
 
 test("recovers a failed query when the connection returns", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/playground");
   await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
   await page.route(listRpc, (route) => route.abort("internetdisconnected"));
 
@@ -282,7 +334,7 @@ test("recovers a failed query when the connection returns", async ({ page }) => 
 
 test("retains a failed mutation's draft and supports retry", async ({ page }, testInfo) => {
   const title = `Retry ${testInfo.project.name} ${crypto.randomUUID()}`;
-  await page.goto("/");
+  await page.goto("/playground");
   const input = page.getByRole("textbox", { name: "New task", exact: true });
   const add = page.getByRole("button", { name: "Add task", exact: true });
   const feedback = page.locator("#task-feedback");

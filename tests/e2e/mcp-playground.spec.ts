@@ -15,7 +15,7 @@ async function discover(page: Page) {
 test("discovers real tools, exposes schemas, and handles arguments and tool errors with the keyboard", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/playground");
   const widget = playground(page);
   const discoverButton = widget.getByRole("button", { name: "Discover tools", exact: true });
   await discoverButton.focus();
@@ -93,7 +93,7 @@ test("creates and completes through MCP while refreshing the RPC workbench witho
   page,
 }, testInfo) => {
   const title = `Playground ${testInfo.project.name} ${crypto.randomUUID()}`;
-  await page.goto("/");
+  await page.goto("/playground");
   const workbenchDraft = page.getByRole("textbox", { name: "New task", exact: true });
   await workbenchDraft.fill("Keep this unsaved draft");
   const widget = await discover(page);
@@ -142,7 +142,7 @@ test("creates and completes through MCP while refreshing the RPC workbench witho
 });
 
 test("retries tool discovery after a network failure", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/playground");
   await expect(page.getByRole("list", { name: "Tasks", exact: true })).toBeVisible();
   // Only interrupt the action transport; retries still reach the real MCP implementation.
   await page.route("**/*", async (route) => {

@@ -73,7 +73,7 @@ test("embedded Inspector discovers generated tools and performs real CRUD agains
 
   const completed = await request.get("/api/v1/tasks?status=completed");
   expect(await completed.json()).toEqual(expect.arrayContaining([{ ...created, completed: true }]));
-  await page.goto("/");
+  await page.goto("/playground");
   await expect(
     page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
   ).toBeVisible();

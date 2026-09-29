@@ -21,7 +21,7 @@ test("opens the pinned Scalar reference from a narrow homepage and searches oper
   });
 
   await page.setViewportSize({ width: 320, height: 800 });
-  const docs = page.getByRole("navigation", { name: "Documentation" }).getByRole("link", {
+  const docs = page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", {
     name: "API docs",
     exact: true,
   });
@@ -93,7 +93,7 @@ test("executes same-origin reads and mutations in Scalar and shares results with
   expect(await created.json()).toMatchObject({ title, completed: false });
   await expect(client.getByRole("link", { name: "201 Created", exact: true })).toBeVisible();
 
-  await page.goto("/");
+  await page.goto("/playground");
   await expect(
     page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
   ).toBeVisible();

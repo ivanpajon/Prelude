@@ -78,7 +78,7 @@ test("shows an offline fallback without caching API docs, application data, or R
   page,
   context,
 }) => {
-  await page.goto("/");
+  await page.goto("/playground");
   await waitForWorker(page);
   const apiPaths = ["/api/docs", "/api/openapi.json", "/api/v1/tasks?status=all", "/api/mcp"];
   const apiResponses = await page.evaluate(
@@ -123,6 +123,7 @@ test("shows an offline fallback without caching API docs, application data, or R
   for (const value of cachedUrls) {
     const url = new URL(value);
     expect(url.pathname).not.toBe("/");
+    expect(url.pathname).not.toBe("/playground");
     expect(url.pathname.startsWith("/api/")).toBe(false);
     expect(url.searchParams.has("_rsc")).toBe(false);
   }
@@ -147,7 +148,7 @@ test("shows an offline fallback without caching API docs, application data, or R
   await expect(page.getByRole("link", { name: "Try again" })).toBeVisible();
   await context.setOffline(false);
   await page.getByRole("link", { name: "Try again" }).click();
-  await expect(page.getByRole("heading", { name: "A small list. A working stack." })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open playground", exact: true })).toBeVisible();
 });
 
 test("keeps the first service-worker installation quiet", async ({ page }) => {
@@ -214,9 +215,7 @@ for (const width of [1280, 320]) {
       const reload = page.waitForEvent("load");
       await page.keyboard.press("Enter");
       await reload;
-      await expect(
-        page.getByRole("heading", { name: "A small list. A working stack." }),
-      ).toBeVisible();
+      await expect(page.getByRole("link", { name: "Open playground", exact: true })).toBeVisible();
       await waitForWorker(page);
       await expect(title).toBeHidden();
       await expect(update).toBeHidden();
@@ -236,7 +235,7 @@ test("keeps another tab's draft until that tab approves its own reload", async (
   await page.goto("/");
   await waitForWorker(page);
   const second = await context.newPage();
-  await second.goto("/");
+  await second.goto("/playground");
   await waitForWorker(second);
   const draft = second.getByRole("textbox", { name: "New task", exact: true });
   await expect(draft).toBeVisible();

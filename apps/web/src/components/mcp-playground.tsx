@@ -69,7 +69,7 @@ export function McpPlayground() {
   }
 
   return (
-    <section className="mt-16" aria-labelledby="mcp-heading">
+    <section id="mcp" className="mt-16 scroll-mt-8" aria-labelledby="mcp-heading">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="mb-2 text-xs font-medium tracking-widest text-muted-foreground uppercase">

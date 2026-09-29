@@ -21,9 +21,11 @@ test("serves the standalone app, REST, MCP, docs, and optimized images", async (
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
-  await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
   await page.getByRole("button", { name: "Move to end", exact: true }).click();
   await expect(page.getByText("Tile at the end.", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Open playground", exact: true }).click();
+  await expect(page).toHaveURL(/\/playground$/);
+  await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
   const playground = page.getByRole("region", {
     name: "A little input. Real action.",
     exact: true,
@@ -89,7 +91,7 @@ test("serves the standalone app, REST, MCP, docs, and optimized images", async (
 
 test("creates and completes tasks through the browser RPC transport", async ({ page, request }) => {
   const title = `Container RPC ${crypto.randomUUID()}`;
-  await page.goto("/");
+  await page.goto("/playground");
   await page.getByRole("textbox", { name: "New task", exact: true }).fill(title);
   const created = page.waitForResponse(
     (response) =>
@@ -200,7 +202,7 @@ test("keeps API responses out of the PWA cache and serves its offline fallback",
 }) => {
   expect((await request.get("/manifest.webmanifest")).status()).toBe(200);
   expect((await request.get("/sw.js")).headers()["cache-control"]).toContain("no-store");
-  await page.goto("/");
+  await page.goto("/playground");
   await page.evaluate(async () => navigator.serviceWorker.ready.then(() => undefined));
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
   await page.evaluate(async () => {
@@ -223,6 +225,7 @@ test("keeps API responses out of the PWA cache and serves its offline fallback",
     expect(url.pathname.startsWith("/api/")).toBe(false);
     expect(url.searchParams.has("_rsc")).toBe(false);
     expect(url.pathname).not.toBe("/");
+    expect(url.pathname).not.toBe("/playground");
   }
   await context.setOffline(true);
   await page.goto("/stack-offline-fallback");
@@ -233,7 +236,7 @@ test("keeps API responses out of the PWA cache and serves its offline fallback",
 test("activates a replacement worker only after approval in the running container", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/playground");
   await page.evaluate(async () => navigator.serviceWorker.ready.then(() => undefined));
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
   const token = crypto.randomUUID();

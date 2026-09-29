@@ -103,7 +103,7 @@ for (const mode of ["modern", "legacy"] as const) {
       const rest = await request.get("/api/v1/tasks?status=completed");
       expect(rest.ok()).toBe(true);
       expect(await rest.json()).toEqual(expect.arrayContaining([{ ...created, completed: true }]));
-      await page.goto("/");
+      await page.goto("/playground");
       await expect(
         page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
       ).toBeVisible();
@@ -236,7 +236,7 @@ test("disables MCP at production runtime without rebuilding or disabling REST", 
     expect(disabled.status).toBe(404);
     expect(disabled.headers.get("Cache-Control")).toBe("no-store");
     expect((await fetch(`${origin}/api/mcp/inspector`)).status).toBe(404);
-    await page.goto(origin);
+    await page.goto(new URL("/playground", origin).href);
     const widget = page.getByRole("region", { name: "A little input. Real action.", exact: true });
     await widget.getByRole("button", { name: "Discover tools", exact: true }).click();
     await expect(widget.getByRole("alert")).toContainText("MCP is disabled for this application.");

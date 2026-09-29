@@ -25,7 +25,7 @@ test("does not attempt service-worker registration when the browser allows it", 
         return register.apply(this, args);
       };
     });
-    await page.goto("/");
+    await page.goto("/playground");
     expect(await page.evaluate(() => "serviceWorker" in navigator)).toBe(true);
     const compact = page.getByRole("button", { name: "Compact view", exact: true });
     await compact.click();
@@ -92,17 +92,17 @@ test("syncs app and shared-package changes with HMR while preserving a browser d
   page,
 }) => {
   const context = await ownedContext();
-  const component = path.join(context, "apps/web/src/components/animation-examples.tsx");
+  const component = path.join(context, "apps/web/src/components/task-workbench.tsx");
   const stylesheet = path.join(context, "packages/ui/src/styles/globals.css");
   const originalComponent = await readFile(component, "utf8");
   const originalStylesheet = await readFile(stylesheet, "utf8");
   const marker = `Stack HMR ${crypto.randomUUID()}`;
-  expect(originalComponent).toContain("Small details. More life.");
-  await page.goto("/");
+  expect(originalComponent).toContain("A small list. A working stack.");
+  await page.goto("/playground");
   const draft = page.getByRole("textbox", { name: "New task", exact: true });
   await draft.fill("Keep my container development draft");
   try {
-    await writeFile(component, originalComponent.replace("Small details. More life.", marker));
+    await writeFile(component, originalComponent.replace("A small list. A working stack.", marker));
     await expect(page.getByRole("heading", { name: marker, exact: true })).toBeVisible();
     await expect(draft).toHaveValue("Keep my container development draft");
     await writeFile(stylesheet, `${originalStylesheet}\nbody { --stack-watch-probe: ready; }\n`);

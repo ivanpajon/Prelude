@@ -1,13 +1,12 @@
 import { Badge } from "@repo/ui/components/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
-import { ArrowDownIcon, ArrowUpRightIcon, CheckIcon } from "lucide-react";
+import { ArrowRightIcon, ArrowUpRightIcon, CheckIcon } from "lucide-react";
 import { cacheLife } from "next/cache";
-import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 import { AnimationExamples } from "@/components/animation-examples";
-import { McpPlayground } from "@/components/mcp-playground";
-import { TaskWorkbenchServer } from "@/components/task-workbench-server";
+import { SiteFooter } from "@/components/site-footer";
+import { SiteHeader } from "@/components/site-header";
 
 const boundaries = [
   {
@@ -86,51 +85,10 @@ async function StackOverview() {
   );
 }
 
-export default function HomePage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
+export default function HomePage() {
   return (
     <div className="mx-auto max-w-7xl px-6 sm:px-10 lg:px-16">
-      <header className="flex h-24 items-center justify-between gap-4 border-b border-border">
-        <Link
-          href="/"
-          className="shrink-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-          aria-label="Prelude home"
-        >
-          <Image
-            src="/branding/prelude-logo.png"
-            alt="Prelude"
-            width={2027}
-            height={776}
-            className="h-auto w-36 sm:w-44"
-            unoptimized
-            preload
-          />
-        </Link>
-        <nav
-          aria-label="Documentation"
-          className="flex flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-6"
-        >
-          <a
-            href="/api/docs"
-            className="rounded-sm py-1 text-xs whitespace-nowrap text-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring sm:text-sm"
-          >
-            API docs
-          </a>
-          <a
-            href="https://nextjs.org/docs"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-sm py-1 text-xs whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring sm:text-sm"
-          >
-            Next.js docs
-            <ArrowUpRightIcon className="size-4" aria-hidden="true" />
-            <span className="sr-only">(opens in a new tab)</span>
-          </a>
-        </nav>
-      </header>
+      <SiteHeader />
 
       <main id="main-content" className="pb-16">
         <section
@@ -154,13 +112,13 @@ export default function HomePage({
               A thoughtful starting point for the ideas you want to ship. The essentials, already
               working together.
             </p>
-            <a
-              href="#workbench"
-              className="mt-8 inline-flex items-center gap-3 rounded-full bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            <Link
+              href="/playground"
+              className="mt-8 inline-flex items-center gap-3 rounded-full bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
             >
-              Explore your workspace
-              <ArrowDownIcon className="size-4" aria-hidden="true" />
-            </a>
+              Open playground
+              <ArrowRightIcon className="size-4" aria-hidden="true" />
+            </Link>
           </div>
           <div className="lg:col-span-2">
             <Suspense
@@ -177,34 +135,7 @@ export default function HomePage({
           </div>
         </section>
 
-        <section id="workbench" className="scroll-mt-8" aria-labelledby="workbench-heading">
-          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="mb-2 text-xs font-medium tracking-widest text-muted-foreground uppercase">
-                Make something happen
-              </p>
-              <h2
-                id="workbench-heading"
-                className="text-2xl font-medium tracking-tight sm:text-3xl"
-              >
-                Your workspace, ready.
-              </h2>
-            </div>
-            <span className="font-mono text-xs text-muted-foreground">apps/web</span>
-          </div>
-          <Suspense
-            fallback={
-              <p role="status" className="rounded-xl bg-card p-8 text-muted-foreground">
-                Loading your workspace…
-              </p>
-            }
-          >
-            <TaskWorkbenchServer searchParams={searchParams} />
-          </Suspense>
-        </section>
-
         <AnimationExamples />
-        <McpPlayground />
 
         <section
           className="mt-16 border-t border-border pt-10"
@@ -228,21 +159,7 @@ export default function HomePage({
         </section>
       </main>
 
-      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border py-6 text-xs text-muted-foreground">
-        <p>Made with ❤️ by Ivan Pajon</p>
-        <a
-          href="https://github.com/ivanpajon/Prelude"
-          target="_blank"
-          rel="noreferrer"
-          aria-label="Prelude on GitHub (opens in a new tab)"
-          className="inline-flex size-10 items-center justify-center rounded-full transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-        >
-          {/* GitHub's Octicons mark; license in docs/licenses/octicons.txt. */}
-          <svg viewBox="0 0 16 16" fill="currentColor" className="size-5" aria-hidden="true">
-            <path d="M6.766 11.328c-2.063-.25-3.516-1.734-3.516-3.656 0-.781.281-1.625.75-2.188-.203-.515-.172-1.609.063-2.062.625-.078 1.468.25 1.968.703.594-.187 1.219-.281 1.985-.281.765 0 1.39.094 1.953.265.484-.437 1.344-.765 1.969-.687.218.422.25 1.515.046 2.047.5.593.766 1.39.766 2.203 0 1.922-1.453 3.375-3.547 3.64.531.344.89 1.094.89 1.954v1.625c0 .468.391.734.86.547C13.781 14.359 16 11.53 16 8.03 16 3.61 12.406 0 7.984 0 3.563 0 0 3.61 0 8.031a7.88 7.88 0 0 0 5.172 7.422c.422.156.828-.125.828-.547v-1.25c-.219.094-.5.156-.75.156-1.031 0-1.64-.562-2.078-1.609-.172-.422-.36-.672-.719-.719-.187-.015-.25-.093-.25-.187 0-.188.313-.328.625-.328.453 0 .844.281 1.25.86.313.452.64.655 1.031.655s.641-.14 1-.5c.266-.265.47-.5.657-.656" />
-          </svg>
-        </a>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
