@@ -302,6 +302,11 @@ assert.equal(Intl.DateTimeFormat.supportedLocalesOf(['en','es','ja','ar']).lengt
 assert.match(new Intl.DateTimeFormat('es',{month:'long',timeZone:'Europe/Madrid'}).format(new Date('2026-01-01')),/enero/);
 assert.equal(Temporal.Instant.from('2026-01-01T00:00:00Z').toZonedDateTimeISO('Europe/Madrid').hour,1);
 const fromApp=require('node:module').createRequire('/app/apps/web/server.js');
+for(const dependency of ['tsdown','@tailwindcss/cli','@modelcontextprotocol/inspector']) {
+ assert.throws(()=>fromApp.resolve(dependency),{code:'MODULE_NOT_FOUND'},dependency+' must not ship in the runtime');
+}
+const appHtml=fs.readFileSync('/app/apps/web/.generated/mcp-apps/tasks.html','utf8');
+assert(appHtml.includes('<!--PRELUDE_MCP_APP_CONFIG-->'),'Runtime must contain the generated MCP App HTML');
 const fromNext=require('node:module').createRequire(fromApp.resolve('next/package.json'));
 const sharp=fromNext('sharp'); assert(sharp.versions.vips);
 const cache='/app/apps/web/.next/cache'; fs.mkdirSync(cache,{recursive:true});
@@ -315,7 +320,7 @@ function walk(dir){for(const name of fs.readdirSync(dir).sort()){
  else if(info.isDirectory()) walk(file); else hash.update(fs.readFileSync(file));
 }}
 walk('/app');
-console.log(JSON.stringify({uid:process.getuid(),node:process.version,icu:process.versions.icu,sharp:sharp.versions.sharp,nativeTemporal:true,artifactsSha256:hash.digest('hex')}));
+console.log(JSON.stringify({uid:process.getuid(),node:process.version,icu:process.versions.icu,sharp:sharp.versions.sharp,nativeTemporal:true,mcpApp:true,buildToolsAbsent:true,artifactsSha256:hash.digest('hex')}));
 `;
 
 async function imageMetrics(target) {
@@ -370,11 +375,14 @@ async function composeConfig(mode, target = "production", extraEnvironment = {})
   const port = await freePort();
   let inspectorPort = await freePort();
   while (inspectorPort === port) inspectorPort = await freePort();
+  let sandboxPort = await freePort();
+  while (sandboxPort === port || sandboxPort === inspectorPort) sandboxPort = await freePort();
   const env = {
     PROD_HOST: "127.0.0.1",
     PROD_PORT: String(port),
     DEV_PORT: String(port),
     MCP_INSPECTOR_PORT: String(inspectorPort),
+    MCP_SANDBOX_PORT: String(sandboxPort),
     MCP_ENABLED: "true",
     MCP_ALLOWED_ORIGINS: "",
     ...extraEnvironment,
@@ -407,7 +415,16 @@ async function composeConfig(mode, target = "production", extraEnvironment = {})
   );
   const file = mode === "production" ? "compose.yaml" : "compose.dev.yaml";
   const args = ["compose", "--project-name", name, "-f", path.join(context, file), "-f", override];
-  const config = { name, args, env, port, inspectorPort, mode, origin: `http://127.0.0.1:${port}` };
+  const config = {
+    name,
+    args,
+    env,
+    port,
+    inspectorPort,
+    sandboxPort,
+    mode,
+    origin: `http://127.0.0.1:${port}`,
+  };
   ownedProjects.add(config);
   return config;
 }
@@ -532,6 +549,7 @@ async function browserChecks(config, target, id) {
         PRELUDE_STACK_MODE: target === "development" ? "development" : "production",
         PRELUDE_STACK_URL: config.origin,
         PRELUDE_STACK_INSPECTOR_URL: `http://127.0.0.1:${config.inspectorPort}`,
+        PRELUDE_STACK_SANDBOX_URL: `http://127.0.0.1:${config.sandboxPort}`,
         PRELUDE_STACK_CONTEXT: context,
         PRELUDE_STACK_CONTAINER: id,
         PRELUDE_STACK_PROJECT: config.name,
@@ -690,6 +708,12 @@ try {
   assert.equal(watch.exitCode, null, "Compose watch failed to start");
   await browserChecks(development, "development", ready.id);
   report.acceptance.developmentInspectorAndHmr = "passed";
+  report.acceptance.developmentMcpAppSandbox = {
+    status: "passed",
+    appPort: development.port,
+    inspectorPort: development.inspectorPort,
+    sandboxPort: development.sandboxPort,
+  };
   await checkpoint();
   const manifestPath = path.join(context, "package.json");
   const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
@@ -765,7 +789,9 @@ try {
   }
   const ports = new Set(
     [...ownedProjects].flatMap((config) =>
-      config.mode === "development" ? [config.port, config.inspectorPort] : [config.port],
+      config.mode === "development"
+        ? [config.port, config.inspectorPort, config.sandboxPort]
+        : [config.port],
     ),
   );
   for (const port of ports) {

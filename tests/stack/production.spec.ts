@@ -4,6 +4,7 @@ import {
   StreamableHTTPClientTransport,
 } from "@modelcontextprotocol/client";
 import { expect, test } from "@playwright/test";
+import { expectTaskAppResource } from "../mcp-apps";
 import { containerNode } from "./owned-context";
 
 function toolText(result: CallToolResult): unknown {
@@ -70,6 +71,7 @@ test("serves the standalone app, REST, MCP, docs, and optimized images", async (
   const client = new Client({ name: "prelude-docker-acceptance", version: "1.0.0" });
   try {
     await client.connect(new StreamableHTTPClientTransport(new URL("/api/mcp", baseURL)));
+    await expectTaskAppResource(client);
     expect((await client.listTools()).tools.map((tool) => tool.name).sort()).toEqual([
       "createTask",
       "listTasks",
@@ -142,6 +144,7 @@ test("negotiates legacy MCP and executes every generated tool in the standalone 
   });
   try {
     await client.connect(transport);
+    await expectTaskAppResource(client);
     const { tools } = await client.listTools();
     expect(tools.map((tool) => tool.name).sort()).toEqual([
       "createTask",

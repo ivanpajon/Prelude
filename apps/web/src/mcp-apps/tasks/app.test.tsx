@@ -89,6 +89,29 @@ it("announces invalid input without sending a mutation and permits correcting it
   expect(screen.getByRole("textbox", { name: "New task" })).toHaveAttribute("maxlength", "120");
 });
 
+it("preserves a newer draft typed while a successful mutation's follow-up read is pending", async () => {
+  const user = userEvent.setup();
+  const { call } = fixture();
+  const created = { ...task, id: "task-2", title: "First draft" };
+  let finishRefresh!: (value: unknown) => void;
+  call.mockResolvedValueOnce(result(created)).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishRefresh = resolve;
+      }),
+  );
+  const input = screen.getByRole("textbox", { name: "New task" });
+  await user.type(input, "First draft{Enter}");
+  await waitFor(() => expect(call).toHaveBeenCalledTimes(2));
+  await user.clear(input);
+  await user.type(input, "Keep this second draft");
+  await act(async () => finishRefresh(result([task, created])));
+  await waitFor(() =>
+    expect(screen.getByRole("list", { name: "Tasks" })).toHaveTextContent("First draft"),
+  );
+  expect(input).toHaveValue("Keep this second draft");
+});
+
 it("filters and completes tasks through named controls while exposing loading and pressed state", async () => {
   const user = userEvent.setup();
   const { call } = fixture();
@@ -118,11 +141,11 @@ it("wires host events, bridge-only calls, styles, resize, cancellation, and unmo
     ontoolresult?: (value: unknown) => void;
     ontoolcancelled?: () => void;
     onerror?: () => void;
-    callServerTool: ReturnType<typeof vi.fn>;
+    request: ReturnType<typeof vi.fn>;
     getHostContext: ReturnType<typeof vi.fn>;
   };
   const hostContext = { theme: "dark" };
-  const host: HostApp = { callServerTool: vi.fn(), getHostContext: vi.fn(() => hostContext) };
+  const host: HostApp = { request: vi.fn(), getHostContext: vi.fn(() => hostContext) };
   let initialized = false;
   bridge.useApp.mockImplementation((options: { onAppCreated: (app: HostApp) => void }) => {
     if (!initialized) {
@@ -143,17 +166,22 @@ it("wires host events, bridge-only calls, styles, resize, cancellation, and unmo
     host.ontoolresult?.(result([task]));
   });
   expect(await screen.findByText(task.title)).toBeVisible();
-  expect(host.callServerTool).not.toHaveBeenCalled();
+  expect(host.request).not.toHaveBeenCalled();
   act(() => host.ontoolcancelled?.());
   expect(screen.getByRole("alert")).toHaveTextContent("cancelled");
 
-  host.callServerTool.mockImplementation(() => new Promise(() => {}));
+  host.request.mockImplementation(() => new Promise(() => {}));
   await userEvent.setup().click(screen.getByRole("button", { name: "Refresh tasks" }));
-  expect(host.callServerTool).toHaveBeenCalledWith(
-    { name: "listTasks", arguments: { status: "all" } },
-    { signal: expect.any(AbortSignal) },
+  expect(host.request).toHaveBeenCalledWith(
+    { method: "tools/call", params: { name: "listTasks", arguments: { status: "all" } } },
+    CallToolResultSchema,
+    {
+      signal: expect.any(AbortSignal),
+      onprogress: expect.any(Function),
+      resetTimeoutOnProgress: true,
+    },
   );
-  const signal = host.callServerTool.mock.calls[0]?.[1].signal as AbortSignal;
+  const signal = host.request.mock.calls[0]?.[2].signal as AbortSignal;
   rendered.unmount();
   expect(signal.aborted).toBe(true);
   expect(dispose).toHaveBeenCalledOnce();
@@ -171,3 +199,5 @@ it("shows host connection failures and keeps mutation controls disabled before c
   expect(screen.getByRole("button", { name: "Add task" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Refresh tasks" })).toBeDisabled();
 });
+
+import { CallToolResultSchema } from "@modelcontextprotocol/core";

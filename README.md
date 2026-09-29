@@ -4,7 +4,7 @@
   <img src="docs/assets/prelude-logo.png" alt="Prelude" width="640" />
 </p>
 
-A pnpm + Turborepo starter with React 19, Next.js 16, Base UI shadcn components, Tailwind 4, contract-first oRPC, ArkType, automatically generated OpenAPI docs with Scalar and native MCP tools, TanStack Query, nuqs, Zustand, and Serwist.
+A pnpm + Turborepo starter with React 19, Next.js 16, Base UI shadcn components, Tailwind 4, contract-first oRPC, ArkType, automatically generated OpenAPI docs with Scalar, native MCP tools and an MCP App example, TanStack Query, nuqs, Zustand, and Serwist.
 
 The included task list connects the stack end to end. **It is public, shared, in-memory demo data:** every visitor reaches the same process-local list, which resets on restart and differs across server instances. Replace it before using the starter for private or persistent data. No database, authentication, or environment variables are required to run the demo.
 
@@ -35,7 +35,9 @@ Check `node --version` in the shell that starts development; `.node-version` doe
 
 Open [localhost:3000](http://localhost:3000), then follow **API docs** to [the Scalar reference](http://localhost:3000/api/docs). The [OpenAPI specification](http://localhost:3000/api/openapi.json) is generated from the contracts on request; no generation command is needed. Scalar loads its version-pinned renderer from jsDelivr, so the interactive reference requires CDN access. See [OpenAPI usage](docs/openapi.md) for endpoints, adding procedures, and upgrades.
 
-The same contracts provide native MCP tools at `/api/mcp`. Try the **MCP playground** on the homepage: discover tools, edit JSON arguments, and execute real calls that refresh the task list. `pnpm dev` also starts an authenticated local MCP Inspector, embedded at [the development Inspector page](http://localhost:3000/api/mcp/inspector). Run `pnpm mcp:check` from another terminal to check the endpoint with its CLI. MCP is public and enabled by default; set `MCP_ENABLED=false` to disable it and the playground. See [MCP usage](docs/mcp.md) for client connection, origin configuration, and replacing the demo safely.
+Choose **Open playground** for [the task workspace and MCP explorer](http://localhost:3000/playground). Create tasks, try URL filters and compact view, then discover the generated MCP tools, edit JSON arguments, and execute real calls that refresh the same list. Motion and Morphicons previews stay on the homepage.
+
+The same contracts provide native MCP tools at `/api/mcp`. A compatible host can render the task widget associated with `listTasks`, using the official MCP Apps SDK. `pnpm dev` builds the widget and starts an authenticated local MCP Inspector, available through **Open Inspector** on the playground. Use Inspector's **Apps** interface to preview it; the website itself is not an MCP Apps host. Run `pnpm mcp:check` from another terminal for a CLI connectivity check. MCP is public and enabled by default; `MCP_ENABLED=false` disables its tools, resources, and JSON explorer actions. See [MCP usage](docs/mcp.md) and [the MCP App guide](docs/mcp-apps.md) for connections, sandbox ports, builds, and example removal.
 
 To run the production build and PWA on a separate origin:
 
@@ -67,9 +69,9 @@ Development uses [localhost:3000](http://localhost:3000). Both workflows build t
 | Command | Purpose |
 | --- | --- |
 | `pnpm customize --name my-app --scope "@acme"` | Rename the root package and workspace scope, reinstall, and validate. |
-| `pnpm dev` | Start Next.js with Turbopack and the managed local MCP Inspector. |
+| `pnpm dev` | Build/watch the MCP App, then start Next.js with Turbopack and the managed local MCP Inspector. |
 | `pnpm mcp:check` | Check the running MCP endpoint with the pinned Inspector CLI; supports `--url`. |
-| `pnpm build` | Build Next.js, then generate the Serwist worker. |
+| `pnpm build` | Build the MCP App, build Next.js, then generate the Serwist worker. |
 | `pnpm start` | Serve an existing production build. |
 | `pnpm stack:prod` | Build and start the production Docker Compose stack. |
 | `pnpm stack:dev` | Start the development Docker Compose stack with Watch and MCP Inspector. |
@@ -81,7 +83,7 @@ Development uses [localhost:3000](http://localhost:3000). Both workflows build t
 | `pnpm test:ui` | Open Vitest's local test explorer in watch mode. |
 | `pnpm test:dev` | Check development rendering and the embedded MCP Inspector. |
 | `pnpm test:e2e` | Build, then run production browser and MCP protocol scenarios with Playwright. |
-| `pnpm test:cache` | Verify generated worker artifacts restore from Turbo cache. |
+| `pnpm test:cache` | Verify generated MCP App and worker artifacts restore from Turbo cache. |
 | `pnpm verify` | Run the complete verification sequence. |
 | `pnpm react-doctor` | Run optional React diagnostics with file locations. |
 | `pnpm --silent react-doctor:json` | Print a structured diagnostic report for agents. |
@@ -116,8 +118,9 @@ The command updates package names, workspace dependencies, imports, shadcn alias
 - Import components from `@repo/ui/components/*` and `cn` from `@repo/ui/lib/utils`; the latter re-exports the `cn` package.
 - Import dates and times from `@repo/temporal`; it selects native Temporal or a browser-compatible fallback. See [Temporal usage](docs/temporal.md) for serialization and hydration guidance.
 - Use the shared Motion provider and Morphicons wrapper for animations that honor reduced motion. The compact-view toggle demonstrates both; see [animation guidance](docs/motion.md).
-- Replace the task contracts, repository, and workbench with your feature, updating the corresponding tests. Keep the provider and transport infrastructure you need.
+- Replace the task contracts, repository, and `/playground` workbench with your feature, updating the corresponding tests. Replace or remove the separate MCP App example too; keep the provider and transport infrastructure you need.
 - Update the API title, version, tags, and descriptions in `apps/web/src/lib/openapi.ts`; keep route metadata with the contracts. See [OpenAPI customization and demo removal](docs/openapi.md).
 - MCP tools follow the same OpenAPI operations automatically. Configure exposure and request authorization with the rest of the API; see [MCP customization](docs/mcp.md).
+- MCP App interfaces have explicit resource associations. See [MCP Apps](docs/mcp-apps.md) for the widget's shared components, host connection, build pipeline, and removal checklist.
 
 See [architecture](docs/architecture.md) for data access, state, caching, and removing the demo; [requirements](docs/requirements.md) records the stack and deferred choices. [React diagnostics](docs/diagnostics.md) explains scanner results and scoped exceptions. [Candidate skills](docs/skills.md) lists reviewed project-local agent skills and installation commands; none are installed by default.

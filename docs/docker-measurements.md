@@ -1,5 +1,7 @@
 # Docker measurement baseline
 
+The first sections preserve the historical baseline **before the dedicated `/playground` page and MCP App resource/build pipeline were added**. The [Playground and MCP App run](#playground-and-mcp-app-run) records the subsequent widget-containing image separately.
+
 Measured on **2026-09-29** with Docker Desktop **4.91.0**, Engine **29.8.0**, Compose **5.5.1**, and the Linux **amd64** engine on Windows/WSL2. The engine had 20 CPUs and 31.47 GiB available. Each production container was limited to **2 CPUs and 1 GiB**; development acceptance used 2 CPUs and 4 GiB. Both runtime images used Node **26.10.0**, ICU **78.3**, Sharp **0.35.4**, and UID **65532**.
 
 The successful `pnpm test:stack` run was `prelude-stack-39a77802`, from 23:50:56 UTC on September 28 to 00:00:42 UTC on September 29. It built both targets from the same source and verified matching application-artifact SHA-256 hashes: `f493bd6e35c43f44a322eefec047132fd032e9460519ef4e8885f16ef30b8c6b`. The measurements below describe this machine and demo workload, not a production capacity estimate.
@@ -66,3 +68,23 @@ The complete container run passed:
 Separately, a disposable checkout renamed the scope to `@stack-check`, refreshed its lockfile, and passed a frozen Docker build with homepage, OpenAPI, service worker, and MCP-to-REST mutation checks. The native workflow passed frozen installation and `pnpm verify`: 208 unit/component tests, 2 development browser scenarios, 43 production browser scenarios, production build, and service-worker restoration from Turborepo cache. The unpacked-size reporting correction then passed three additional unit tests and a real-image probe; the 29 launcher tests were rerun successfully alongside them.
 
 The full run and logs are generated locally in ignored `test-results/stack/`. Re-run `pnpm test:stack` to measure another machine. ARM64 was not exercised in this run. Scalar rendering tests require access to its pinned CDN bundle.
+
+## Playground and MCP App run
+
+Run `prelude-stack-a5b43edc` passed on 2026-09-29 using Docker Engine 29.8.1, Compose 5.5.1, Linux amd64, and Node 26.10.0. The same methodology and resource limits above were retained. Native verification and development processes were stopped during these measurements. Both runtime targets contained identical application artifacts, including the generated MCP App HTML; tsdown, Tailwind CLI, and Inspector were absent from both runtimes.
+
+| Measurement | Distroless production | Node slim baseline |
+| --- | ---: | ---: |
+| Gzip-compressed OCI layers | 74.42 MB | 99.86 MB |
+| Unpacked filesystem | 232.63 MB | 316.87 MB |
+| Median container start to API readiness | 1,036 ms | 1,037 ms |
+| Median idle application RSS | 127.30 MiB | 127.21 MiB |
+| Median application RSS after load | 132.84 MiB | 132.83 MiB |
+| Median per-run homepage p50 / p95 | 15.05 / 26.11 ms | 17.00 / 26.08 ms |
+| Median per-run API p50 / p95 | 6.85 / 14.09 ms | 6.83 / 16.94 ms |
+
+Three starts/load samples were recorded per runtime. These small local samples establish a footprint reduction without demonstrating a general runtime speed advantage. The homepage is now statically rendered, with the dynamic workbench moved to `/playground`; its latency and memory workload differ from the earlier baseline and must not be attributed to the runtime image or widget compiler.
+
+The cold production build took 72.84 s, unchanged rebuild 5.41 s, and source-only rebuild 23.88 s. Unchanged builds reused dependency and compilation layers; source edits reused the dependency layer. The development image took 77.28 s to build, and a manifest-triggered rebuild returned to readiness in 97.15 s.
+
+All 16 container browser scenarios passed: six on each production runtime and four in development. Checks covered production resource discovery in modern/legacy MCP, the actual Inspector widget, restrictive CSP, custom sandbox ports, authentication, shared-theme rebuilds, RPC/REST data consistency, and the existing PWA behavior. Runtime enablement changes, unchanged host source, graceful cleanup, and port release also passed. Raw data and logs are in `test-results/stack/report.json` and its adjacent files. ARM64 remains untested.

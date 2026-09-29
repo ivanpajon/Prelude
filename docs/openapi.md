@@ -6,7 +6,7 @@ The same oRPC procedures serve the workbench over RPC, direct Server Component c
 
 | Endpoint | Input and behavior |
 | --- | --- |
-| `GET /api/docs` | Public, interactive Scalar reference; linked from the homepage. |
+| `GET /api/docs` | Public, interactive Scalar reference; linked from the shared homepage/playground navigation. |
 | `GET /api/openapi.json` | Generated specification, titled **Prelude API**, version **1.0.0**. |
 | `GET /api/v1/tasks?status=all` | Required status: `all`, `active`, or `completed`; returns 200. |
 | `POST /api/v1/tasks` | JSON `{ "title": "Build a feature" }`; returns the new task with 201. |
@@ -15,6 +15,8 @@ The same oRPC procedures serve the workbench over RPC, direct Server Component c
 Invalid inputs return 400; invalid procedure outputs return 500. POST titles are trimmed before the normalized 1–120-character constraint is checked. PATCH IDs belong only in the URL: a body containing `id` returns 400, even when it matches the path. This adapter guard prevents oRPC's compact body merge from overriding the path parameter.
 
 **The demo is public and shared.** Scalar's request client executes real reads and writes against the same process-local repository as the workbench. Data resets when the server process restarts and differs between server instances. Scalar mutations do not invalidate another page's TanStack Query client; reload or refetch an open workbench to see them.
+
+The browser workbench now lives at `/playground#tasks`. The separate [MCP App](mcp-apps.md) uses the same generated tools and contracts through its host's connection. Its HTML resource and UI metadata do not change REST inputs, response bodies, or OpenAPI schemas.
 
 ## Add or change a procedure
 
@@ -44,8 +46,8 @@ RPC, REST, documentation, and specification responses use `Cache-Control: no-sto
 
 ## Replace or remove the demo
 
-- Replace the task schemas, route metadata, procedures, repository, and workbench together. Update examples, API descriptions, the `Tasks` tag, operation IDs, the task-specific PATCH guard, and their unit/browser tests. Keep documentation generation if you want it for the replacement routes.
+- Replace the task schemas, route metadata, procedures, repository, and `/playground` workbench together. Update examples, API descriptions, the `Tasks` tag, operation IDs, the task-specific PATCH guard, and their unit/browser tests. Replace or remove the associated MCP App resource and widget as described in [its removal checklist](mcp-apps.md#replace-or-remove-the-example). Keep documentation generation if you want it for the replacement routes.
 - When adding authentication or persistence, initialize the authorized context in the RPC, REST, and MCP Route Handlers and the direct server client. Keep authorization in the shared procedures/repository so every transport enforces it. Supply cache invalidation consistently across these entry points if server data becomes cached, and choose which contracts to expose in public docs and MCP discovery.
-- To remove REST and documentation entirely, first remove or replace the dependent MCP bridge as described in [MCP removal](mcp.md#add-change-or-remove-tools). Then remove the REST catch-all, `apps/web/src/lib/openapi.ts` and its tests, the homepage **API docs** link, and the related browser checks. Remove `@orpc/openapi`, `@orpc/arktype`, and their now-unused direct peers from the web package, then regenerate the lockfile. Retain RPC and its shared contracts if the application still uses them.
+- To remove REST and documentation entirely, first remove or replace the dependent MCP bridge as described in [MCP removal](mcp.md#add-change-or-remove-tools). Then remove the REST catch-all, `apps/web/src/lib/openapi.ts` and its tests, the shared header and homepage stack-card **API docs** links, and related browser checks. Remove `@orpc/openapi`, `@orpc/arktype`, and their now-unused direct peers from the web package, then regenerate the lockfile. Retain RPC and its shared contracts if the application still uses them.
 
 See [architecture](architecture.md#replace-or-remove-the-demo) for replacing the synchronous demo repository with asynchronous persistence and removing the remaining example UI.

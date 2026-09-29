@@ -5,6 +5,7 @@ import { Input } from "@repo/ui/components/input";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { CheckIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
 import { type FormEvent, useEffect, useState, useSyncExternalStore } from "react";
+import { callHostTool } from "./bridge";
 import { TaskAppSession, type TaskAppTools, taskKey } from "./model";
 
 const filters: [TaskStatus, string][] = [
@@ -173,9 +174,7 @@ export function TaskApp({ tools }: { tools: TaskAppTools }) {
   useAutoResize(app);
   useEffect(() => {
     if (app && isConnected)
-      session.connect((name, args, signal) =>
-        app.callServerTool({ name, arguments: args }, { signal }),
-      );
+      session.connect((name, args, signal) => callHostTool(app, name, args, signal));
   }, [app, isConnected, session]);
   useEffect(() => {
     if (error) session.fail("Unable to connect to the MCP host.");

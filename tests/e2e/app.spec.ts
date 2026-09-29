@@ -64,6 +64,20 @@ test("opens the playground from home and supports browser history on narrow scre
   await expect(page).toHaveTitle("Playground — Prelude");
   await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Discover tools", exact: true })).toBeVisible();
+  const appSection = page.getByRole("region", {
+    name: "The same tasks. A new place to work.",
+    exact: true,
+  });
+  const appLink = page
+    .getByRole("navigation", { name: "Playground sections" })
+    .getByRole("link", { name: "MCP App", exact: true });
+  await appLink.click();
+  await expect(page).toHaveURL(/\/playground#mcp-app$/);
+  await expect(appSection).toBeInViewport();
+  await expect(appSection).toContainText("/api/mcp");
+  await expect(appSection.getByRole("link", { name: /Open Inspector/ })).toHaveCount(0);
+  // Keep this test's back/forward assertions about route history rather than the local anchor.
+  await page.goBack();
   await expect(page.getByRole("button", { name: "Move to end", exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,

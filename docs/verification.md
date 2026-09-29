@@ -1,5 +1,19 @@
 # Verification
 
+## Playground and MCP App checks
+
+Verified on 2026-09-29 with Node 26.10.0 and pnpm 12.6.0 on Windows: frozen installation and `pnpm verify` passed, including Biome, strict TypeScript, 271 unit/component/script tests with coverage, three native development browser scenarios, 47 production browser scenarios, the production build, and byte-for-byte Turbo restoration of the widget HTML and service worker.
+
+The real Inspector preview exercised initial rendering without duplicate fetching, creation, completion, filtering, external-write refresh, a 360 px host frame, size notifications, and zero external widget asset requests under its restrictive CSP. It also exposed the pinned SDK's record-only bridge result validation; the explicit public result-schema adapter is covered by real SDK tests for modern arrays and legacy wrappers. Widget build measurements are recorded in [MCP Apps](mcp-apps.md#measure-the-widget-build).
+
+The same source passed `pnpm test:stack` on Docker Engine 29.8.1, Compose 5.5.1, Linux amd64. Six production browser scenarios passed on each runtime, and four development scenarios passed, including the real widget over custom application/Inspector/sandbox ports and fresh resource reads after a shared-theme rebuild. Runtime MCP toggling, manifest-triggered rebuilding, unchanged host source, shutdown, and port cleanup passed. Both images contained identical application artifacts and the generated widget, with no tsdown, Tailwind CLI, or Inspector package in the runtime. See the [current container measurements](docker-measurements.md#playground-and-mcp-app-run).
+
+The current browser workbench and JSON tool explorer live at `/playground`; Motion/Morphicons remain on `/`. Browser acceptance must cover navigation between the two pages, playground server rendering and hydration, task URL/history behavior, JSON tool execution, and the development-only Inspector link. Earlier dated results below describe the source and routes at the time they were recorded.
+
+The MCP App adds protocol checks for UI metadata, HTML resource discovery/read, generated name changes, exclusions, unchanged modern/legacy JSON output, and masked asset failures. Widget tests cover result decoding, host input/result handling, query isolation, mutations/filter refresh, cancellation, and connection cleanup. Build tests check self-contained output and atomic replacement. `pnpm test:cache` restores both generated HTML and worker artifacts byte for byte.
+
+The real preview requires Inspector's **Apps** interface: connect, select **List tasks** (`listTasks`), supply `status`, and choose **Open App**. Native and Docker development checks must exercise that sandboxed widget, including its controls and asset rebuild/reopen behavior; raw Tools calls alone do not verify rendering. Production must serve the resource from the built standalone artifact while Inspector paths remain absent. See [MCP Apps](mcp-apps.md) for port and CSP boundaries. Consult the current run outputs for pass/fail results; this section describes acceptance scope rather than a new measured run.
+
 ## Docker stacks
 
 Run `pnpm test:stack` with Docker's Linux engine running and host dependencies installed. This separate acceptance command verifies the packaged production runtime and development workflow; `pnpm verify` continues to run natively without requiring Docker. See [Docker verification and measurements](docker.md#verification-and-measurements) for scope and prerequisites.
@@ -76,9 +90,9 @@ No CI provider is configured. A future CI job can run these commands; on Linux r
 | `pnpm test:coverage` | The same suite with V8 coverage reports in `coverage/`. |
 | `pnpm test:ui` | Local Vitest watch UI on `127.0.0.1`; exit with Ctrl+C. |
 | `pnpm test:dev` | Fresh Turbopack development server, initial rendering, interactions, and reloads without console/overlay errors. |
-| `pnpm build` | Production Turbopack compilation, Cache Components rendering, and Serwist generation. |
+| `pnpm build` | Self-contained MCP App compilation, production Turbopack compilation, Cache Components rendering, and Serwist generation. |
 | `pnpm test:e2e` | Build, then check production hydration, mutations, Scalar docs and requests, URL navigation, local state, offline fallback, and worker updates. |
-| `pnpm test:cache` | Build, remove only generated worker artifacts, then confirm a Turbo cache hit restores identical bytes. |
+| `pnpm test:cache` | Build, remove only known generated widget/worker artifacts, then confirm a Turbo cache hit restores identical bytes. |
 
 `pnpm test:e2e` builds automatically and starts its own production server at `http://127.0.0.1:3100`; leave that port free. Desktop and mobile app scenarios block service workers to isolate UI behavior, while the PWA project allows them. The tests detect hydration errors, verify initial data without an immediate duplicate RPC fetch, create/complete tasks, navigate filters with history, check failed-request recovery, and verify compact view stays local to its browser context. Reports, traces, and failure screenshots go to ignored test output directories.
 

@@ -9,6 +9,7 @@ import {
   StreamableHTTPClientTransport,
 } from "@modelcontextprotocol/client";
 import { expect, test } from "@playwright/test";
+import { expectTaskAppResource } from "../mcp-apps";
 
 function toolText(result: CallToolResult): unknown {
   expect(result.isError).not.toBe(true);
@@ -48,6 +49,7 @@ for (const mode of ["modern", "legacy"] as const) {
 
     try {
       await client.connect(transport);
+      await expectTaskAppResource(client);
       const { tools } = await client.listTools();
       expect(tools.map((tool) => tool.name).sort()).toEqual([
         "createTask",
