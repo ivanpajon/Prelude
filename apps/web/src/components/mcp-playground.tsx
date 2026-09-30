@@ -4,22 +4,25 @@ import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent } from "@repo/ui/components/card";
 import { cn } from "@repo/ui/lib/utils";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useMutationState, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRightIcon, CheckIcon, CodeIcon, PlayIcon, TerminalIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useRef, useState } from "react";
+import { useState } from "react";
+import { useStore } from "zustand";
 import { discoverMcpTools, executeMcpTool } from "@/app/actions/mcp-playground";
 import { mcpResultText, parseArguments, starterArguments } from "@/lib/mcp-playground-format";
-import { McpPlaygroundError, type McpPlaygroundErrorCode } from "@/lib/mcp-playground-types";
+import { McpPlaygroundError, type McpPlaygroundResult } from "@/lib/mcp-playground-types";
 import { orpc } from "@/lib/orpc";
+import { getMcpPlaygroundStore, type McpPlaygroundStoreApi } from "@/stores/mcp-playground-store";
 
-export function McpPlayground() {
+const executionKey = ["mcp-playground", "execution"];
+
+export function McpPlayground({ store: injectedStore }: { store?: McpPlaygroundStoreApi } = {}) {
   const t = useTranslations("Mcp");
   const queryClient = useQueryClient();
-  const [selectedName, setSelectedName] = useState("");
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [inputError, setInputError] = useState<McpPlaygroundErrorCode>();
-  const running = useRef(false);
+  const [store] = useState(() => injectedStore ?? getMcpPlaygroundStore());
+  const { selectedName, drafts, inputError, executionVisible, running, setDraft, setArguments } =
+    useStore(store);
   const discovery = useQuery({
     queryKey: ["mcp-playground", "tools"],
     queryFn: async () => {
@@ -36,6 +39,9 @@ export function McpPlayground() {
     tools.find((entry) => entry.annotations?.readOnlyHint) ??
     tools[0];
   const execution = useMutation({
+    mutationKey: executionKey,
+    // Preserve the latest response across locale remounts; prune it on the next run.
+    gcTime: Infinity,
     mutationFn: async (input: { name: string; args: Record<string, unknown> }) => {
       const response = await executeMcpTool(input.name, input.args);
       if (!response.ok) throw new McpPlaygroundError(response.error);
@@ -47,29 +53,48 @@ export function McpPlayground() {
       if (!result.isError) void queryClient.invalidateQueries({ queryKey: orpc.tasks.key() });
     },
   });
+  const executionStates = useMutationState({
+    filters: { mutationKey: executionKey },
+    select: (mutation) => ({
+      status: mutation.state.status,
+      data: mutation.state.data as McpPlaygroundResult | undefined,
+      error: mutation.state.error,
+    }),
+  });
+  const currentExecution = executionVisible ? executionStates.at(-1) : undefined;
+  const executionPending = running || currentExecution?.status === "pending";
   const draft = tool ? (drafts[tool.name] ?? starterArguments(tool.inputSchema)) : "";
   const errorCode = (error: Error) =>
     error instanceof McpPlaygroundError ? error.code : "errorRequestFailed";
-  const error = inputError ?? (execution.error ? errorCode(execution.error) : undefined);
+  const error =
+    inputError ?? (currentExecution?.error ? errorCode(currentExecution.error) : undefined);
+
+  function resetExecution() {
+    execution.reset();
+    setDraft({ inputError: undefined, executionVisible: false });
+  }
 
   async function run() {
-    if (!tool || running.current) return;
-    setInputError(undefined);
-    execution.reset();
+    if (!tool || store.getState().running) return;
+    resetExecution();
     let args: Record<string, unknown>;
     try {
       args = parseArguments(draft);
     } catch (error) {
-      setInputError(error instanceof McpPlaygroundError ? error.code : "errorArguments");
+      setDraft({ inputError: error instanceof McpPlaygroundError ? error.code : "errorArguments" });
       return;
     }
-    running.current = true;
+    if (!store.getState().begin()) return;
+    // Keep only one completed response; pending execution is guarded synchronously.
+    for (const mutation of queryClient.getMutationCache().findAll({ mutationKey: executionKey })) {
+      if (mutation.state.status !== "pending") queryClient.getMutationCache().remove(mutation);
+    }
     try {
       await execution.mutateAsync({ name: tool.name, args });
     } catch {
       // Keep the draft and let mutation state display a retryable failure.
     } finally {
-      running.current = false;
+      store.getState().finish();
     }
   }
 
@@ -101,10 +126,10 @@ export function McpPlayground() {
             </div>
             <Button
               variant="outline"
-              disabled={discovery.isFetching || execution.isPending}
+              disabled={discovery.isFetching || executionPending}
               onClick={() => {
-                execution.reset();
-                setInputError(undefined);
+                if (store.getState().running) return;
+                resetExecution();
                 void discovery.refetch();
               }}
             >
@@ -142,12 +167,12 @@ export function McpPlayground() {
                     key={entry.name}
                     variant={entry.name === tool.name ? "default" : "outline"}
                     aria-pressed={entry.name === tool.name}
-                    disabled={execution.isPending}
+                    disabled={executionPending}
                     className="max-w-full font-mono text-xs"
                     onClick={() => {
-                      setSelectedName(entry.name);
-                      setInputError(undefined);
-                      execution.reset();
+                      if (store.getState().running) return;
+                      setDraft({ selectedName: entry.name });
+                      resetExecution();
                     }}
                   >
                     <span className="truncate">{entry.name}</span>
@@ -168,12 +193,13 @@ export function McpPlayground() {
                   </label>
                   <textarea
                     id="mcp-arguments"
+                    aria-label={`${t("arguments")} JSON`}
                     value={draft}
-                    disabled={execution.isPending}
+                    disabled={executionPending}
                     onChange={(event) => {
-                      setDrafts((current) => ({ ...current, [tool.name]: event.target.value }));
-                      setInputError(undefined);
-                      execution.reset();
+                      if (store.getState().running) return;
+                      setArguments(tool.name, event.target.value);
+                      resetExecution();
                     }}
                     spellCheck={false}
                     autoCapitalize="off"
@@ -192,30 +218,30 @@ export function McpPlayground() {
                       {t("response")}
                     </h4>
                     <span role="status" className="text-xs text-muted-foreground">
-                      {execution.isPending
+                      {executionPending
                         ? t("running")
-                        : execution.data
-                          ? execution.data.isError
+                        : currentExecution?.data
+                          ? currentExecution.data.isError
                             ? t("toolError")
                             : t("complete")
-                          : execution.isError
+                          : currentExecution?.status === "error"
                             ? t("requestFailed")
                             : t("ready")}
                     </span>
                   </div>
                   <section
                     aria-labelledby="mcp-result-heading"
-                    aria-busy={execution.isPending}
+                    aria-busy={executionPending}
                     // biome-ignore lint/a11y/noNoninteractiveTabindex: Keyboard users need to scroll long tool responses.
                     tabIndex={0}
                     className={cn(
                       "h-64 overflow-auto rounded-xl border border-border bg-muted/50 p-4 outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-                      execution.data?.isError && "border-destructive/40",
+                      currentExecution?.data?.isError && "border-destructive/40",
                     )}
                   >
-                    {execution.data ? (
+                    {currentExecution?.data ? (
                       <pre className="font-mono text-xs leading-relaxed whitespace-pre-wrap wrap-anywhere">
-                        {mcpResultText(execution.data)}
+                        {mcpResultText(currentExecution.data)}
                       </pre>
                     ) : (
                       <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-muted-foreground">
@@ -233,15 +259,15 @@ export function McpPlayground() {
               )}
               <div className="mt-5 flex flex-wrap items-center gap-3">
                 <Button
-                  disabled={execution.isPending || discovery.isFetching}
+                  disabled={executionPending || discovery.isFetching}
                   onClick={() => void run()}
                 >
-                  {execution.data && !execution.data.isError ? (
+                  {currentExecution?.data && !currentExecution.data.isError ? (
                     <CheckIcon aria-hidden="true" />
                   ) : (
                     <PlayIcon aria-hidden="true" />
                   )}
-                  {t(execution.isPending ? "running" : "runTool")}
+                  {t(executionPending ? "running" : "runTool")}
                 </Button>
                 <p className="text-xs text-muted-foreground">
                   {t(tool.annotations?.readOnlyHint ? "readOnlyHint" : "mutationHint")}

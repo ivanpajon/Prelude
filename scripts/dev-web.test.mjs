@@ -45,8 +45,17 @@ const fixture = `
 import { createServer } from "node:http";
 import { existsSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
+import { setTimeout as delay } from "node:timers/promises";
 if (process.env.FIXTURE_MODE === "crash") process.exit(23);
 if (process.env.FIXTURE_REQUIRED_FILE && !existsSync(process.env.FIXTURE_REQUIRED_FILE)) process.exit(42);
+if (process.env.FIXTURE_BIND_DELAY_MS) await delay(Number(process.env.FIXTURE_BIND_DELAY_MS));
+if (process.env.FIXTURE_REQUIRED_BOUND_PORT) await new Promise((resolve, reject) => {
+  const contender = createServer();
+  contender.once("error", (error) => error.code === "EADDRINUSE" ? resolve() : reject(error));
+  contender.listen(Number(process.env.FIXTURE_REQUIRED_BOUND_PORT), "127.0.0.1", () => {
+    contender.close(() => reject(new Error("The fixed application port was still available.")));
+  });
+});
 if (process.env.FIXTURE_OWN_PID_FILE) writeFileSync(process.env.FIXTURE_OWN_PID_FILE, String(process.pid));
 if (process.env.FIXTURE_GRANDCHILD_PORT) {
   const child = spawn(process.execPath, ["-e",
@@ -270,7 +279,12 @@ describe("development options and isolation", () => {
       readyMessage: "mcp-apps-ready",
       beforeServers: true,
     });
-    expect(commands[1].args).toEqual([
+    expect(commands.map((command) => command.name)).toEqual([
+      "MCP App builder",
+      "Next.js",
+      "MCP Inspector",
+    ]);
+    expect(commands[2].args).toEqual([
       "--web",
       "--server-url",
       "http://127.0.0.1:3102/api/mcp",
@@ -279,7 +293,7 @@ describe("development options and isolation", () => {
       "--protocol-era",
       "auto",
     ]);
-    expect(commands[2].args).toEqual([
+    expect(commands[1].args).toEqual([
       "dev",
       "--turbopack",
       "--hostname",
@@ -287,7 +301,8 @@ describe("development options and isolation", () => {
       "--port",
       "3102",
     ]);
-    expect(commands[2].env).toEqual({
+    expect(commands[1].beforeServers).toBe(true);
+    expect(commands[1].env).toEqual({
       PORT: "3102",
       MCP_INSPECTOR_PORT: "6280",
       MCP_SANDBOX_PORT: "6275",
@@ -306,7 +321,7 @@ describe("development options and isolation", () => {
       },
       { next: "next.js", inspector: "inspector.js" },
     );
-    const inspector = commands[1];
+    const inspector = commands[2];
     expect(inspector.hostname).toBe("0.0.0.0");
     expect(inspector.args).toContain("http://127.0.0.1:3102/api/mcp");
     expect(inspector.env).toMatchObject({
@@ -322,7 +337,7 @@ describe("development options and isolation", () => {
     });
     expect(inspector.env.DANGEROUSLY_OMIT_AUTH).toBeUndefined();
     expect(inspector.env.MCP_INSPECTOR_API_TOKEN).toBeUndefined();
-    expect(commands[2].args).toEqual([
+    expect(commands[1].args).toEqual([
       "dev",
       "--turbopack",
       "--hostname",
@@ -330,8 +345,8 @@ describe("development options and isolation", () => {
       "--port",
       "3102",
     ]);
-    expect(commands[2].hostname).toBe("0.0.0.0");
-    expect(commands[2].env.MCP_INSPECTOR_API_TOKEN).toBeUndefined();
+    expect(commands[1].hostname).toBe("0.0.0.0");
+    expect(commands[1].env.MCP_INSPECTOR_API_TOKEN).toBeUndefined();
   });
 
   it("loads Next development dotenv precedence before resolving helper options", () => {
@@ -374,6 +389,33 @@ describe("development options and isolation", () => {
 });
 
 describe("owned development process lifecycle", () => {
+  it("binds the app before an auxiliary server can claim its fixed port", async () => {
+    const [appPort, inspectorPort] = await freePorts();
+    const definitions = devCommands(
+      workspaceRoot,
+      { port: appPort, inspectorPort },
+      {},
+      { next: "next.js", inspector: "inspector.js" },
+    );
+    const commands = definitions.slice(1).map((definition) => ({
+      ...fixtureCommand(
+        definition.port,
+        "ready",
+        definition.name === "Next.js"
+          ? { FIXTURE_BIND_DELAY_MS: "200" }
+          : { FIXTURE_REQUIRED_BOUND_PORT: String(appPort) },
+      ),
+      beforeServers: definition.beforeServers,
+    }));
+    const run = start(commands);
+    await run.whenReady;
+    expect((await fetch(`http://127.0.0.1:${appPort}`)).status).toBe(200);
+    expect((await fetch(`http://127.0.0.1:${inspectorPort}`)).status).toBe(200);
+    run.controller.abort();
+    await run.done;
+    await Promise.all([appPort, inspectorPort].map(expectClosed));
+  }, 10_000);
+
   it("waits for the initial builder IPC message before launching HTTP servers", async () => {
     const root = temporaryDirectory();
     const script = path.join(root, "builder.mjs");

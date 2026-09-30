@@ -18,6 +18,7 @@ TypeScript remains pinned to the verified 6.0.3 baseline; compiler upgrades are 
 - A removable task MCP App using official `ext-apps` 2.0.3 with SDK 2.2.0. The `listTasks` tool references a self-contained HTML resource; the widget uses the shared list/create/edit/complete/delete tool schemas and JSON outputs. Preview uses the local Inspector, with browser-reachable sandbox port `6275` by default; there is no custom website MCP Apps host.
 - Widget-only bundling with tsdown 0.23.0 and Tailwind CLI 4.3.3. Its generated HTML is traced into standalone output and restored by Turbo. Next.js retains Turbopack and its Tailwind PostCSS setup; Biome remains the sole linter/formatter.
 - TanStack Query 5.103.2 for client server data, nuqs 2.10.1 for URL state, and Zustand 5.0.15 for shared local UI state.
+- next-intl 4.14.8 and use-intl 4.14.8 with shared `@repo/i18n` catalogs. English and Spanish cover website, PWA, and standalone MCP App presentation; public URLs have no locale prefix. Valid saved preferences override browser detection, with English fallback. API identifiers, schemas, descriptions, JSON outputs, task content, and third-party interfaces retain their original language.
 - Serwist 9.5.12 for installability, static assets, an offline fallback, and user-controlled updates through a responsive, dismissible Base UI toast using the existing UI dependency.
 - pnpm workspaces, Turborepo, and strict TypeScript.
 - Biome as the sole linter, formatter, and import organizer.
@@ -38,6 +39,8 @@ PWA updates register only in production and use browser-default update checks. F
 MCP acceptance includes automatic tool discovery, SDK protocol compatibility, correct request/response mapping, shared REST/RPC data, validation and request isolation, awaited invalidation, no-store responses, disabled-endpoint 404, production Inspector 404, and real development Inspector calls. Development access is restricted to loopback. Production accepts native clients without Origin; a supplied Origin must exactly match `MCP_ALLOWED_ORIGINS` or receive 403. These origin checks do not provide authentication or authorization.
 
 MCP App acceptance includes metadata/resource discovery, operation-ID association through renamed and excluded tools, native and legacy array output, initial rendering without duplicate fetches, host-mediated mutations and filter refresh, cancellation/error recovery, instance isolation, and restrictive CSP without external assets or direct network calls. Build checks cover a self-contained asset, development rebuilds, Turbo restoration, and standalone Docker packaging. The actual Inspector preview must work natively and through Compose's loopback-published sandbox.
+
+Localization acceptance covers catalog parity and ICU counts; English/Spanish browser detection and cookie overrides; stable paths, query values, hashes, and browser history; localized metadata and document language; translated errors retaining drafts and protocol results; separate per-language server rendering with private HTTP responses; PWA manifest/toasts and static offline fallback; and MCP App host-context changes without reconnecting or refetching initial data. Native and Docker builds must include bundled translations and preserve API/PWA exclusions. See [localization](i18n.md) for implementation boundaries.
 
 ## Development workflow
 

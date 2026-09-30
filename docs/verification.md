@@ -1,5 +1,15 @@
 # Verification
 
+## Localization checks
+
+Verified on 2026-09-30 (Europe/Madrid) with Node 26.10.0 and pnpm 12.6.0 on Windows: frozen installation and the complete `pnpm verify` workflow passed, including Biome, strict TypeScript, 364 unit/component/script tests across 32 files with coverage, eight native development browser scenarios, 72 production browser scenarios, the production build, and byte-for-byte Turbo restoration of the widget HTML and service worker.
+
+Coverage includes English/Spanish browser detection and saved-cookie precedence, catalog parity and ICU formatting, concurrent request-isolated SSR, localized metadata and manifest identity, hydration without duplicate fetching, stable public URLs and browser filter history, and drafts/errors/pending actions surviving locale changes. The real Inspector renders both widget languages and exercises mutations; host-language changes preserve its connection, drafts, filter, and initial query data. Production PWA checks cover translated update notices, dismissal and per-tab approval, plus a precached offline fallback that selects bundled translations without network access. API identifiers, descriptions, JSON output, and task content retain their original values.
+
+`pnpm test:stack --samples 1` passed all 29 container browser scenarios: ten on the distroless runtime, ten on the slim baseline, and nine on the development stack. Checks include standalone locale rewrites and public-origin redirects, runtime MCP toggling, dependency-layer reuse, cached unchanged builds, authenticated Inspector widgets, Fast Refresh draft preservation, shared-theme/catalog rebuilds, manifest-triggered container rebuilding, unchanged host source, and process/port cleanup. This sequential functional regression run uses one runtime sample per image and does not establish a new performance baseline. Widget build measurements including both languages are recorded in [MCP Apps](mcp-apps.md#measure-the-widget-build).
+
+See [localization](i18n.md) for adding catalogs, cache ownership, state lifetimes, and the static offline document's brief English presentation before hydration.
+
 ## Task title editing checks
 
 Verified on 2026-09-29 with Node 26.10.0 and pnpm 12.6.0 on Windows: frozen installation, Biome, strict TypeScript, 327 unit/component/script tests with coverage, three native development browser scenarios, 57 production browser scenarios, the production build, and byte-for-byte Turbo restoration of the widget HTML and service worker passed. Commands ran separately; the two Scalar scenarios passed on rerun after the test was corrected to close its Create dialog before navigating to Edit.

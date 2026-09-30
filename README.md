@@ -12,6 +12,7 @@ Prelude gives developers and AI agents a shared foundation: a modern web applica
 - **Interactive examples included.** Explore the task workspace and live MCP tool runner at `/playground`, or use the task-list MCP App inside a compatible host.
 - **Inspect as you build.** The managed local MCP Inspector lets you discover tools, inspect schemas, execute calls, and preview the MCP App. Check connectivity from the terminal with `pnpm mcp:check`.
 - **Feedback for humans and agents.** Strict TypeScript, Biome, Vitest, Testing Library, Playwright, and React Doctor provide checks and diagnostics, including structured React reports for agents.
+- **Two languages from the start.** English and Spanish cover the website, PWA feedback, and MCP App, with browser detection and a saved language choice on stable public URLs.
 
 The pnpm + Turborepo workspace brings together React 19, Next.js 16 with Turbopack and Cache Components, Base UI shadcn components, Tailwind 4, TanStack Query, nuqs, Zustand, and Serwist. Keep your choice of database, authentication, AI provider, and deployment platform; no provider account or model API key is required to run the examples. Connect your preferred agent explicitly through MCP.
 
@@ -45,6 +46,8 @@ Check `node --version` in the shell that starts development; `.node-version` doe
 Open [localhost:3000](http://localhost:3000), then follow **API docs** to [the Scalar reference](http://localhost:3000/api/docs). The [OpenAPI specification](http://localhost:3000/api/openapi.json) is generated from the contracts on request; no generation command is needed. Scalar loads its version-pinned renderer from jsDelivr, so the interactive reference requires CDN access. See [OpenAPI usage](docs/openapi.md) for endpoints, adding procedures, and upgrades.
 
 Choose **Open playground** for [the task workspace and MCP explorer](http://localhost:3000/playground). Create tasks, try URL filters and compact view, then discover the generated MCP tools, edit JSON arguments, and execute real calls that refresh the same list. Motion and Morphicons previews stay on the homepage.
+
+Choose **English / Español** in the header to change language; your browser preference supplies the initial choice. `/` and `/playground` keep the same URLs in both languages. The MCP App follows its host's language, with a browser/English fallback. Task titles, protocol output, and the third-party Scalar/Inspector interfaces retain their original content. See [localization](docs/i18n.md) for catalogs, adding a language, and offline behavior.
 
 The task example supports listing, creating, editing titles, completing, and deleting through the workbench, REST, and MCP. Use a row's pencil button to edit its title; **Enter** saves and **Escape** cancels. Titles are trimmed before validating their 1–120-character length, completion is preserved, and failed saves retain the edit and new-task drafts. Deletion returns the removed task; missing IDs return `NOT_FOUND`.
 
@@ -123,7 +126,7 @@ pnpm customize --name my-app --scope "@acme"
 
 The command updates package names, workspace dependencies, imports, shadcn aliases, TypeScript paths, framework/tool configuration, and documentation references. It regenerates the lockfile, refreshes workspace links, formats changed source/configuration files, and runs `pnpm check` and `pnpm test`. Omitted options preserve the current value. See [customization](docs/customization.md) for requirements, reruns, and recovery.
 
-- Change application metadata and the manifest in `apps/web/src/app`, replace the icons in `apps/web/public/icons`, and customize `packages/ui/src/styles/globals.css`.
+- Change translated branding/metadata in `packages/i18n/src/messages/{en,es}`, application metadata in `apps/web/src/app/[locale]/layout.tsx`, and the manifest in `apps/web/src/app/manifest.ts`. Replace the icons in `apps/web/public/icons` and customize `packages/ui/src/styles/globals.css`.
 - Replace the transparent web logo in `apps/web/public/branding` and the README banner in `docs/assets` with your own branding.
 - Add components with the pinned CLI from the workspace root: `pnpm --filter @repo/ui exec shadcn add dialog`. The UI package's `base-nova` configuration selects Base UI and writes shared components there.
 - Import components from `@repo/ui/components/*` and `cn` from `@repo/ui/lib/utils`; the latter re-exports the `cn` package.
@@ -133,5 +136,6 @@ The command updates package names, workspace dependencies, imports, shadcn alias
 - Update the API title, version, tags, and descriptions in `apps/web/src/lib/openapi.ts`; keep route metadata with the contracts. See [OpenAPI customization and demo removal](docs/openapi.md).
 - MCP tools follow the same OpenAPI operations automatically. Configure exposure and request authorization with the rest of the API; see [MCP customization](docs/mcp.md).
 - MCP App interfaces have explicit resource associations. See [MCP Apps](docs/mcp-apps.md) for the widget's shared components, host connection, build pipeline, and removal checklist.
+- Add or adapt translations in `@repo/i18n`; use typed next-intl hooks in the website and use-intl in standalone widgets. See [localization](docs/i18n.md) for routing, cache privacy, and supported-locale changes.
 
 See [architecture](docs/architecture.md) for data access, state, caching, and removing the demo; [requirements](docs/requirements.md) records the stack and deferred choices. [React diagnostics](docs/diagnostics.md) explains scanner results and scoped exceptions. [Candidate skills](docs/skills.md) lists reviewed project-local agent skills and installation commands; none are installed by default.

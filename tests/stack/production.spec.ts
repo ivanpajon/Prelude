@@ -4,8 +4,11 @@ import {
   StreamableHTTPClientTransport,
 } from "@modelcontextprotocol/client";
 import { expect, test } from "@playwright/test";
+import { localizationAcceptance } from "../i18n-scenarios";
 import { expectTaskAppResource } from "../mcp-apps";
 import { containerNode } from "./owned-context";
+
+localizationAcceptance();
 
 function toolText(result: CallToolResult): unknown {
   expect(result.isError).not.toBe(true);

@@ -36,6 +36,7 @@ function ToastList({ dismissLabel, regionLabel }: Required<ToasterLabels>) {
               key={notification.id}
               toast={notification}
               data-slot="toast"
+              data-toast-id={notification.id}
               swipeDirection={["up", "right"]}
               className="pointer-events-auto relative transform-[translate(var(--toast-swipe-movement-x),var(--toast-swipe-movement-y))] rounded-xl border border-border bg-card p-4 text-card-foreground shadow-lg outline-none transition-[opacity,transform] duration-150 focus-visible:ring-2 focus-visible:ring-ring data-ending-style:opacity-0 data-limited:hidden data-starting-style:opacity-0 data-swiping:transition-none motion-reduce:transition-none"
             >

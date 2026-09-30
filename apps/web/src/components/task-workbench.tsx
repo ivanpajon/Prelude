@@ -14,18 +14,11 @@ import { CheckIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import * as m from "motion/react-m";
 import { useTranslations } from "next-intl";
 import { useQueryState } from "nuqs";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef } from "react";
 import { orpc } from "@/lib/orpc";
 import { taskSearchParsers } from "@/lib/task-search";
-import { useWorkbenchStore } from "./workbench-store-provider";
-
-type TaskErrorCode =
-  | "invalidTitle"
-  | "taskNotFound"
-  | "createFailed"
-  | "completionFailed"
-  | "deleteFailed"
-  | "editFailed";
+import type { TaskErrorCode } from "@/stores/workbench-store";
+import { useWorkbenchStore, useWorkbenchStoreApi } from "./workbench-store-provider";
 
 function taskError(error: unknown, fallback: TaskErrorCode): TaskErrorCode | undefined {
   if (!error) return undefined;
@@ -102,16 +95,25 @@ export function TaskWorkbench() {
     "status",
     taskSearchParsers.status.withOptions({ history: "push" }),
   );
-  const [title, setTitle] = useState("");
-  const [validationError, setValidationError] = useState<TaskErrorCode>();
-  const [editing, setEditing] = useState<{ id: string; title: string }>();
-  const [editError, setEditError] = useState<TaskErrorCode>();
+  const store = useWorkbenchStoreApi();
+  const {
+    title,
+    validationError,
+    editing,
+    editError,
+    compact,
+    toggleCompact,
+    creating,
+    changing,
+    setDraft,
+  } = useWorkbenchStore((state) => state);
+  const setTitle = (title: string) => setDraft({ title });
+  const setValidationError = (validationError: TaskErrorCode | undefined) =>
+    setDraft({ validationError });
+  const setEditing = (editing: { id: string; title: string } | undefined) => setDraft({ editing });
+  const setEditError = (editError: TaskErrorCode | undefined) => setDraft({ editError });
   const editTrigger = useRef<HTMLButtonElement | null>(null);
   const newTaskInput = useRef<HTMLInputElement>(null);
-  const submitting = useRef(false);
-  const changingTask = useRef(false);
-  const compact = useWorkbenchStore((state) => state.compact);
-  const toggleCompact = useWorkbenchStore((state) => state.toggleCompact);
   const queryClient = useQueryClient();
   const tasks = useQuery(orpc.tasks.list.queryOptions({ input: { status } }));
   const invalidateTasks = () => queryClient.invalidateQueries({ queryKey: orpc.tasks.key() });
@@ -123,7 +125,8 @@ export function TaskWorkbench() {
   const updateTitle = useMutation(
     orpc.tasks.updateTitle.mutationOptions({ onSuccess: invalidateTasks }),
   );
-  const taskChangePending = setCompleted.isPending || deleteTask.isPending || updateTitle.isPending;
+  const taskChangePending =
+    changing || setCompleted.isPending || deleteTask.isPending || updateTitle.isPending;
 
   useEffect(() => {
     if (!editing && editTrigger.current) {
@@ -142,14 +145,12 @@ export function TaskWorkbench() {
       !taskChangePending &&
       !tasks.data.some((task) => task.id === editing.id)
     ) {
-      setEditing(undefined);
-      setEditError(undefined);
+      setDraft({ editing: undefined, editError: undefined });
     }
-  }, [editing, taskChangePending, tasks.data, tasks.isFetching, tasks.isSuccess]);
+  }, [editing, taskChangePending, tasks.data, tasks.isFetching, tasks.isSuccess, setDraft]);
 
-  async function changeTask(action: () => Promise<unknown>) {
-    if (changingTask.current) return false;
-    changingTask.current = true;
+  async function changeTask(action: () => Promise<unknown>, fallback: TaskErrorCode) {
+    if (!store.getState().begin("changing")) return false;
     setValidationError(undefined);
     if (!createTask.isPending) createTask.reset();
     setCompleted.reset();
@@ -158,16 +159,18 @@ export function TaskWorkbench() {
     try {
       await action();
       return true;
-    } catch {
+    } catch (error) {
       // Keep the task visible and expose the mutation error so the action can be retried.
+      if (fallback === "editFailed") setEditError(taskError(error, fallback));
+      else setValidationError(taskError(error, fallback));
       return false;
     } finally {
-      changingTask.current = false;
+      store.getState().finish("changing");
     }
   }
 
   function cancelEdit() {
-    if (changingTask.current) return;
+    if (store.getState().changing) return;
     setEditing(undefined);
     setEditError(undefined);
     updateTitle.reset();
@@ -175,7 +178,7 @@ export function TaskWorkbench() {
 
   async function saveEdit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!editing || changingTask.current) return;
+    if (!editing || store.getState().changing) return;
     setEditError(undefined);
     updateTitle.reset();
     const input = updateTaskTitleInput(editing);
@@ -183,15 +186,15 @@ export function TaskWorkbench() {
       setEditError("invalidTitle");
       return;
     }
-    if (await changeTask(() => updateTitle.mutateAsync(input))) setEditing(undefined);
+    if (await changeTask(() => updateTitle.mutateAsync(input), "editFailed")) setEditing(undefined);
   }
 
   async function submitTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitting.current || editing) return;
+    if (store.getState().creating || editing) return;
     setValidationError(undefined);
     createTask.reset();
-    if (!changingTask.current) {
+    if (!store.getState().changing) {
       setCompleted.reset();
       deleteTask.reset();
     }
@@ -200,14 +203,15 @@ export function TaskWorkbench() {
       setValidationError("invalidTitle");
       return;
     }
-    submitting.current = true;
+    if (!store.getState().begin("creating")) return;
     try {
       await createTask.mutateAsync(input);
-      setTitle("");
-    } catch {
+      if (store.getState().title === title) setTitle("");
+    } catch (error) {
       // Mutation state renders the error and retains the draft for retry.
+      setValidationError(taskError(error, "createFailed"));
     } finally {
-      submitting.current = false;
+      store.getState().finish("creating");
     }
   }
 
@@ -250,9 +254,9 @@ export function TaskWorkbench() {
             aria-describedby="task-feedback"
             className="flex-1"
           />
-          <Button type="submit" disabled={createTask.isPending || Boolean(editing)}>
+          <Button type="submit" disabled={creating || createTask.isPending || Boolean(editing)}>
             <PlusIcon aria-hidden="true" />
-            {t(createTask.isPending ? "adding" : "addTask")}
+            {t(creating || createTask.isPending ? "adding" : "addTask")}
           </Button>
         </form>
         <div
@@ -327,8 +331,9 @@ export function TaskWorkbench() {
                   aria-pressed={task.completed}
                   disabled={taskChangePending || Boolean(editing)}
                   onClick={() =>
-                    void changeTask(() =>
-                      setCompleted.mutateAsync({ id: task.id, completed: !task.completed }),
+                    void changeTask(
+                      () => setCompleted.mutateAsync({ id: task.id, completed: !task.completed }),
+                      "completionFailed",
                     )
                   }
                 >
@@ -337,7 +342,7 @@ export function TaskWorkbench() {
                 {editing?.id === task.id ? (
                   <TaskTitleEditor
                     title={editing.title}
-                    pending={updateTitle.isPending}
+                    pending={changing || updateTitle.isPending}
                     error={editingError && t(editingError)}
                     onChange={(title) => setEditing({ id: task.id, title })}
                     onSubmit={(event) => void saveEdit(event)}
@@ -355,6 +360,9 @@ export function TaskWorkbench() {
                   </span>
                 )}
                 <Button
+                  ref={(button) => {
+                    if (button && editing?.id === task.id) editTrigger.current = button;
+                  }}
                   size={compact ? "icon-xs" : "icon-sm"}
                   variant="ghost"
                   className={editing?.id === task.id ? "hidden" : "text-muted-foreground"}
@@ -362,7 +370,7 @@ export function TaskWorkbench() {
                   title={t("editTask", { title: task.title })}
                   disabled={taskChangePending || (Boolean(editing) && editing?.id !== task.id)}
                   onClick={(event) => {
-                    if (changingTask.current) return;
+                    if (store.getState().changing) return;
                     editTrigger.current = event.currentTarget;
                     setValidationError(undefined);
                     if (!createTask.isPending) createTask.reset();
@@ -385,7 +393,9 @@ export function TaskWorkbench() {
                   aria-label={t("deleteTask", { title: task.title })}
                   title={t("deleteTask", { title: task.title })}
                   disabled={taskChangePending || Boolean(editing)}
-                  onClick={() => void changeTask(() => deleteTask.mutateAsync({ id: task.id }))}
+                  onClick={() =>
+                    void changeTask(() => deleteTask.mutateAsync({ id: task.id }), "deleteFailed")
+                  }
                 >
                   <Trash2Icon aria-hidden="true" />
                 </Button>

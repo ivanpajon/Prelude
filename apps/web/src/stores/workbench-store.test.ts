@@ -1,7 +1,25 @@
 import { describe, expect, it, vi } from "vitest";
-import { createWorkbenchStore } from "./workbench-store";
+import { createWorkbenchStore, getWorkbenchStore } from "./workbench-store";
 
 describe("createWorkbenchStore", () => {
+  it("keeps server drafts and synchronous action guards isolated", () => {
+    const first = getWorkbenchStore();
+    const second = getWorkbenchStore();
+    first.getState().setDraft({
+      title: "Private draft",
+      editing: { id: "one", title: "Edit" },
+      validationError: "invalidTitle",
+    });
+    expect(first.getState().begin("creating")).toBe(true);
+    expect(first.getState().begin("creating")).toBe(false);
+    expect(second.getState().title).toBe("");
+    expect(second.getState().editing).toBeUndefined();
+    expect(second.getState().validationError).toBeUndefined();
+    expect(second.getState().creating).toBe(false);
+    first.getState().finish("creating");
+    expect(first.getState().begin("creating")).toBe(true);
+    expect(first.getInitialState().title).toBe("");
+  });
   it("creates independent stores without sharing state or subscriptions", () => {
     const initial = { compact: true };
     const first = createWorkbenchStore(initial);

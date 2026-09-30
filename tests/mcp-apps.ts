@@ -1,5 +1,17 @@
+import { readFileSync } from "node:fs";
 import type { Client } from "@modelcontextprotocol/client";
 import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
+import type { Locale } from "../packages/i18n/src";
+import type { getWidgetMessages } from "../packages/i18n/src/widget";
+
+function catalog<T>(locale: Locale, namespace: string): T {
+  return JSON.parse(
+    readFileSync(
+      new URL(`../packages/i18n/src/messages/${locale}/${namespace}.json`, import.meta.url),
+      "utf8",
+    ),
+  ) as T;
+}
 
 const resourceUri = "ui://prelude/tasks.html";
 
@@ -50,12 +62,19 @@ export async function exerciseTaskApp({
   request,
   inspectorOrigin,
   sandboxOrigin,
+  locale = "en",
 }: {
   page: Page;
   request: APIRequestContext;
   inspectorOrigin: string;
   sandboxOrigin: string;
+  locale?: Locale;
 }) {
+  const copy = catalog<ReturnType<typeof getWidgetMessages>["Widget"]>(locale, "widget");
+  const taskLabel = (
+    key: "markActive" | "markCompleted" | "editLabel" | "deleteLabel",
+    title: string,
+  ) => copy[key].replace("{title}", title);
   page.setDefaultTimeout(15_000);
   await page.addInitScript(() => {
     const calls: unknown[] = [];
@@ -96,10 +115,12 @@ export async function exerciseTaskApp({
   const embeddedFrame = sandboxFrame.contentFrame().locator("iframe");
   await expect(embeddedFrame).toHaveAttribute("sandbox", "allow-scripts allow-forms");
   const widget = embeddedFrame.contentFrame();
-  const tasks = widget.getByRole("list", { name: "Tasks", exact: true });
+  const tasks = widget.getByRole("list", { name: copy.tasksLabel, exact: true });
   await expect(tasks.getByText("Explore the workspace", { exact: true })).toBeVisible();
   await expect(tasks).toHaveAttribute("aria-busy", "false");
-  await expect(widget.getByRole("heading", { name: "Your tasks, right here." })).toBeVisible();
+  await expect(widget.getByRole("heading", { name: copy.heading })).toBeVisible();
+  await expect(widget.locator("html")).toHaveAttribute("lang", locale);
+  await expect(widget.locator("title")).toHaveText(copy.documentTitle);
   await expect(widget.locator("script[src], link[rel=stylesheet]")).toHaveCount(0);
   const policies = await widget
     .locator('meta[http-equiv="Content-Security-Policy"]')
@@ -127,7 +148,7 @@ export async function exerciseTaskApp({
 
   const originalTitle = `MCP App ${crypto.randomUUID()}`;
   let title = originalTitle;
-  const input = widget.getByRole("textbox", { name: "New task", exact: true });
+  const input = widget.getByRole("textbox", { name: copy.newTaskLabel, exact: true });
   await input.fill(`  ${title}  `);
   await input.press("Enter");
   await expect(tasks.getByText(title, { exact: true })).toBeVisible();
@@ -136,14 +157,16 @@ export async function exerciseTaskApp({
     (item: { title: string }) => item.title === title,
   );
   expect(created).toMatchObject({ id: expect.any(String), title, completed: false });
-  await widget.getByRole("button", { name: `Mark ${title} as completed`, exact: true }).click();
+  await widget
+    .getByRole("button", { name: taskLabel("markCompleted", title), exact: true })
+    .click();
   await expect(
-    widget.getByRole("button", { name: `Mark ${title} as active`, exact: true }),
+    widget.getByRole("button", { name: taskLabel("markActive", title), exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   await input.fill("Keep this widget draft");
-  const edit = widget.getByRole("button", { name: `Edit ${title}`, exact: true });
+  const edit = widget.getByRole("button", { name: taskLabel("editLabel", title), exact: true });
   await edit.press("Enter");
-  const titleInput = widget.getByRole("textbox", { name: "Task title", exact: true });
+  const titleInput = widget.getByRole("textbox", { name: copy.taskTitleLabel, exact: true });
   await expect(titleInput).toBeFocused();
   await titleInput.fill("A cancelled edit");
   await titleInput.press("Escape");
@@ -153,26 +176,30 @@ export async function exerciseTaskApp({
   await titleInput.fill("   ");
   await titleInput.press("Enter");
   await expect(
-    widget.getByText("Enter a task between 1 and 120 characters.", { exact: true }),
+    widget.getByText(copy.errorInvalidTitle.replace("{min}", "1").replace("{max}", "120"), {
+      exact: true,
+    }),
   ).toBeVisible();
   title = `Edited ${title}`;
   await titleInput.fill(`  ${title}  `);
   await widget
-    .getByRole("button", { name: "Save", exact: true })
+    .getByRole("button", { name: copy.save, exact: true })
     .evaluate((button: HTMLButtonElement) => {
       button.click();
       button.click();
     });
   await expect(titleInput).toHaveCount(0);
-  await expect(widget.getByRole("button", { name: `Edit ${title}`, exact: true })).toBeFocused();
+  await expect(
+    widget.getByRole("button", { name: taskLabel("editLabel", title), exact: true }),
+  ).toBeFocused();
   await expect(input).toHaveValue("Keep this widget draft");
   expect(await (await request.get("/api/v1/tasks?status=completed")).json()).toEqual(
     expect.arrayContaining([{ ...created, title, completed: true }]),
   );
-  await widget.getByRole("button", { name: "Active", exact: true }).click();
+  await widget.getByRole("button", { name: copy.filterActive, exact: true }).click();
   await expect(tasks).toHaveAttribute("aria-busy", "false");
   await expect(tasks.getByText(title, { exact: true })).toHaveCount(0);
-  await widget.getByRole("button", { name: "Completed", exact: true }).click();
+  await widget.getByRole("button", { name: copy.filterCompleted, exact: true }).click();
   await expect(tasks.getByText(title, { exact: true })).toBeVisible();
 
   const outsideTitle = `Outside ${crypto.randomUUID()}`;
@@ -185,10 +212,10 @@ export async function exerciseTaskApp({
     ).status(),
   ).toBe(200);
   await expect(tasks.getByText(outsideTitle, { exact: true })).toHaveCount(0);
-  await widget.getByRole("button", { name: "Refresh tasks", exact: true }).click();
+  await widget.getByRole("button", { name: copy.refreshLabel, exact: true }).click();
   await expect(tasks.getByText(outsideTitle, { exact: true })).toBeVisible();
   await input.fill("Keep this widget draft");
-  const remove = widget.getByRole("button", { name: `Delete ${title}`, exact: true });
+  const remove = widget.getByRole("button", { name: taskLabel("deleteLabel", title), exact: true });
   await remove.focus();
   await remove.press("Enter");
   await expect(tasks.getByText(title, { exact: true })).toHaveCount(0);
@@ -203,18 +230,22 @@ export async function exerciseTaskApp({
   expect(await externalDelete.json()).toEqual({ ...outsideTask, completed: true });
   // Another client changed the shared demo. A stale row remains until a refetch.
   await expect(tasks.getByText(outsideTitle, { exact: true })).toBeVisible();
-  await widget.getByRole("button", { name: `Edit ${outsideTitle}`, exact: true }).click();
+  await widget
+    .getByRole("button", { name: taskLabel("editLabel", outsideTitle), exact: true })
+    .click();
   const failedTitle = `Edited ${outsideTitle}`;
   await titleInput.fill(failedTitle);
   await titleInput.press("Enter");
-  await expect(widget.getByRole("alert")).toContainText("The tool could not complete the request.");
+  await expect(widget.getByRole("alert")).toContainText(copy.errorToolFailed);
   await expect(titleInput).toHaveValue(failedTitle);
   await expect(input).toHaveValue("Keep this widget draft");
-  await widget.getByRole("button", { name: "Cancel", exact: true }).click();
-  await widget.getByRole("button", { name: `Delete ${outsideTitle}`, exact: true }).click();
-  await expect(widget.getByRole("alert")).toContainText("The tool could not complete the request.");
+  await widget.getByRole("button", { name: copy.cancel, exact: true }).click();
+  await widget
+    .getByRole("button", { name: taskLabel("deleteLabel", outsideTitle), exact: true })
+    .click();
+  await expect(widget.getByRole("alert")).toContainText(copy.errorToolFailed);
   await expect(input).toHaveValue("Keep this widget draft");
-  await widget.getByRole("button", { name: "Refresh tasks", exact: true }).click();
+  await widget.getByRole("button", { name: copy.refreshLabel, exact: true }).click();
   await expect(tasks.getByText(outsideTitle, { exact: true })).toHaveCount(0);
   await expect(tasks).toHaveAttribute("aria-busy", "false");
   await expect(input).toHaveValue("Keep this widget draft");
@@ -259,10 +290,11 @@ export async function exerciseTaskApp({
   await page.screenshot({ path: test.info().outputPath("mcp-app-inspector.png") });
 
   await page.goto("/playground?status=completed");
+  const workbenchLabel = catalog<{ listLabel: string }>(locale, "tasks").listLabel;
   await expect(
-    page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
+    page.getByRole("list", { name: workbenchLabel }).getByText(title, { exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("list", { name: "Tasks" }).getByText(outsideTitle, { exact: true }),
+    page.getByRole("list", { name: workbenchLabel }).getByText(outsideTitle, { exact: true }),
   ).toHaveCount(0);
 }

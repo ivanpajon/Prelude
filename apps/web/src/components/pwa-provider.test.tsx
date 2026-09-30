@@ -1,9 +1,9 @@
 import type { Locale } from "@repo/i18n";
 import { getMessages } from "@repo/i18n/messages";
 import { Toaster } from "@repo/ui/components/toast";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import type { ReactNode } from "react";
+import { Activity, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PwaProvider } from "./pwa-provider";
 
@@ -54,6 +54,19 @@ function Application({ locale }: { locale: Locale }) {
   );
 }
 
+function CachedApplication({ locale }: { locale: Locale }) {
+  return (
+    <>
+      <Activity mode={locale === "en" ? "visible" : "hidden"}>
+        <Application locale="en" />
+      </Activity>
+      <Activity mode={locale === "es" ? "visible" : "hidden"}>
+        <Application locale="es" />
+      </Activity>
+    </>
+  );
+}
+
 let registration: RegistrationMock;
 let container: ContainerMock;
 
@@ -67,7 +80,9 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  act(() => window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false })));
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
 
@@ -107,7 +122,11 @@ describe("localized PWA notifications", () => {
     expect(screen.getByRole("button", { name: "Actualizando…" })).toBeDisabled();
     expect(document.querySelectorAll('[data-slot="toast"]')).toHaveLength(1);
     await act(async () => vi.advanceTimersByTimeAsync(5_000));
-    expect(screen.getByText("No se pudo actualizar")).toBeVisible();
+    expect(
+      within(screen.getByRole("region", { name: "Notificaciones" })).getByText(
+        "No se pudo actualizar",
+      ),
+    ).toBeVisible();
     expect(worker.postMessage).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
     await flush();
@@ -127,5 +146,131 @@ describe("localized PWA notifications", () => {
     act(() => registration.dispatchEvent(new Event("updatefound")));
     expect(screen.getByText("Actualización disponible")).toBeVisible();
     expect(document.querySelectorAll('[data-slot="toast"]')).toHaveLength(1);
+  });
+
+  it("reuses the document session when a different locale provider mounts", async () => {
+    const english = render(<Application locale="en" />);
+    await flush();
+    const initialLookups = container.getRegistration.mock.calls.length;
+    const originalClient = client.current;
+    english.unmount();
+    client.current = { register: vi.fn().mockResolvedValue(registration.registration) };
+    render(<Application locale="es" />);
+    await flush();
+    expect(screen.getByText("Actualización disponible")).toBeVisible();
+    expect(container.getRegistration).toHaveBeenCalledTimes(initialLookups);
+    expect(originalClient.register).toHaveBeenCalledOnce();
+    expect(client.current.register).not.toHaveBeenCalled();
+    expect(document.querySelectorAll('[data-slot="toast"]')).toHaveLength(1);
+  });
+
+  it("shares dismissal between locale subtrees retained by Activity", async () => {
+    const app = render(<CachedApplication locale="en" />);
+    await flush();
+    expect(screen.getByRole("button", { name: "Update now" })).toBeVisible();
+    app.rerender(<CachedApplication locale="es" />);
+    await flush();
+    expect(screen.getByRole("button", { name: "Actualizar ahora" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Update now" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar notificación" }));
+    await flush();
+
+    app.rerender(<CachedApplication locale="en" />);
+    await flush();
+    expect(screen.queryByRole("button", { name: "Update now" })).not.toBeInTheDocument();
+    expect(client.current.register).toHaveBeenCalledOnce();
+    expect(container.getRegistration).toHaveBeenCalledOnce();
+    registration.waiting = new WorkerMock().worker;
+    act(() => registration.dispatchEvent(new Event("updatefound")));
+    expect(screen.getByRole("button", { name: "Update now" })).toBeVisible();
+  });
+
+  it("does not let a previous presenter close or dismiss its replacement", async () => {
+    const english = render(<Application locale="en" />);
+    await flush();
+    const spanish = render(<Application locale="es" />);
+    await flush();
+    english.unmount();
+    expect(screen.getByRole("button", { name: "Actualizar ahora" })).toBeVisible();
+
+    spanish.unmount();
+    render(<Application locale="en" />);
+    await flush();
+    expect(screen.getByRole("button", { name: "Update now" })).toBeVisible();
+    expect(client.current.register).toHaveBeenCalledOnce();
+  });
+
+  it("retains approval and the original activation timeout across a locale remount", async () => {
+    const english = render(<Application locale="en" />);
+    await flush();
+    const worker = registration.waiting as unknown as WorkerMock;
+    fireEvent.click(screen.getByRole("button", { name: "Update now" }));
+    await flush();
+    await act(async () => vi.advanceTimersByTimeAsync(10_000));
+    english.unmount();
+    render(<Application locale="es" />);
+    await flush();
+    expect(screen.getByRole("button", { name: "Actualizando…" })).toBeDisabled();
+    expect(worker.postMessage).toHaveBeenCalledOnce();
+
+    await act(async () => vi.advanceTimersByTimeAsync(5_000));
+    expect(
+      within(screen.getByRole("region", { name: "Notificaciones" })).getByText(
+        "No se pudo actualizar",
+      ),
+    ).toBeVisible();
+    act(() => screen.getByRole("region", { name: "Notificaciones" }).focus());
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    await flush();
+    expect(worker.postMessage).toHaveBeenCalledTimes(2);
+    expect(client.current.register).toHaveBeenCalledOnce();
+  });
+
+  it("retains dismissal across locale remounts while still detecting a newer worker", async () => {
+    const english = render(<Application locale="en" />);
+    await flush();
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss notification" }));
+    await flush();
+    english.unmount();
+    render(<Application locale="es" />);
+    await flush();
+    act(() => registration.dispatchEvent(new Event("updatefound")));
+    expect(screen.queryByText("Actualización disponible")).not.toBeInTheDocument();
+
+    registration.waiting = new WorkerMock().worker;
+    act(() => registration.dispatchEvent(new Event("updatefound")));
+    expect(screen.getByText("Actualización disponible")).toBeVisible();
+    expect(client.current.register).toHaveBeenCalledOnce();
+  });
+
+  it("preserves a cached document but disposes worker listeners and timers when it is destroyed", async () => {
+    const removeControllerListener = vi.spyOn(container, "removeEventListener");
+    const removeRegistrationListener = vi.spyOn(registration, "removeEventListener");
+    const worker = registration.waiting as unknown as WorkerMock;
+    const removeWorkerListener = vi.spyOn(worker, "removeEventListener");
+    const removePageListener = vi.spyOn(window, "removeEventListener");
+    const english = render(<Application locale="en" />);
+    await flush();
+    fireEvent.click(screen.getByRole("button", { name: "Update now" }));
+    await flush();
+
+    act(() => window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true })));
+    expect(removeControllerListener).not.toHaveBeenCalled();
+    english.unmount();
+    render(<Application locale="es" />);
+    await flush();
+    expect(screen.getByRole("button", { name: "Actualizando…" })).toBeDisabled();
+
+    act(() => window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false })));
+    expect(removeControllerListener).toHaveBeenCalledWith("controllerchange", expect.any(Function));
+    expect(removeRegistrationListener).toHaveBeenCalledWith("updatefound", expect.any(Function));
+    expect(removeWorkerListener).toHaveBeenCalledWith("statechange", expect.any(Function));
+    expect(removePageListener).toHaveBeenCalledWith("pagehide", expect.any(Function));
+    await act(async () => vi.advanceTimersByTimeAsync(15_000));
+    expect(screen.queryByText("No se pudo actualizar")).not.toBeInTheDocument();
+    registration.waiting = new WorkerMock().worker;
+    act(() => registration.dispatchEvent(new Event("updatefound")));
+    expect(screen.queryByText("Actualización disponible")).not.toBeInTheDocument();
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

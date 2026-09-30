@@ -18,6 +18,52 @@ async function checkForUpdate(page: Page) {
   });
 }
 
+test("localizes waiting updates and the precached fallback without network translations", async ({
+  browser,
+  baseURL,
+}) => {
+  if (!baseURL) throw new Error("Missing production URL");
+  const context = await browser.newContext({ locale: "es-ES", serviceWorkers: "allow", baseURL });
+  try {
+    const page = await context.newPage();
+    await page.goto("/");
+    await waitForWorker(page);
+    await withWorkerRevisions(async (publish) => {
+      await publish(page, "spanish");
+      await expect(page.getByText("Actualización disponible", { exact: true })).toBeVisible();
+      // Cache Components retains hidden locale trees; assert the active notification.
+      const notice = page.locator('[data-slot="toast"]:visible');
+      await expect(notice).toHaveCount(1);
+      await expect(notice).toHaveAttribute("data-toast-id", "pwa-update");
+      await page.getByRole("combobox", { name: "Idioma", exact: true }).selectOption("en");
+      await expect(page.getByText("Update available", { exact: true })).toBeVisible();
+      await expect(notice).toHaveCount(1);
+      await expect(notice).toHaveAttribute("data-toast-id", "pwa-update");
+      await page.getByRole("button", { name: "Dismiss notification", exact: true }).click();
+      await page.getByRole("combobox", { name: "Language", exact: true }).selectOption("es");
+      await expect(page.locator("html")).toHaveAttribute("lang", "es");
+      await expect(notice).toHaveCount(0);
+      await context.setOffline(true);
+      await page.goto("/not-available-offline");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("No tienes conexión.");
+      await expect(page.locator("html")).toHaveAttribute("lang", "es");
+      await expect(page).toHaveTitle("Sin conexión — Prelude");
+      expect(
+        await page.evaluate(async () => {
+          const entries = await Promise.all(
+            (await caches.keys()).map(async (name) => (await caches.open(name)).keys()),
+          );
+          return entries
+            .flat()
+            .some((request) => new URL(request.url).pathname === "/manifest.webmanifest");
+        }),
+      ).toBe(false);
+    });
+  } finally {
+    await context.close();
+  }
+});
+
 function trackDocumentNavigations(page: Page) {
   const counts = { requests: 0, loads: 0 };
   // Next.js history synchronization can also emit framenavigated without a reload.

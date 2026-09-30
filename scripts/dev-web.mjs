@@ -145,6 +145,29 @@ export function devCommands(root, options, env = process.env, binaries) {
       beforeServers: true,
     },
     {
+      name: "Next.js",
+      script: binaries?.next ?? resolvePackageBin("next", "next", app),
+      args: [
+        "dev",
+        "--turbopack",
+        "--hostname",
+        options.hostname ?? "127.0.0.1",
+        "--port",
+        String(options.port),
+      ],
+      cwd: app,
+      env: {
+        ...nextEnv,
+        PORT: String(options.port),
+        MCP_INSPECTOR_PORT: String(options.inspectorPort),
+        MCP_SANDBOX_PORT: String(options.sandboxPort ?? 6275),
+      },
+      port: options.port,
+      hostname: options.hostname ?? "127.0.0.1",
+      // Bind the fixed app port before Inspector chooses an auxiliary OS-assigned port.
+      beforeServers: true,
+    },
+    {
       name: "MCP Inspector",
       script:
         binaries?.inspector ??
@@ -169,27 +192,6 @@ export function devCommands(root, options, env = process.env, binaries) {
           path: "/sandbox",
         },
       ],
-      hostname: options.hostname ?? "127.0.0.1",
-    },
-    {
-      name: "Next.js",
-      script: binaries?.next ?? resolvePackageBin("next", "next", app),
-      args: [
-        "dev",
-        "--turbopack",
-        "--hostname",
-        options.hostname ?? "127.0.0.1",
-        "--port",
-        String(options.port),
-      ],
-      cwd: app,
-      env: {
-        ...nextEnv,
-        PORT: String(options.port),
-        MCP_INSPECTOR_PORT: String(options.inspectorPort),
-        MCP_SANDBOX_PORT: String(options.sandboxPort ?? 6275),
-      },
-      port: options.port,
       hostname: options.hostname ?? "127.0.0.1",
     },
   ];

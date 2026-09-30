@@ -24,6 +24,8 @@ Inspector's **Tools** interface and the website's JSON explorer remain available
 
 Widget source and shared UI edits trigger a rebuild during development. An already-open iframe contains the previous HTML; close and reopen the preview, or rerun the associated tool in a new preview, to read the rebuilt resource. The widget has no separate HMR client or background polling. A failed rebuild retains the previous complete asset and reports the error in the development terminal.
 
+The widget includes English and Spanish catalogs and selects a supported host-context locale, then browser language, then English. Host language changes update its presentation without resetting drafts, filters, or connection/query state. Task titles and protocol data retain their original content. Shared translation edits also rebuild the resource; reopen the preview to load them. See [localization](i18n.md#mcp-app-language) for fallback and adding languages.
+
 Inspector is local development tooling. `/api/mcp/inspector` and its nested paths return 404 in production. Production users connect their own compatible client to the deployed HTTPS `/api/mcp` endpoint; Prelude does not embed a production MCP Apps host or configure users' agents automatically.
 
 ## Ports and Docker
@@ -98,7 +100,7 @@ For an isolated asset build from the repository root:
 node scripts/build-mcp-apps.mjs
 ```
 
-The builder rejects unresolved imports, extra chunks, external CSS assets, and unsafe inline closing tags, then atomically replaces the HTML. Development watches widget sources and shared UI sources. Build-script or dependency changes require restarting development; Compose Watch handles the configured restart/rebuild triggers.
+The builder rejects unresolved imports, extra chunks, external CSS assets, and unsafe inline closing tags, then atomically replaces the HTML. Development watches widget sources, shared UI sources, and `packages/i18n/src`. Build-script or dependency changes require restarting development; Compose Watch handles the configured restart/rebuild triggers.
 
 Turbo includes `.generated/mcp-apps/**` in build outputs and the builder script in cache inputs. `pnpm test:cache` removes only the known generated widget/worker files, restores the build cache, and compares their bytes. Next.js explicitly traces the widget HTML for `/api/mcp`, allowing the standalone Docker image to carry it without shipping the compiler or source tree.
 
@@ -114,15 +116,15 @@ node scripts/measure-mcp-apps.mjs
 
 The ignored `test-results/mcp-apps/report.json` records three sequential full production builds, raw JavaScript/CSS/HTML bytes, gzipped HTML bytes, versions, build options, and output hashes. Each timed build includes JavaScript bundling, a fresh Tailwind CLI process, and atomic HTML output. Runs share one Node process, so module and operating-system caches may be warmer after the first sample; these are not three independent cold builds. Gzip is a separate artifact-size measurement, not the size or transfer time of an MCP response. Use the report from the current source before claiming measured savings or timing improvements.
 
-Measured on 2026-09-29 using Node 26.10.0 on Windows x64, with tsdown 0.23.0, Tailwind CLI 4.3.3 and Lightning CSS 1.32.0:
+Measured on 2026-09-30 (Europe/Madrid), including both widget languages, using Node 26.10.0 on Windows x64, with tsdown 0.23.0, Tailwind CLI 4.3.3 and Lightning CSS 1.32.0:
 
 | Measurement | Result |
 | --- | --- |
-| Full production build, three sequential samples | 965.18 ms / 697.57 ms / 1,273.52 ms |
-| JavaScript | 552,760 bytes |
-| CSS | 29,271 bytes |
-| Complete HTML | 582,523 bytes |
-| Gzipped HTML | 165,099 bytes |
+| Full production build, three sequential samples | 913.05 ms / 697.21 ms / 703.43 ms |
+| JavaScript | 600,342 bytes |
+| CSS | 29,629 bytes |
+| Complete HTML | 630,463 bytes |
+| Gzipped HTML | 179,138 bytes |
 
 All three generated files were byte-identical. These measurements include the pinned React and MCP Apps runtimes; they describe this machine and source revision, not expected deployment latency.
 
@@ -135,7 +137,7 @@ To remove just the widget:
 1. Remove `apps/web/src/mcp-apps/tasks`, its tests, the resource module/tests, and the task resource registration/metadata integration in `lib/mcp.ts`. Retain the regular generated `registerTool` path and JSON execution.
 2. Remove `scripts/build-mcp-apps.mjs`, its tests, and `scripts/measure-mcp-apps.mjs`, its web build-script prefix and managed development child, and widget-specific Watch/restart handling.
 3. Remove the generated-HTML trace include, Turbo widget outputs/builder input, and widget assertions in cache, browser, and Docker acceptance. Keep the worker cache checks.
-4. Remove the `/playground#mcp-app` panel/link and update its section navigation. Keep the browser workbench and JSON explorer if useful.
+4. Remove the `/playground#mcp-app` panel/link from `apps/web/src/app/[locale]/playground/page.tsx` and update its section navigation. Remove unused `Widget` catalogs and its catalog-loader exports, plus widget-specific playground messages in both languages. Keep the browser workbench and JSON explorer if useful.
 5. Remove unused `ext-apps`, its now-unused direct peers, tsdown, and Tailwind CLI dependencies, then regenerate the lockfile. Retain SDK packages needed by JSON MCP and the independent Next.js Tailwind PostCSS setup.
 6. If keeping Inspector only for JSON tools, remove widget-specific sandbox publishing/configuration and corresponding launcher/port checks together. If removing Inspector too, follow [MCP removal](mcp.md#add-change-or-remove-tools).
 

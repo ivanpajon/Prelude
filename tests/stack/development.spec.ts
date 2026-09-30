@@ -2,8 +2,34 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { expect, test } from "@playwright/test";
+import { localizationAcceptance } from "../i18n-scenarios";
 import { exerciseTaskApp } from "../mcp-apps";
 import { ownedContext } from "./owned-context";
+
+localizationAcceptance();
+
+test("runs the Spanish MCP App through the container Inspector and sandbox", async ({
+  browser,
+  baseURL,
+}) => {
+  if (!baseURL) throw new Error("Missing isolated development URL");
+  const inspectorOrigin = process.env.PRELUDE_STACK_INSPECTOR_URL;
+  const sandboxOrigin = process.env.PRELUDE_STACK_SANDBOX_URL;
+  if (!inspectorOrigin || !sandboxOrigin)
+    throw new Error("Missing isolated Inspector sandbox URLs");
+  const context = await browser.newContext({ baseURL, locale: "es-ES", serviceWorkers: "block" });
+  try {
+    await exerciseTaskApp({
+      page: await context.newPage(),
+      request: context.request,
+      inspectorOrigin,
+      sandboxOrigin,
+      locale: "es",
+    });
+  } finally {
+    await context.close();
+  }
+});
 
 test("serves the MCP App through the official Inspector and published sandbox port", async ({
   page,
@@ -110,11 +136,14 @@ test("syncs app and shared-package changes with HMR while preserving a browser d
   const component = path.join(context, "apps/web/src/components/task-workbench.tsx");
   const stylesheet = path.join(context, "packages/ui/src/styles/globals.css");
   const theme = path.join(context, "packages/ui/src/styles/theme.css");
+  const widgetCatalog = path.join(context, "packages/i18n/src/messages/en/widget.json");
   const originalComponent = await readFile(component, "utf8");
   const originalStylesheet = await readFile(stylesheet, "utf8");
   const originalTheme = await readFile(theme, "utf8");
+  const originalCatalog = await readFile(widgetCatalog, "utf8");
   const marker = `Stack HMR ${crypto.randomUUID()}`;
   const themeMarker = `stack-mcp-${crypto.randomUUID()}`;
+  const catalogMarker = `Translated widget ${crypto.randomUUID()}`;
   const client = new Client({ name: "prelude-stack-css-watch", version: "1.0.0" });
   const readWidgetHtml = async () => {
     const { contents } = await client.readResource({ uri: "ui://prelude/tasks.html" });
@@ -122,14 +151,21 @@ test("syncs app and shared-package changes with HMR while preserving a browser d
     if (!resource || !("text" in resource)) throw new Error("Expected built MCP App HTML");
     return resource.text;
   };
-  expect(originalComponent).toContain("A small list. A working stack.");
+  expect(originalComponent).toContain('{t("title")}');
   await page.goto("/playground");
+  // Confirm this streamed island handles events before entering the draft.
+  const density = page.getByRole("button", { name: "Compact view", exact: true });
+  await density.click();
+  await expect(density).toHaveAttribute("aria-pressed", "true");
   const draft = page.getByRole("textbox", { name: "New task", exact: true });
   await draft.fill("Keep my container development draft");
+  await density.click();
+  await expect(density).toHaveAttribute("aria-pressed", "false");
+  await expect(draft).toHaveValue("Keep my container development draft");
   try {
     await client.connect(new StreamableHTTPClientTransport(new URL("/api/mcp", baseURL)));
     expect(await readWidgetHtml()).not.toContain(themeMarker);
-    await writeFile(component, originalComponent.replace("A small list. A working stack.", marker));
+    await writeFile(component, originalComponent.replace('{t("title")}', marker));
     await expect(page.getByRole("heading", { name: marker, exact: true })).toBeVisible();
     await expect(draft).toHaveValue("Keep my container development draft");
     await writeFile(stylesheet, `${originalStylesheet}\nbody { --stack-watch-probe: ready; }\n`);
@@ -148,6 +184,11 @@ test("syncs app and shared-package changes with HMR while preserving a browser d
       `${originalTheme}\n:root { --stack-mcp-watch-probe: ${themeMarker}; }\n`,
     );
     await expect.poll(readWidgetHtml).toContain(themeMarker);
+    await writeFile(
+      widgetCatalog,
+      originalCatalog.replace("Your tasks, right here.", catalogMarker),
+    );
+    await expect.poll(readWidgetHtml).toContain(catalogMarker);
     await expect(draft).toHaveValue("Keep my container development draft");
   } finally {
     try {
@@ -155,6 +196,7 @@ test("syncs app and shared-package changes with HMR while preserving a browser d
         writeFile(component, originalComponent),
         writeFile(stylesheet, originalStylesheet),
         writeFile(theme, originalTheme),
+        writeFile(widgetCatalog, originalCatalog),
       ]);
     } finally {
       await client.close();

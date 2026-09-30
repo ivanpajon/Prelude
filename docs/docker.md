@@ -20,7 +20,7 @@ pnpm stack:dev
 
 Keep production and development on different ports. A production service worker belongs to its browser origin and can continue controlling it when that port is reused for development. If an origin was reused, unregister its service worker in browser developer tools.
 
-The development Inspector is available at `http://localhost:3000/api/mcp/inspector`; its embedded UI uses port `6274`. Both published development ports are restricted to the host's loopback interface. The development processes listen on all interfaces inside the container so Docker can forward those loopback ports. Inspector authentication stays enabled. Production exposes neither the Inspector process nor its pages, including nested Inspector paths.
+The development Inspector is available at `http://localhost:3000/api/mcp/inspector`; its embedded UI uses port `6274` and its App sandbox uses `6275`. All three published development ports are restricted to the host's loopback interface. The development processes listen on all interfaces inside the container so Docker can forward those loopback ports. Inspector authentication stays enabled. Production exposes neither the Inspector process nor its pages, including nested Inspector paths.
 
 ## Production
 
@@ -55,7 +55,7 @@ docker compose -f compose.dev.yaml logs --follow
 docker compose -f compose.dev.yaml down
 ```
 
-`pnpm stack:dev` runs Compose Watch in the foreground; use Ctrl+C to stop it and `down` to remove its containers and network. Edit files on the host: Watch synchronizes source into the container and Turbopack refreshes the application. The managed widget builder watches its own sources and shared UI sources inside the container; reopen Inspector's App preview to load rebuilt HTML. Dependency manifests, the lockfile, package-manager configuration, and Dockerfile changes trigger a rebuild. Next.js, PostCSS, TypeScript, development-launcher, and widget-build-script changes synchronize and restart the service. Restart Compose after editing a Compose file or its environment values. Linux dependencies and generated output stay inside Docker; Windows or macOS `node_modules` are never mounted over them.
+`pnpm stack:dev` runs Compose Watch in the foreground; use Ctrl+C to stop it and `down` to remove its containers and network. Edit files on the host: Watch synchronizes source into the container and Turbopack refreshes the application. The managed widget builder watches its own sources, shared UI sources, and shared localization catalogs inside the container; reopen Inspector's App preview to load rebuilt HTML. Dependency manifests, the lockfile, package-manager configuration, and Dockerfile changes trigger a rebuild. Next.js, PostCSS, TypeScript, development-launcher, and widget-build-script changes synchronize and restart the service. Restart Compose after editing a Compose file or its environment values. Linux dependencies and generated output stay inside Docker; Windows or macOS `node_modules` are never mounted over them.
 
 Watch synchronization is **one way, from host to container**. Run dependency updates, workspace customization, and source-generating commands on the host so their results remain in Git. For example:
 
@@ -86,6 +86,8 @@ No environment file is required. For optional Compose configuration, copy the ro
 | `MCP_ALLOWED_ORIGINS` | Empty by default; comma-separated exact browser origins allowed at the production MCP HTTP endpoint. |
 
 Choose three distinct free application, Inspector, and sandbox ports. All are published only on host loopback and retain the same numbers inside and outside the container, keeping target and sandbox URLs reachable by both the browser and Inspector. The additional internal app-origin helper remains dynamically allocated and unpublished. Update browser bookmarks and external MCP client URLs when changing ports. Production publishes only the application port and runs no Inspector or sandbox service.
+
+The managed launcher builds the widget, waits for Next.js to bind its fixed port, and then starts Inspector. This prevents Inspector's OS-assigned auxiliary listener from claiming a custom application port during startup or a watched container rebuild.
 
 The root `.env` configures Docker Compose. Native development uses the application's environment, such as `apps/web/.env.local`; those local files are excluded from the Docker build context. Do not put secrets in Docker build arguments, image layers, or committed environment files.
 

@@ -4,7 +4,8 @@ import { toast } from "@repo/ui/components/toast";
 import { SerwistProvider, useSerwist } from "@serwist/next/react";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { createPwaUpdateController, type PwaUpdateNotice } from "../lib/pwa-update-controller";
+import type { PwaUpdateNotice } from "../lib/pwa-update-controller";
+import { getPwaUpdateSession, type PwaUpdateSession } from "../lib/pwa-update-session";
 
 type ServiceWorkerClient = NonNullable<ReturnType<typeof useSerwist>["serwist"]>;
 
@@ -27,39 +28,57 @@ function registerOnce(serwist: ServiceWorkerClient) {
 }
 
 const noticeId = "pwa-update";
+let activePresenter: object | null = null;
+let programmaticCloses = 0;
 
 function UpdateNotice() {
   const { serwist } = useSerwist();
   const t = useTranslations("Pwa");
   const [notice, setNotice] = useState<PwaUpdateNotice | null>(null);
-  const controller = useRef<ReturnType<typeof createPwaUpdateController> | null>(null);
-  const closing = useRef(false);
+  const controller = useRef<PwaUpdateSession["controller"] | null>(null);
+  const presenter = useRef({});
   const closeNotice = useCallback(() => {
-    closing.current = true;
-    toast.close(noticeId);
-    closing.current = false;
+    programmaticCloses += 1;
+    try {
+      toast.close(noticeId);
+    } finally {
+      programmaticCloses -= 1;
+    }
   }, []);
 
   // Language changes update presentation without resetting approval or dismissal guards.
   useEffect(() => {
     if (!serwist || !("serviceWorker" in navigator)) return;
-    const instance = createPwaUpdateController({
+    const session = getPwaUpdateSession({
       serviceWorker: navigator.serviceWorker,
+      lifecycle: window,
       register: () => registerOnce(serwist),
       reload: () => window.location.reload(),
-      onChange: setNotice,
+      onDispose: () => {
+        registrations.delete(serwist);
+      },
     });
-    controller.current = instance;
+    const identity = presenter.current;
+    activePresenter = identity;
+    controller.current = session.controller;
+    const unsubscribe = session.subscribe(setNotice);
+    setNotice(session.getNotice());
 
     return () => {
-      instance.dispose();
+      unsubscribe();
       controller.current = null;
-      closeNotice();
+      // A previous Activity may clean up after its replacement has subscribed.
+      // It must not close the replacement's notification or revoke its consent.
+      if (activePresenter === identity) {
+        activePresenter = null;
+        closeNotice();
+      }
       setNotice(null);
     };
   }, [serwist, closeNotice]);
 
   useEffect(() => {
+    if (activePresenter !== presenter.current) return;
     if (!notice) {
       closeNotice();
       return;
@@ -77,7 +96,7 @@ function UpdateNotice() {
         onClick: () => controller.current?.apply(),
       },
       onClose: () => {
-        if (!closing.current) controller.current?.dismiss();
+        if (programmaticCloses === 0) controller.current?.dismiss();
       },
     });
   }, [notice, t, closeNotice]);
