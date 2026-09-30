@@ -7,26 +7,6 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import type { PwaUpdateNotice } from "../lib/pwa-update-controller";
 import { getPwaUpdateSession, type PwaUpdateSession } from "../lib/pwa-update-session";
 
-type ServiceWorkerClient = NonNullable<ReturnType<typeof useSerwist>["serwist"]>;
-
-// Serwist keeps its client across mounts. Reuse its registration attempt across
-// Strict Mode effect replay and provider remounts, including failed attempts.
-const registrations = new WeakMap<
-  ServiceWorkerClient,
-  ReturnType<ServiceWorkerClient["register"]>
->();
-
-function registerOnce(serwist: ServiceWorkerClient) {
-  const existing = registrations.get(serwist);
-  if (existing) return existing;
-
-  const registration = Promise.resolve()
-    .then(() => serwist.register())
-    .catch(() => undefined);
-  registrations.set(serwist, registration);
-  return registration;
-}
-
 const noticeId = "pwa-update";
 let activePresenter: object | null = null;
 let programmaticCloses = 0;
@@ -52,11 +32,8 @@ function UpdateNotice() {
     const session = getPwaUpdateSession({
       serviceWorker: navigator.serviceWorker,
       lifecycle: window,
-      register: () => registerOnce(serwist),
+      register: () => serwist.register(),
       reload: () => window.location.reload(),
-      onDispose: () => {
-        registrations.delete(serwist);
-      },
     });
     const identity = presenter.current;
     activePresenter = identity;

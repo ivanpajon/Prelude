@@ -1,45 +1,42 @@
 "use client";
 
 import { isLocale } from "@repo/i18n";
-import { useLocale, useTranslations } from "next-intl";
-import { useSyncExternalStore, useTransition } from "react";
-import { setLocale } from "@/app/actions/locale";
-import { useRouter } from "@/i18n/navigation";
-
-// React uses false during SSR/initial hydration, then reads true after hydration.
-// Readiness has no external events; keep these functions stable across renders.
-const subscribeToReadiness = () => () => {};
-const getClientSnapshot = () => true;
-const getServerSnapshot = () => false;
+import { useTranslations } from "next-intl";
+import { useRoutingPreference } from "@/i18n/routing-preference-provider";
 
 export function LanguageSelector() {
-  const locale = useLocale();
   const t = useTranslations("Common");
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const hydrated = useSyncExternalStore(subscribeToReadiness, getClientSnapshot, getServerSnapshot);
+  const { locale, disabled, pending, failure, changeLocale } = useRoutingPreference();
   return (
-    <select
-      aria-label={t("language")}
-      value={locale}
-      disabled={pending || !hydrated}
-      className="max-w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50 sm:text-sm"
-      onChange={(event) => {
-        const selected = event.target.value;
-        if (!isLocale(selected) || selected === locale) return;
-        startTransition(async () => {
-          await setLocale(selected);
-          // Refresh this URL directly: a prefixed redirect can drop its fragment.
-          router.refresh();
-        });
-      }}
-    >
-      <option value="en" lang="en">
-        English
-      </option>
-      <option value="es" lang="es">
-        Español
-      </option>
-    </select>
+    <div className="flex flex-col items-end gap-1">
+      <select
+        aria-label={t("language")}
+        value={locale}
+        disabled={disabled}
+        aria-busy={pending}
+        className="max-w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50 sm:text-sm"
+        onChange={(event) => {
+          const selected = event.target.value;
+          if (isLocale(selected)) changeLocale(selected);
+        }}
+      >
+        <option value="en" lang="en">
+          English
+        </option>
+        <option value="es" lang="es">
+          Español
+        </option>
+      </select>
+      {pending && (
+        <span className="sr-only" role="status">
+          {t("preferenceSaving")}
+        </span>
+      )}
+      {failure === "locale" && (
+        <p role="alert" className="max-w-64 text-xs text-destructive">
+          {t("preferenceError")}
+        </p>
+      )}
+    </div>
   );
 }

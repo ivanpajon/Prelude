@@ -13,7 +13,6 @@ interface PwaUpdateSessionOptions {
   lifecycle: Pick<Window, "addEventListener" | "removeEventListener">;
   register: () => Promise<ServiceWorkerRegistration | undefined>;
   reload: () => void;
-  onDispose: () => void;
 }
 
 // Only browser effects populate this cache. Locale Activity subtrees and their
@@ -25,7 +24,6 @@ function createSession({
   lifecycle,
   register,
   reload,
-  onDispose,
 }: PwaUpdateSessionOptions): PwaUpdateSession {
   let notice: PwaUpdateNotice | null = null;
   const listeners = new Set<(notice: PwaUpdateNotice | null) => void>();
@@ -58,7 +56,6 @@ function createSession({
     listeners.clear();
     sessions.delete(serviceWorker);
     lifecycle.removeEventListener("pagehide", onPageHide);
-    onDispose();
   };
   lifecycle.addEventListener("pagehide", onPageHide);
   return session;

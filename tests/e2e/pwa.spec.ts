@@ -36,12 +36,28 @@ test("localizes waiting updates and the precached fallback without network trans
       await expect(notice).toHaveCount(1);
       await expect(notice).toHaveAttribute("data-toast-id", "pwa-update");
       await page.getByRole("combobox", { name: "Idioma", exact: true }).selectOption("en");
-      await expect(page.getByText("Update available", { exact: true })).toBeVisible();
+      await expect(notice.getByText("Update available", { exact: true })).toBeVisible();
       await expect(notice).toHaveCount(1);
       await expect(notice).toHaveAttribute("data-toast-id", "pwa-update");
+      await page.evaluate(() => {
+        Reflect.set(window, "routingUpdateController", navigator.serviceWorker.controller);
+      });
+      await page.getByRole("switch", { name: "Language in URL", exact: true }).click();
+      await expect(page).toHaveURL((url) => url.pathname === "/");
+      await expect(notice).toHaveCount(1);
+      await expect(notice.getByText("Update available", { exact: true })).toBeVisible();
+      expect(
+        await page.evaluate(
+          () =>
+            navigator.serviceWorker.controller === Reflect.get(window, "routingUpdateController"),
+        ),
+      ).toBe(true);
       await page.getByRole("button", { name: "Dismiss notification", exact: true }).click();
       await page.getByRole("combobox", { name: "Language", exact: true }).selectOption("es");
       await expect(page.locator("html")).toHaveAttribute("lang", "es");
+      await expect(notice).toHaveCount(0);
+      await page.getByRole("switch", { name: "Idioma en la URL", exact: true }).click();
+      await expect(page).toHaveURL((url) => url.pathname === "/es");
       await expect(notice).toHaveCount(0);
       await context.setOffline(true);
       await page.goto("/not-available-offline");
@@ -170,6 +186,7 @@ test("shows an offline fallback without caching API docs, application data, or R
     const url = new URL(value);
     expect(url.pathname).not.toBe("/");
     expect(url.pathname).not.toBe("/playground");
+    expect(url.pathname).not.toMatch(/^\/(en|es)(?:\/|$)/);
     expect(url.pathname.startsWith("/api/")).toBe(false);
     expect(url.searchParams.has("_rsc")).toBe(false);
   }

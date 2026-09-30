@@ -5,6 +5,7 @@ import { cacheLife } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { AnimationExamples } from "@/components/animation-examples";
+import { RoutingModeSwitch } from "@/components/routing-mode-switch";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Link } from "@/i18n/navigation";
@@ -60,6 +61,12 @@ async function StackOverview() {
               <dd className="text-xs text-muted-foreground">{purpose}</dd>
             </div>
           ))}
+          <div className="flex flex-wrap items-center justify-between gap-3 py-4">
+            <dt className="text-sm font-medium">i18n · next-intl</dt>
+            <dd>
+              <RoutingModeSwitch />
+            </dd>
+          </div>
         </dl>
         <a
           href="/api/docs"

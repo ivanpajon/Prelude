@@ -24,6 +24,7 @@ export default defineConfig({
         test: {
           name: "dom",
           environment: "jsdom",
+          server: { deps: { inline: ["next-intl"] } },
           include: ["packages/**/*.test.tsx", "apps/**/*.test.tsx"],
           setupFiles: ["./tests/setup-dom.ts"],
         },

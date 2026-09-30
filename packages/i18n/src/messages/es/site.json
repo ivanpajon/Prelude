@@ -1,6 +1,10 @@
 {
   "Common": {
     "language": "Idioma",
+    "languageInUrl": "Idioma en la URL",
+    "internationalization": "Internacionalización",
+    "preferenceSaving": "Actualizando tus preferencias de idioma…",
+    "preferenceError": "No se han podido actualizar tus preferencias de idioma. Inténtalo de nuevo.",
     "home": "Inicio de Prelude",
     "navigation": "Navegación principal",
     "playground": "Zona de pruebas",

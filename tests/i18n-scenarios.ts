@@ -1,6 +1,99 @@
 import { expect, test } from "@playwright/test";
 
 export function localizationAcceptance() {
+  test("switches actual URL policies with keyboard controls and preserves document state", async ({
+    page,
+  }) => {
+    await page.goto("/en/playground");
+    const draft = `Keep this draft ${crypto.randomUUID()}`;
+    await page.getByRole("button", { name: "Compact view", exact: true }).click();
+    await page.getByRole("textbox", { name: "New task", exact: true }).fill(draft);
+    await page.getByRole("button", { name: "Discover tools", exact: true }).click();
+    const argumentsDraft = '{"status":"active"}';
+    await page.getByRole("textbox", { name: "Arguments JSON", exact: true }).fill(argumentsDraft);
+    await page.getByRole("link", { name: "Prelude home", exact: true }).click();
+    await expect(page).toHaveURL((url) => url.pathname === "/en");
+    const documentId = await page.evaluate(() => {
+      const id = crypto.randomUUID();
+      Reflect.set(window, "routingDocumentId", id);
+      // Give both transitions query/fragment state without introducing a document load.
+      history.replaceState(history.state, "", `${location.pathname}?preview=1#main-content`);
+      return id;
+    });
+    const mode = page.getByRole("switch", { name: "Language in URL", exact: true });
+    await expect(mode).toBeChecked();
+    await mode.focus();
+    await page.keyboard.press("Space");
+    await expect(page).toHaveURL(/\/\?preview=1#main-content$/);
+    await expect(mode).not.toBeChecked();
+    await expect(page.getByRole("link", { name: "Open playground", exact: true })).toHaveAttribute(
+      "href",
+      "/playground",
+    );
+    await page.getByRole("combobox", { name: "Language", exact: true }).selectOption("es");
+    await expect(page.locator("html")).toHaveAttribute("lang", "es");
+    await expect(page).toHaveURL(/\/\?preview=1#main-content$/);
+    const spanishMode = page.getByRole("switch", { name: "Idioma en la URL", exact: true });
+    await spanishMode.focus();
+    await page.keyboard.press("Space");
+    await expect(page).toHaveURL(/\/es\?preview=1#main-content$/);
+    await expect(spanishMode).toBeChecked();
+    expect(await page.evaluate(() => Reflect.get(window, "routingDocumentId"))).toBe(documentId);
+    await expect(page.getByRole("link", { name: "Zona de pruebas", exact: true })).toHaveAttribute(
+      "href",
+      "/es/playground",
+    );
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.getByRole("link", { name: "Zona de pruebas", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: "Nueva tarea", exact: true })).toHaveValue(
+      draft,
+    );
+    await expect(page.getByRole("textbox", { name: "Argumentos JSON", exact: true })).toHaveValue(
+      argumentsDraft,
+    );
+    await expect(page.getByRole("button", { name: "Vista compacta", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await page.goBack();
+    await expect(page).toHaveURL(/\/es\?preview=1#main-content$/);
+    await page.goForward();
+    await expect(page).toHaveURL(/\/es\/playground$/);
+    await expect(page.getByRole("textbox", { name: "Nueva tarea", exact: true })).toHaveValue(
+      draft,
+    );
+  });
+
+  test("persists hidden URLs until an explicit language link is opened", async ({ page }) => {
+    await page.goto("/es");
+    await page.getByRole("switch", { name: "Idioma en la URL", exact: true }).click();
+    await expect(page).toHaveURL((url) => url.pathname === "/");
+    await page.reload();
+    await expect(page.locator("html")).toHaveAttribute("lang", "es");
+    await expect(
+      page.getByRole("switch", { name: "Idioma en la URL", exact: true }),
+    ).not.toBeChecked();
+    await page.getByRole("link", { name: "Zona de pruebas", exact: true }).click();
+    await expect(page).toHaveURL((url) => url.pathname === "/playground");
+    await page.getByRole("button", { name: "Pendientes", exact: true }).click();
+    await expect(page).toHaveURL(/\/playground\?status=active$/);
+    await page.getByRole("combobox", { name: "Idioma", exact: true }).selectOption("en");
+    await expect(page).toHaveURL(/\/playground\?status=active$/);
+    await expect(page.getByRole("button", { name: "Active", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await page.goto("/es");
+    await expect(page.locator("html")).toHaveAttribute("lang", "es");
+    await expect(page.getByRole("switch", { name: "Idioma en la URL", exact: true })).toBeChecked();
+    await expect(page.getByRole("link", { name: "Zona de pruebas", exact: true })).toHaveAttribute(
+      "href",
+      "/es/playground",
+    );
+  });
+
   test("retains drafts, errors, density, and filter history while changing language", async ({
     page,
   }) => {
@@ -33,23 +126,23 @@ export function localizationAcceptance() {
     );
     await expect(page.getByRole("alert").filter({ hasText: "JSON válido" })).toBeVisible();
     await page.goBack();
-    await expect(page).toHaveURL(/\?status=active$/);
-    await expect(page.getByRole("button", { name: "Pendientes", exact: true })).toHaveAttribute(
+    await expect(page).toHaveURL(/\/en\/playground\?status=active$/);
+    await expect(page.getByRole("button", { name: "Active", exact: true })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    await expect(page.getByRole("textbox", { name: "Nueva tarea", exact: true })).toHaveValue(
-      draft,
-    );
+    await expect(page.getByRole("textbox", { name: "New task", exact: true })).toHaveValue(draft);
   });
 
-  test("switches language without changing public paths, filters, or anchors", async ({ page }) => {
+  test("changes the explicit language route while preserving filters and anchors", async ({
+    page,
+  }) => {
     await page.goto("/playground?status=active#mcp");
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
     const selector = page.getByRole("combobox", { name: "Language", exact: true });
     await selector.selectOption("es");
     await expect(page.locator("html")).toHaveAttribute("lang", "es");
-    await expect(page).toHaveURL(/\/playground\?status=active#mcp$/);
+    await expect(page).toHaveURL(/\/es\/playground\?status=active#mcp$/);
     await expect(page).toHaveTitle("Zona de pruebas — Prelude");
     await expect(page.getByRole("button", { name: "Pendientes", exact: true })).toHaveAttribute(
       "aria-pressed",
@@ -65,7 +158,7 @@ export function localizationAcceptance() {
     await page.reload();
     await expect(page.locator("html")).toHaveAttribute("lang", "es");
     await page.getByRole("link", { name: "Inicio de Prelude", exact: true }).click();
-    await expect(page).toHaveURL((url) => url.pathname === "/");
+    await expect(page).toHaveURL((url) => url.pathname === "/es");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(
       /Menos configuración\.\s*Más creación\./,
     );
@@ -78,7 +171,7 @@ export function localizationAcceptance() {
     await page.getByRole("combobox", { name: "Idioma", exact: true }).selectOption("en");
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
     await expect(page.getByText("Application", { exact: true })).toBeVisible();
-    await expect(page).toHaveURL((url) => url.pathname === "/");
+    await expect(page).toHaveURL((url) => url.pathname === "/en");
   });
 
   test("supports Spanish task mutations and browser filter history", async ({ page, request }) => {
@@ -148,13 +241,10 @@ export function localizationAcceptance() {
     const prefixed = await page.request.get("/es/playground?status=active", {
       maxRedirects: 0,
     });
-    expect(prefixed.status()).toBe(307);
-    // Next.js relativizes the same-origin redirect, preserving the browser's
-    // public host/port even when the standalone server has a different origin.
-    expect(prefixed.headers().location).toBe("/playground?status=active");
-    expect(prefixed.headers()["cache-control"]).toMatch(/no-store|no-cache/);
+    expect(prefixed.status()).toBe(200);
+    expect(prefixed.headers().location).toBeUndefined();
     await page.goto("/es/playground?status=active");
-    await expect(page).toHaveURL(/\/playground\?status=active$/);
+    await expect(page).toHaveURL(/\/es\/playground\?status=active$/);
     await expect(page.locator("html")).toHaveAttribute("lang", "es");
     const response = await page.goto("/missing-page");
     // Next.js returns 200 for a not-found boundary in a streamed response.

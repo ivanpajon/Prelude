@@ -3,7 +3,7 @@ import { getMessages } from "@repo/i18n/messages";
 import { Toaster } from "@repo/ui/components/toast";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import { Activity, type ReactNode } from "react";
+import { Activity, type ReactNode, StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PwaProvider } from "./pwa-provider";
 
@@ -91,6 +91,27 @@ async function flush() {
 }
 
 describe("localized PWA notifications", () => {
+  it("registers once through Strict Mode replay and retains failed attempts across remounts", async () => {
+    client.current.register.mockRejectedValue(new Error("Registration denied"));
+    container.getRegistration.mockResolvedValue(undefined);
+    const app = render(
+      <StrictMode>
+        <Application locale="en" />
+      </StrictMode>,
+    );
+    await flush();
+    expect(client.current.register).toHaveBeenCalledOnce();
+    app.unmount();
+    render(
+      <StrictMode>
+        <Application locale="es" />
+      </StrictMode>,
+    );
+    await flush();
+    expect(client.current.register).toHaveBeenCalledOnce();
+    expect(screen.queryByText("Actualización disponible")).not.toBeInTheDocument();
+  });
+
   it("updates one toast in place without registering or re-observing the worker", async () => {
     const app = render(<Application locale="en" />);
     await flush();

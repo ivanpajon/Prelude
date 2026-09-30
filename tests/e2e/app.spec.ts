@@ -35,7 +35,7 @@ test.describe("server rendering", () => {
     );
     await expect(
       page.getByRole("link", { name: "Open playground", exact: true, includeHidden: true }),
-    ).toHaveAttribute("href", "/playground");
+    ).toHaveAttribute("href", "/en/playground");
     await expect(page.getByRole("list", { name: "Tasks", includeHidden: true })).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: "Move to end", exact: true, includeHidden: true }),
@@ -52,8 +52,8 @@ test("opens the playground from home and supports browser history on narrow scre
   await page.goto("/");
   const navigation = page.getByRole("link", { name: "Playground", exact: true });
   const open = page.getByRole("link", { name: "Open playground", exact: true });
-  await expect(navigation).toHaveAttribute("href", "/playground");
-  await expect(open).toHaveAttribute("href", "/playground");
+  await expect(navigation).toHaveAttribute("href", "/en/playground");
+  await expect(open).toHaveAttribute("href", "/en/playground");
   await expect(page.getByRole("region", { name: "Small details. More life." })).toBeVisible();
   await expect(page.getByRole("list", { name: "Tasks" })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
@@ -86,13 +86,13 @@ test("opens the playground from home and supports browser history on narrow scre
   );
 
   await page.goBack();
-  await expect(page).toHaveURL((url) => url.pathname === "/");
+  await expect(page).toHaveURL((url) => url.pathname === "/en");
   await expect(open).toBeVisible();
   await page.goForward();
   await expect(page).toHaveURL(/\/playground$/);
   await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
   await page.getByRole("link", { name: "Prelude home", exact: true }).click();
-  await expect(page).toHaveURL((url) => url.pathname === "/");
+  await expect(page).toHaveURL((url) => url.pathname === "/en");
   await navigation.click();
   await expect(page).toHaveURL(/\/playground$/);
   await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();

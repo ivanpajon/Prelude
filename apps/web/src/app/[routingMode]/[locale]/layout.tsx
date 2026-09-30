@@ -2,11 +2,15 @@ import "@repo/ui/styles/globals.css";
 import { locales } from "@repo/i18n";
 import { Toaster } from "@repo/ui/components/toast";
 import type { Metadata, Viewport } from "next";
+import { notFound } from "next/navigation";
+import * as rootParams from "next/root-params";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 import { Providers } from "@/components/providers";
 import { PwaProvider } from "@/components/pwa-provider";
+import { isRoutingMode, routingModes } from "@/i18n/routing";
+import { RoutingPreferenceProvider } from "@/i18n/routing-preference-provider";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Home");
@@ -22,10 +26,12 @@ export async function generateMetadata(): Promise<Metadata> {
 export const viewport: Viewport = { themeColor: "#20382a" };
 
 export function generateStaticParams() {
-  return locales.map((locale) => ({ locale }));
+  return routingModes.flatMap((routingMode) => locales.map((locale) => ({ routingMode, locale })));
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
+  const mode = await rootParams.routingMode();
+  if (!isRoutingMode(mode)) notFound();
   const locale = await getLocale();
   const t = await getTranslations("Common");
   const pwa = await getTranslations("Pwa");
@@ -40,10 +46,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           {t("skip")}
         </a>
         <NextIntlClientProvider messages={{ Common, Tasks, Mcp, Animation, Pwa, Errors }}>
-          <Toaster dismissLabel={pwa("toastClose")} regionLabel={pwa("toastRegion")} />
-          <PwaProvider>
-            <Providers>{children}</Providers>
-          </PwaProvider>
+          <RoutingPreferenceProvider mode={mode}>
+            <Toaster dismissLabel={pwa("toastClose")} regionLabel={pwa("toastRegion")} />
+            <PwaProvider>
+              <Providers>{children}</Providers>
+            </PwaProvider>
+          </RoutingPreferenceProvider>
         </NextIntlClientProvider>
       </body>
     </html>
