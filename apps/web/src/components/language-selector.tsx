@@ -6,17 +6,18 @@ import { useSyncExternalStore, useTransition } from "react";
 import { setLocale } from "@/app/actions/locale";
 import { useRouter } from "@/i18n/navigation";
 
-// Keep the server-rendered selector disabled until React attaches its handler.
-const subscribe = () => () => {};
-const clientReady = () => true;
-const serverReady = () => false;
+// React uses false during SSR/initial hydration, then reads true after hydration.
+// Readiness has no external events; keep these functions stable across renders.
+const subscribeToReadiness = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 export function LanguageSelector() {
   const locale = useLocale();
   const t = useTranslations("Common");
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const hydrated = useSyncExternalStore(subscribe, clientReady, serverReady);
+  const hydrated = useSyncExternalStore(subscribeToReadiness, getClientSnapshot, getServerSnapshot);
   return (
     <select
       aria-label={t("language")}

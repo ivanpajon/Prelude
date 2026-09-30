@@ -7,8 +7,12 @@
         "rules": ["react-doctor/require-reduced-motion"]
       },
       {
-        "files": ["src/app/offline/page.tsx"],
+        "files": ["src/app/**/offline/offline-content.tsx"],
         "rules": ["react-doctor/nextjs-no-a-element"]
+      },
+      {
+        "files": ["src/app/actions/locale.ts"],
+        "rules": ["react-doctor/server-auth-actions"]
       },
       {
         "files": ["src/components/pwa-provider.tsx"],

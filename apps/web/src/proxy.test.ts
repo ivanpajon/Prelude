@@ -39,10 +39,10 @@ describe("locale proxy", () => {
       );
     }
   });
-  it("removes explicit locale prefixes without exposing an internal address", () => {
-    for (const [origin, host, publicOrigin] of [
-      ["http://0.0.0.0:3000", "127.0.0.1:3001", "http://127.0.0.1:3001"],
-      ["https://127.0.0.1:3000", "prelude.example", "https://prelude.example"],
+  it("keeps prefix-removal redirects on the server origin for Next.js to relativize", () => {
+    for (const [origin, host] of [
+      ["http://0.0.0.0:3000", "127.0.0.1:3001"],
+      ["https://127.0.0.1:3000", "prelude.example"],
     ] as const) {
       const response = proxy(
         new NextRequest(`${origin}/es/playground?status=active`, {
@@ -50,7 +50,7 @@ describe("locale proxy", () => {
         }),
       );
       expect(response.status).toBe(307);
-      expect(response.headers.get("location")).toBe(`${publicOrigin}/playground?status=active`);
+      expect(response.headers.get("location")).toBe(`${origin}/playground?status=active`);
     }
   });
   it("rewrites the unchanged public URL using browser language", () => {

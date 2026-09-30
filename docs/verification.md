@@ -1,5 +1,15 @@
 # Verification
 
+## Localization pattern review
+
+Verified on 2026-09-30 with Node 26.10.0 and pnpm 12.6.0: Biome, strict TypeScript, all 364 unit/component/script tests, four focused development browser scenarios, 14 focused production browser scenarios, the production build, and byte-for-byte widget/service-worker cache restoration passed. HTTP acceptance now checks the actual relative `Location` returned for explicit locale prefixes. Language-switching checks retain drafts, errors, filters, hashes, and browser history.
+
+An isolated production Compose stack passed five routing checks with different public/internal ports: English home, Spanish filtered playground, HTTPS-forwarded rewrites, relative prefix removal, and localized missing routes with `noindex`. Its containers, image, network, and port were released. These are focused routing/hydration regression checks; the broader localization acceptance results below describe the preceding implementation.
+
+The review removed redundant URL-header repair from the proxy. The documented `skipProxyUrlNormalize` workaround remains for the pinned framework's loopback-origin issue, and the terminal localized 404 catchall retains its narrowly scoped `instant` exemption. The selector keeps the server/client snapshot readiness guard, with explicit names and rationale. See [localization](i18n.md) for the framework references and upgrade considerations.
+
+React Doctor completed full scans of both configured packages without skipped checks. It reported zero errors and no findings on the reviewed patterns; 11 advisory warnings remain elsewhere. The public language-cookie action's authentication false positive and the intentional offline full-navigation link have documented, rule-specific exceptions in [diagnostics](diagnostics.md#scoped-exceptions).
+
 ## Localization checks
 
 Verified on 2026-09-30 (Europe/Madrid) with Node 26.10.0 and pnpm 12.6.0 on Windows: frozen installation and the complete `pnpm verify` workflow passed, including Biome, strict TypeScript, 364 unit/component/script tests across 32 files with coverage, eight native development browser scenarios, 72 production browser scenarios, the production build, and byte-for-byte Turbo restoration of the widget HTML and service worker.

@@ -145,6 +145,14 @@ export function localizationAcceptance() {
       .getByRole("navigation", { name: "Navegación principal" })
       .getByRole("link", { name: "Documentación de la API", exact: true });
     await expect(docs).toHaveAttribute("href", "/api/docs");
+    const prefixed = await page.request.get("/es/playground?status=active", {
+      maxRedirects: 0,
+    });
+    expect(prefixed.status()).toBe(307);
+    // Next.js relativizes the same-origin redirect, preserving the browser's
+    // public host/port even when the standalone server has a different origin.
+    expect(prefixed.headers().location).toBe("/playground?status=active");
+    expect(prefixed.headers()["cache-control"]).toMatch(/no-store|no-cache/);
     await page.goto("/es/playground?status=active");
     await expect(page).toHaveURL(/\/playground\?status=active$/);
     await expect(page.locator("html")).toHaveAttribute("lang", "es");
