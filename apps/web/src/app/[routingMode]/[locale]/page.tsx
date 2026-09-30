@@ -61,12 +61,6 @@ async function StackOverview() {
               <dd className="text-xs text-muted-foreground">{purpose}</dd>
             </div>
           ))}
-          <div className="flex flex-wrap items-center justify-between gap-3 py-4">
-            <dt className="text-sm font-medium">i18n · next-intl</dt>
-            <dd>
-              <RoutingModeSwitch />
-            </dd>
-          </div>
         </dl>
         <a
           href="/api/docs"
@@ -81,6 +75,14 @@ async function StackOverview() {
             <span className="sr-only">{common("newTab")}</span>
           </span>
         </a>
+        <dl className="border-t border-border">
+          <div className="flex flex-wrap items-center justify-between gap-3 py-4">
+            <dt className="text-sm font-medium">i18n · next-intl</dt>
+            <dd>
+              <RoutingModeSwitch />
+            </dd>
+          </div>
+        </dl>
         <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
           <CheckIcon className="size-3.5" aria-hidden="true" />
           {t("cached")}
