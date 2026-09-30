@@ -47,7 +47,7 @@ Open [localhost:3000](http://localhost:3000), then follow **API docs** to [the S
 
 Choose **Open playground** for [the task workspace and MCP explorer](http://localhost:3000/playground). Create tasks, try URL filters and compact view, then discover the generated MCP tools, edit JSON arguments, and execute real calls that refresh the same list. Motion and Morphicons previews stay on the homepage.
 
-Choose **English / Español** in the header to change language; your browser preference supplies the initial choice. `/` and `/playground` keep the same URLs in both languages. The MCP App follows its host's language, with a browser/English fallback. Task titles, protocol output, and the third-party Scalar/Inspector interfaces retain their original content. See [localization](docs/i18n.md) for catalogs, adding a language, and offline behavior.
+Choose **English / Español** in the header to change language. Explicit routes such as `/en` and `/es/playground` are the default; unprefixed entry URLs negotiate your saved/browser preference. Try the stack card's **Language in URL** switch to browse without a prefix, preserving the selected language. Consumers can disable this visitor-specific demo and select either fixed policy. Both policies use prerendered localized documents. The MCP App follows its host's language; task titles, protocol output, and Scalar/Inspector retain their original content. See [localization](docs/i18n.md) for routing configuration, catalogs, cache boundaries, and offline behavior.
 
 The task example supports listing, creating, editing titles, completing, and deleting through the workbench, REST, and MCP. Use a row's pencil button to edit its title; **Enter** saves and **Escape** cancels. Titles are trimmed before validating their 1–120-character length, completion is preserved, and failed saves retain the edit and new-task drafts. Deletion returns the removed task; missing IDs return `NOT_FOUND`.
 
@@ -126,7 +126,7 @@ pnpm customize --name my-app --scope "@acme"
 
 The command updates package names, workspace dependencies, imports, shadcn aliases, TypeScript paths, framework/tool configuration, and documentation references. It regenerates the lockfile, refreshes workspace links, formats changed source/configuration files, and runs `pnpm check` and `pnpm test`. Omitted options preserve the current value. See [customization](docs/customization.md) for requirements, reruns, and recovery.
 
-- Change translated branding/metadata in `packages/i18n/src/messages/{en,es}`, application metadata in `apps/web/src/app/[locale]/layout.tsx`, and the manifest in `apps/web/src/app/manifest.ts`. Replace the icons in `apps/web/public/icons` and customize `packages/ui/src/styles/globals.css`.
+- Change translated branding/metadata in `packages/i18n/src/messages/{en,es}`, application metadata in `apps/web/src/app/[routingMode]/[locale]/layout.tsx`, and the manifest in `apps/web/src/app/manifest.ts`. Replace the icons in `apps/web/public/icons` and customize `packages/ui/src/styles/globals.css`.
 - Replace the transparent web logo in `apps/web/public/branding` and the README banner in `docs/assets` with your own branding.
 - Add components with the pinned CLI from the workspace root: `pnpm --filter @repo/ui exec shadcn add dialog`. The UI package's `base-nova` configuration selects Base UI and writes shared components there.
 - Import components from `@repo/ui/components/*` and `cn` from `@repo/ui/lib/utils`; the latter re-exports the `cn` package.

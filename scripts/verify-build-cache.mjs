@@ -25,6 +25,20 @@ function build() {
 }
 
 build();
+const prerendered = JSON.parse(
+  readFileSync(path.resolve(root, "apps/web/.next/prerender-manifest.json"), "utf8"),
+);
+for (const mode of ["always", "never"]) {
+  for (const locale of ["en", "es"]) {
+    const route = `/${mode}/${locale}`;
+    assert.equal(prerendered.routes[route]?.compute, "static", `${route} must stay prerendered.`);
+    assert.equal(
+      prerendered.routes[route]?.response,
+      "complete",
+      `${route} must render its document.`,
+    );
+  }
+}
 const publicDirectory = path.resolve(root, "apps/web/public");
 const worker = path.resolve(publicDirectory, "sw.js");
 const widget = path.resolve(root, "apps/web/.generated/mcp-apps/tasks.html");

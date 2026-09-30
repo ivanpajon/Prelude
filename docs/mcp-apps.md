@@ -137,7 +137,7 @@ To remove just the widget:
 1. Remove `apps/web/src/mcp-apps/tasks`, its tests, the resource module/tests, and the task resource registration/metadata integration in `lib/mcp.ts`. Retain the regular generated `registerTool` path and JSON execution.
 2. Remove `scripts/build-mcp-apps.mjs`, its tests, and `scripts/measure-mcp-apps.mjs`, its web build-script prefix and managed development child, and widget-specific Watch/restart handling.
 3. Remove the generated-HTML trace include, Turbo widget outputs/builder input, and widget assertions in cache, browser, and Docker acceptance. Keep the worker cache checks.
-4. Remove the `/playground#mcp-app` panel/link from `apps/web/src/app/[locale]/playground/page.tsx` and update its section navigation. Remove unused `Widget` catalogs and its catalog-loader exports, plus widget-specific playground messages in both languages. Keep the browser workbench and JSON explorer if useful.
+4. Remove the `/playground#mcp-app` panel/link from `apps/web/src/app/[routingMode]/[locale]/playground/page.tsx` and update its section navigation. Remove unused `Widget` catalogs and its catalog-loader exports, plus widget-specific playground messages in both languages. Keep the browser workbench and JSON explorer if useful.
 5. Remove unused `ext-apps`, its now-unused direct peers, tsdown, and Tailwind CLI dependencies, then regenerate the lockfile. Retain SDK packages needed by JSON MCP and the independent Next.js Tailwind PostCSS setup.
 6. If keeping Inspector only for JSON tools, remove widget-specific sandbox publishing/configuration and corresponding launcher/port checks together. If removing Inspector too, follow [MCP removal](mcp.md#add-change-or-remove-tools).
 

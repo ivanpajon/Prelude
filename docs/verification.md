@@ -1,5 +1,17 @@
 # Verification
 
+## Interactive locale routing
+
+Verified on 2026-09-30 with Node 26.10.0 and pnpm 12.6.0:
+
+- Frozen installation, Biome, strict TypeScript, and all 404 unit/component/script tests with coverage passed.
+- All 10 native development scenarios passed, including real Inspector/MCP App workflows and routing transitions that preserve task and MCP drafts.
+- Production browser coverage passed across desktop, mobile, and PWA. The initial 80-case run passed 77 cases; two aggregate SSR checks exceeded their 30-second budget while Docker profiling ran concurrently, and one toast selector matched an inactive Activity tree. The four SSR variants now run as separate cases, the concurrent-language scenario has an explicit 60-second budget, and the toast assertion targets the visible notification. All 11 affected desktop/mobile/PWA cases passed on rerun, covering the final 86-case suite together with the preceding successful checks.
+- The production build confirms all four internal homepage variants have complete static documents. `pnpm test:cache` asserts this and verifies byte-for-byte restoration of the service worker and MCP App HTML.
+- `pnpm test:stack` passed with three runtime samples per image: 12 distroless production, 12 Node-slim production, and 11 development browser scenarios. Runtime checks, dependency-layer reuse, cached builds, manifest-triggered rebuilds, host-source preservation, and owned-resource cleanup passed. The ignored report is `test-results/stack/report.json` (run `prelude-stack-eeaaa609`).
+
+`pnpm verify` ran the checks through production browser coverage; after the test corrections, focused browser reruns, `pnpm check`, and `pnpm test:cache` completed verification. The native preview was restored afterward. Routing tests cover fixed policies, session overrides, canonical prefix precedence, private hidden responses, pre-hydration links/controls, accessible switching, browser history, and localized missing pages. PWA acceptance confirms the actual controller object and dismissal state survive mode transitions without granting update approval.
+
 ## Localization pattern review
 
 Verified on 2026-09-30 with Node 26.10.0 and pnpm 12.6.0: Biome, strict TypeScript, all 364 unit/component/script tests, four focused development browser scenarios, 14 focused production browser scenarios, the production build, and byte-for-byte widget/service-worker cache restoration passed. HTTP acceptance now checks the actual relative `Location` returned for explicit locale prefixes. Language-switching checks retain drafts, errors, filters, hashes, and browser history.

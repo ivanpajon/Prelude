@@ -37,6 +37,8 @@ docker compose down
 
 Rebuild after source or dependency changes. To recreate containers after changing runtime environment values, run `docker compose up --detach --wait` again; an ordinary `restart` retains the container's old environment.
 
+Both stacks use the same localization policy as native workflows: explicit `/en` and `/es` URLs by default, with the homepage switch enabling unprefixed URLs for a visitor. Changing `routingSettings.defaultMode` or `routingSettings.demoEnabled` is a source change and requires rebuilding the production image. These settings are not Compose environment variables. Development Watch synchronizes their source changes. See [localization](i18n.md) for fixed policies, cookie scope across ports, and cache behavior.
+
 The healthcheck requests the existing `/offline` page using Node's built-in HTTP client. It confirms that the web server responds without creating or changing demo tasks. It is a liveness check, not a database or external-service check.
 
 The production runtime uses the official **Distroless Node 26 Debian 13 nonroot** image, pinned by digest. It has no shell or package manager. The builder and development stages use **Node 26.10.0 on Debian 13 slim**, keeping the Node version, architecture, and libc family aligned. The runtime starts the generated `apps/web/server.js` directly as a nonroot user.
