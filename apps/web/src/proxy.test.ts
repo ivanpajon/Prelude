@@ -186,6 +186,7 @@ describe("locale proxy", () => {
     ["/api/docs", false],
     ["/api/openapi.json", false],
     ["/api/mcp/inspector", false],
+    ["/api/health", false],
     ["/offline", false],
     ["/_next/static/chunk.js", false],
     ["/manifest.webmanifest", false],

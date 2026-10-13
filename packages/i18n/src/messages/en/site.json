@@ -83,6 +83,7 @@
     "title": "Let’s try that again.",
     "description": "We couldn’t load this page. Give it another try to get back to your workspace.",
     "retry": "Try again",
+    "reference": "Reference: {digest}",
     "notFoundEyebrow": "404 / PAGE NOT FOUND",
     "notFoundTitle": "A fresh direction.",
     "notFoundDescription": "There’s nothing at this address. Your workspace is a good place to start.",

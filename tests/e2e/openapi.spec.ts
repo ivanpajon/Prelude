@@ -171,3 +171,22 @@ test("executes same-origin reads and mutations in Scalar and shares results with
     page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
   ).toHaveCount(0);
 });
+
+test("serves an uncached health check outside the API contract and localization", async ({
+  request,
+}) => {
+  const response = await request.get("/api/health", {
+    headers: { "Accept-Language": "es" },
+    maxRedirects: 0,
+  });
+  expect(response.status()).toBe(200);
+  expect(response.headers()["cache-control"]).toBe("no-store");
+  expect(await response.json()).toEqual({ status: "ok" });
+
+  const head = await request.head("/api/health");
+  expect(head.status()).toBe(200);
+  expect(await head.text()).toBe("");
+
+  const spec = await (await request.get("/api/openapi.json")).json();
+  expect(Object.keys(spec.paths).some((path) => path.includes("health"))).toBe(false);
+});

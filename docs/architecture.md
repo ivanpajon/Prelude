@@ -15,7 +15,7 @@ Next.js transpiles the private source packages directly. Dependencies are explic
 
 ## Data flow
 
-Define ArkType schemas and `oc` contracts first, then implement them with `implement(contract).router(...)`. The same runtime-validated procedures serve the browser through `/api/rpc`, REST clients through `/api/v1/tasks`, and Server Components through `createApiClient(context)` without an internal HTTP round trip. The more-specific RPC Route Handler remains separate from the REST catch-all.
+Define ArkType schemas and `oc` contracts first, then implement them with `implement(contract).router(...)`. The same runtime-validated procedures serve the browser through `/api/rpc`, REST clients through `/api/v1/tasks`, and Server Components through `createApiClient(context)` without an internal HTTP round trip. The more-specific RPC Route Handler remains separate from the REST catch-all. `GET /api/health` is a separate, uncached Route Handler for container and load-balancer liveness checks; it is not part of the contract, so it has no OpenAPI operation or MCP tool.
 
 `OpenAPIReferencePlugin` generates `/api/openapi.json` and the public Scalar reference at `/api/docs` from the implemented contract. The renderer uses a pinned CDN asset; schemas and API calls stay on the application origin. RPC, REST, specification, and documentation responses send `Cache-Control: no-store`. See [OpenAPI](openapi.md) for schema conversion, endpoint metadata, and the REST path-ID guard.
 
@@ -81,6 +81,8 @@ For other client notifications, import `toast` from `@repo/ui/components/toast` 
 `apps/web/src/instrumentation.ts` runs when the server starts. Its `register()` validates the runtime environment, and `onRequestError()` logs rendering, Route Handler, and Server Action failures with the error digest, method, path (without the query string), and route. Next.js prints the stack for these errors itself, so this line leaves it out. Connect Sentry, OpenTelemetry, or another reporting service in this file.
 
 `apps/web/src/env.ts` parses every runtime variable the server reads (`MCP_ENABLED`, `MCP_ALLOWED_ORIGINS`, and the development-only `MCP_INSPECTOR_PORT`). An invalid value stops startup with one error that names each variable and its allowed form. Callers parse it again per request, so values apply without a rebuild. Add new server variables there and to both `.env.example` files.
+
+`app/[routingMode]/[locale]/error.tsx` handles errors below the localized root layout, and `app/global-error.tsx` replaces a root layout that failed. Both show the error digest as a reference code that matches the server log entry, never the error message, and their **Try again** button calls `retry()`, which fetches the failed segment from the server again.
 
 ## Security headers
 

@@ -83,6 +83,7 @@
     "title": "Vamos a intentarlo de nuevo.",
     "description": "No hemos podido cargar esta página. Inténtalo de nuevo para volver a tu espacio de trabajo.",
     "retry": "Reintentar",
+    "reference": "Referencia: {digest}",
     "notFoundEyebrow": "404 / PÁGINA NO ENCONTRADA",
     "notFoundTitle": "Un nuevo rumbo.",
     "notFoundDescription": "No hay nada en esta dirección. Tu espacio de trabajo es un buen punto de partida.",
