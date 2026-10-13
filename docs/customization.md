@@ -36,7 +36,7 @@ The command then:
 2. Applies Biome formatting/import organization to changed supported files.
 3. Runs `pnpm check` and `pnpm test`.
 
-Production builds and browser tests remain available through `pnpm verify`. The customizer does not rename the folder, Git repository or remote, application metadata, manifest, icons, or visible Prelude branding.
+Production builds and browser tests remain available through `pnpm verify`. The customizer does not rename the folder, Git repository or remote, application metadata, manifest, icons, or visible Prelude branding. It also leaves the MIT `LICENSE` unchanged: set your own copyright holder there, or choose another license and update `license` in the root `package.json`.
 
 ## Reruns and errors
 

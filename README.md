@@ -142,3 +142,7 @@ The command updates package names, workspace dependencies, imports, shadcn alias
 - Add or adapt translations in `@repo/i18n`; use typed next-intl hooks in the website and use-intl in standalone widgets. See [localization](docs/i18n.md) for routing, cache privacy, and supported-locale changes.
 
 See [architecture](docs/architecture.md) for data access, state, caching, and removing the demo; [requirements](docs/requirements.md) records the stack and deferred choices. [React diagnostics](docs/diagnostics.md) explains scanner results and scoped exceptions. [Candidate skills](docs/skills.md) lists reviewed project-local agent skills and installation commands; none are installed by default.
+
+## License
+
+Prelude is released under the [MIT License](LICENSE). In your own project, set your own copyright holder or license; see [customization](docs/customization.md).
