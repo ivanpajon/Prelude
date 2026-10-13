@@ -18,6 +18,8 @@ const contentSecurityPolicy = [
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  // Links prefetch one shared App Shell per route; the default in the next major release.
+  partialPrefetching: true,
   poweredByHeader: false,
   // Preserve next-intl's internal rewrite origin when binding to loopback IPs.
   // Next.js 16.4.0 still normalizes them asymmetrically: vercel/next.js#94745.

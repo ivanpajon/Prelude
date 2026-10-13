@@ -16,7 +16,7 @@ Renovate is used instead of Dependabot because Dependabot cannot yet read pnpm 1
 
 ## Stack
 
-- React 19.3.0, Next.js 16.4.0 App Router, Turbopack development/production builds, and Cache Components.
+- React 19.3.0, Next.js 16.4.0 App Router, Turbopack development/production builds, and Cache Components with Partial Prefetching.
 - shadcn 4.21.4 with Base UI 1.8.0, Tailwind 4.3.3 CSS-first tokens, and `cn` 0.4.0 for class composition.
 - Contract-first oRPC 1.15.4 with ArkType 2.2.5 inputs, outputs, and inferred TypeScript types.
 - Public REST access through the same procedures, automatic OpenAPI 3.1.1 at `/api/openapi.json`, and Scalar at `/api/docs`. Scalar's standalone renderer is pinned to 1.72.1 on jsDelivr; it is not an installed application dependency.
