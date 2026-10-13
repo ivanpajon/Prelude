@@ -16,23 +16,23 @@ const context = {
 } as const;
 
 describe("instrumentation", () => {
-  it("stops a Node.js server that starts with an invalid environment", () => {
+  it("stops a Node.js server that starts with an invalid environment", async () => {
     const exit = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
     const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
     vi.stubEnv("NEXT_RUNTIME", "nodejs");
     vi.stubEnv("MCP_ENABLED", "true");
-    register();
+    await register();
     expect(exit).not.toHaveBeenCalled();
 
     vi.stubEnv("MCP_ENABLED", "yes");
-    register();
+    await register();
     expect(exit).toHaveBeenCalledExactlyOnceWith(1);
     expect(logged).toHaveBeenCalledExactlyOnceWith(
       expect.stringContaining("MCP_ENABLED must be true or false."),
     );
 
     vi.stubEnv("NEXT_RUNTIME", "edge");
-    register();
+    await register();
     expect(exit).toHaveBeenCalledOnce();
   });
 

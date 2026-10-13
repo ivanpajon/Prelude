@@ -1,19 +1,13 @@
 import type { Instrumentation } from "next";
-import { parseServerEnvironment } from "./env";
 import { logServerError } from "./lib/server-log";
 
 // Connect Sentry, OpenTelemetry or another reporting service here: start it in register()
 // and forward errors from onRequestError().
 
-export function register() {
-  if (process.env.NEXT_RUNTIME !== "nodejs") return;
-  try {
-    parseServerEnvironment();
-  } catch (error) {
-    // Next.js would keep running and answer every request with 500. Stop with a clear
-    // message instead, so the process manager or container shows the failed start.
-    console.error(error instanceof Error ? error.message : error);
-    process.exit(1);
+export async function register() {
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    const { validateEnvironmentOrExit } = await import("./instrumentation-node");
+    validateEnvironmentOrExit();
   }
 }
 
