@@ -49,11 +49,23 @@ const report = {
     samples,
     runtime: { cpus: 2, memory: "1g" },
     development: { cpus: 2, memory: "4g" },
-    requests: { warmup: 6, count: 50, concurrency: 4, routes: ["/", "/api/v1/tasks?status=all"] },
+    requests: {
+      warmup: 6,
+      count: 50,
+      concurrency: 4,
+      // Requests rotate through these routes.
+      routes: [
+        "/",
+        "/api/health",
+        // demo:start
+        "/api/v1/tasks?status=all",
+        // demo:end
+      ],
+    },
     build: "Dedicated empty Buildx builder; host Docker engine resource defaults.",
     size: "Unpacked bytes are SizeRootFs minus SizeRw from a never-started, network-disabled measurement container. Raw rootfs/writable values and image inspect Size (image-store bytes, potentially packed plus unpacked) are retained separately. Compressed bytes sum unique gzip OCI layers, excluding config/manifest metadata; not measured network transfer.",
     readiness:
-      "First successful task API response after compose up, with container-start-relative and command-relative timing; first HTML request reported separately. The Compose healthcheck must then report healthy (commandToHealthyMs).",
+      "First successful /api/health response after compose up, with container-start-relative and command-relative timing; first HTML request reported separately. The Compose healthcheck must then report healthy (commandToHealthyMs).",
     rss: "Sum of Node application processes' VmRSS from /proc, excluding the measurement process.",
   },
   builds: {},
@@ -296,6 +308,23 @@ async function ociSize(archive) {
 }
 
 const nodeBin = (target) => (target === "production" ? "/nodejs/bin/node" : "/usr/local/bin/node");
+// Build-only packages that must not resolve from the production server.
+const buildTools = [
+  "@modelcontextprotocol/inspector",
+  // demo:start
+  "tsdown",
+  "@tailwindcss/cli",
+  // demo:end
+];
+// Extra runtime assertions; each one that passes is reported as `name: true`.
+const runtimeChecks = [
+  // demo:start
+  [
+    "mcpApp",
+    "assert(fs.readFileSync('/app/apps/web/.generated/mcp-apps/tasks.html','utf8').includes('<!--PRELUDE_MCP_APP_CONFIG-->'),'Runtime must contain the generated MCP App HTML');",
+  ],
+  // demo:end
+];
 const inspectRuntimeSource = `
 const fs=require('node:fs'), path=require('node:path');
 const assert=require('node:assert/strict');
@@ -304,16 +333,15 @@ assert.equal(Intl.DateTimeFormat.supportedLocalesOf(['en','es','ja','ar']).lengt
 assert.match(new Intl.DateTimeFormat('es',{month:'long',timeZone:'Europe/Madrid'}).format(new Date('2026-01-01')),/enero/);
 assert.equal(Temporal.Instant.from('2026-01-01T00:00:00Z').toZonedDateTimeISO('Europe/Madrid').hour,1);
 const fromApp=require('node:module').createRequire('/app/apps/web/server.js');
-for(const dependency of ['tsdown','@tailwindcss/cli','@modelcontextprotocol/inspector']) {
+for(const dependency of ${JSON.stringify(buildTools)}) {
  assert.throws(()=>fromApp.resolve(dependency),{code:'MODULE_NOT_FOUND'},dependency+' must not ship in the runtime');
 }
-const appHtml=fs.readFileSync('/app/apps/web/.generated/mcp-apps/tasks.html','utf8');
-assert(appHtml.includes('<!--PRELUDE_MCP_APP_CONFIG-->'),'Runtime must contain the generated MCP App HTML');
+${runtimeChecks.map(([, check]) => check).join("\n")}
 const fromNext=require('node:module').createRequire(fromApp.resolve('next/package.json'));
 const sharp=fromNext('sharp'); assert(sharp.versions.vips);
 const cache='/app/apps/web/.next/cache'; fs.mkdirSync(cache,{recursive:true});
 const probe=path.join(cache,'stack-permission-probe'); fs.writeFileSync(probe,'ok'); fs.unlinkSync(probe);
-console.log(JSON.stringify({uid:process.getuid(),node:process.version,icu:process.versions.icu,sharp:sharp.versions.sharp,nativeTemporal:true,mcpApp:true,buildToolsAbsent:true}));
+console.log(JSON.stringify({uid:process.getuid(),node:process.version,icu:process.versions.icu,sharp:sharp.versions.sharp,nativeTemporal:true,${runtimeChecks.map(([name]) => `${name}:true,`).join("")}buildToolsAbsent:true}));
 `;
 
 async function imageMetrics(target) {
@@ -416,9 +444,7 @@ async function waitReady(origin, timeout = 180_000) {
   while (performance.now() - started < timeout) {
     controller.signal.throwIfAborted();
     try {
-      const response = await fetch(`${origin}/api/v1/tasks?status=all`, {
-        signal: AbortSignal.timeout(1500),
-      });
+      const response = await fetch(`${origin}/api/health`, { signal: AbortSignal.timeout(1500) });
       lastStatus = response.status;
       await response.arrayBuffer();
       if (response.ok) return;
@@ -639,7 +665,8 @@ try {
   const disabled = await composeConfig("production", { MCP_ENABLED: "false" });
   await launch(disabled);
   assert.equal((await fetch(`${disabled.origin}/api/mcp`)).status, 404);
-  assert.equal((await fetch(`${disabled.origin}/api/v1/tasks?status=all`)).status, 200);
+  assert.equal((await fetch(`${disabled.origin}/api/health`)).status, 200);
+  assert.equal((await fetch(`${disabled.origin}/api/openapi.json`)).status, 200);
   disabled.env.MCP_ENABLED = "true";
   await launch(disabled);
   assert.equal((await fetch(`${disabled.origin}/api/mcp`)).status, 405);
@@ -676,12 +703,14 @@ try {
   assert.equal(watch.exitCode, null, "Compose watch failed to start");
   await browserChecks(development, "development", ready.id);
   report.acceptance.developmentInspectorAndHmr = "passed";
+  // demo:start
   report.acceptance.developmentMcpAppSandbox = {
     status: "passed",
     appPort: development.port,
     inspectorPort: development.inspectorPort,
     sandboxPort: development.sandboxPort,
   };
+  // demo:end
   await checkpoint();
   const manifestPath = path.join(context, "package.json");
   const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
