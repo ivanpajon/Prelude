@@ -1,10 +1,13 @@
-import { RPCHandler } from "@orpc/server/fetch";
+import { BodyLimitPlugin, RPCHandler } from "@orpc/server/fetch";
 import { demoRepository, router } from "@repo/api";
+import { plainRequest } from "@/lib/plain-request";
 
-const handler = new RPCHandler(router);
+const handler = new RPCHandler(router, {
+  plugins: [new BodyLimitPlugin({ maxBodySize: 64 * 1024 })],
+});
 
 async function handle(request: Request) {
-  const { response } = await handler.handle(request, {
+  const { response } = await handler.handle(plainRequest(request), {
     prefix: "/api/rpc",
     context: { repository: demoRepository },
   });

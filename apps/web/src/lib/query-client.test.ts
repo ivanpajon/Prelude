@@ -8,6 +8,7 @@ describe("server query clients", () => {
     first.setQueryData(["private"], "first request");
     expect(second.getQueryData(["private"])).toBeUndefined();
     expect(first.getDefaultOptions().queries?.staleTime).toBe(60_000);
+    expect(first.getDefaultOptions().queries?.retry).toBe(false);
     first.clear();
     second.clear();
   });

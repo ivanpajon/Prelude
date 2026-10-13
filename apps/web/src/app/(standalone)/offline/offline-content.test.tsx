@@ -9,7 +9,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  document.documentElement.lang = "en";
+  document.documentElement.removeAttribute("lang");
+  document.title = "";
   vi.restoreAllMocks();
 });
 
@@ -43,6 +44,7 @@ describe("static offline fallback", () => {
     render(<OfflineContent />);
     expect(screen.getByRole("heading", { name: "You’re offline." })).toBeVisible();
     expect(document.documentElement.lang).toBe("en");
+    expect(document.title).toBe("You’re offline — Prelude");
   });
 
   it("still matches browser language when cookie access is blocked", () => {

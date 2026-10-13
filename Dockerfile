@@ -12,7 +12,7 @@ USER node
 
 FROM base AS dependencies
 ARG TARGETARCH
-COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY --parents --chown=node:node ./apps/*/package.json ./packages/*/package.json ./
 RUN --mount=type=cache,id=prelude-pnpm-${TARGETARCH},target=/pnpm/store,uid=1000,gid=1000,sharing=locked \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store

@@ -19,8 +19,8 @@ export default defineConfig({
   webServer: {
     command: "pnpm --filter @repo/web dev --hostname 127.0.0.1 --port 3102",
     env: { MCP_INSPECTOR_PORT: "6284", MCP_SANDBOX_PORT: "6286" },
-    url: "http://127.0.0.1:3102",
-    reuseExistingServer: false,
-    timeout: 60_000,
+    // dev-web prints this once Next.js, the Inspector and its sandbox all respond.
+    wait: { stdout: /MCP Inspector: http/ },
+    timeout: 180_000,
   },
 });

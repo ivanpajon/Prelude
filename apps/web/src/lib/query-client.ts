@@ -1,10 +1,8 @@
-import { QueryClient } from "@tanstack/react-query";
+import { isServer, QueryClient } from "@tanstack/react-query";
 
 export function makeQueryClient() {
   return new QueryClient({
-    defaultOptions: {
-      queries: { staleTime: 60_000, retry: 1 },
-      mutations: { retry: false },
-    },
+    // Server prefetches fail fast; the browser retries once.
+    defaultOptions: { queries: { staleTime: 60_000, retry: isServer ? false : 1 } },
   });
 }

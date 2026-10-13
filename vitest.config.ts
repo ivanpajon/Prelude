@@ -15,6 +15,9 @@ export default defineConfig({
         test: {
           name: "node",
           environment: "node",
+          // Script and runtime tests spawn node and git; one spawn can take over 10 s on
+          // hosts with on-access antivirus scanning.
+          testTimeout: 120_000,
           server: { deps: { inline: ["next-intl"] } },
           include: ["packages/**/*.test.ts", "apps/**/*.test.ts", "scripts/**/*.test.mjs"],
         },

@@ -33,13 +33,9 @@ test("opens the official Inspector from the playground and runs the real sandbox
   }
 });
 
-test("runs the real Task App in Spanish through the official Inspector", async ({
-  browser,
-  baseURL,
-}) => {
+test("runs the real Task App in Spanish through the official Inspector", async ({ browser }) => {
   test.setTimeout(90_000);
-  if (!baseURL) throw new Error("Missing native development URL");
-  const context = await browser.newContext({ baseURL, locale: "es-ES", serviceWorkers: "block" });
+  const context = await browser.newContext({ locale: "es-ES" });
   try {
     await exerciseTaskApp({
       page: await context.newPage(),

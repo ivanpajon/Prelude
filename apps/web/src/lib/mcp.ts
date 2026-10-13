@@ -129,9 +129,9 @@ async function executeTool(
       }
       return toolError("The API rejected the request.", "API_ERROR");
     }
-    // The generator represents a documented empty response with a null output schema.
-    const data: JSONValue =
-      response.status === 204 || mapped.method === "HEAD" ? null : await response.json();
+    // Empty bodies (204, HEAD, or a procedure without output) become null.
+    const text = await response.text();
+    const data: JSONValue = text ? JSON.parse(text) : null;
     // SDK v2 preserves natural JSON for modern clients and projects arrays for legacy clients.
     return { content: [{ type: "text", text: JSON.stringify(data) }], structuredContent: data };
   } catch {

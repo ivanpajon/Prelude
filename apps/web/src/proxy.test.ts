@@ -179,16 +179,20 @@ describe("locale proxy", () => {
   );
 
   it.each([
-    "/api/docs",
-    "/api/openapi.json",
-    "/api/mcp/inspector",
-    "/offline",
-    "/_next/static/chunk.js",
-    "/manifest.webmanifest",
-    "/sw.js",
-  ])("excludes unlocalized endpoints and assets (%s)", (pathname) => {
+    ["/", true],
+    ["/es/playground", true],
+    ["/apiary", true],
+    ["/offline-guide", true],
+    ["/api/docs", false],
+    ["/api/openapi.json", false],
+    ["/api/mcp/inspector", false],
+    ["/offline", false],
+    ["/_next/static/chunk.js", false],
+    ["/manifest.webmanifest", false],
+    ["/sw.js", false],
+  ])("matches localized pages and excludes endpoints and assets (%s)", (pathname, expected) => {
     expect(unstable_doesMiddlewareMatch({ config, url: `http://localhost${pathname}` })).toBe(
-      false,
+      expected,
     );
   });
 

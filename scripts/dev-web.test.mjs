@@ -3,7 +3,6 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { setTimeout as delay } from "node:timers/promises";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   devCommands,
@@ -90,6 +89,10 @@ function fixtureCommand(port, mode = "ready", extraEnv = {}) {
   };
 }
 
+// Covers a few node launches on hosts where one launch takes over 10 s, while staying
+// below the node project's testTimeout so startup failures report their own error.
+const startupTimeoutMs = 60_000;
+
 function start(commands, options = {}) {
   const controller = new AbortController();
   let ready;
@@ -99,7 +102,7 @@ function start(commands, options = {}) {
   const done = supervise(commands, {
     signal: controller.signal,
     stdio: "ignore",
-    startupTimeoutMs: 5000,
+    startupTimeoutMs,
     onReady: ready,
     ...options,
   });
@@ -126,13 +129,16 @@ async function expectClosed(port) {
 
 async function expectGrandchildReady(port) {
   await expect
-    .poll(async () => {
-      try {
-        return await (await fetch(`http://127.0.0.1:${port}`)).text();
-      } catch {
-        return "starting";
-      }
-    })
+    .poll(
+      async () => {
+        try {
+          return await (await fetch(`http://127.0.0.1:${port}`)).text();
+        } catch {
+          return "starting";
+        }
+      },
+      { timeout: startupTimeoutMs },
+    )
     .toBe("grandchild");
 }
 
@@ -376,7 +382,7 @@ describe("development options and isolation", () => {
     expect(read().inspectorPort).toBe(6202);
     delete env.MCP_INSPECTOR_PORT;
     expect(read().inspectorPort).toBe(6201);
-  }, 15_000);
+  });
 
   it("resolves package binaries without relying on PATH shims", () => {
     expect(resolvePackageBin("next", "next", path.join(workspaceRoot, "apps", "web"))).toMatch(
@@ -414,7 +420,7 @@ describe("owned development process lifecycle", () => {
     run.controller.abort();
     await run.done;
     await Promise.all([appPort, inspectorPort].map(expectClosed));
-  }, 10_000);
+  });
 
   it("waits for the initial builder IPC message before launching HTTP servers", async () => {
     const root = temporaryDirectory();
@@ -444,7 +450,7 @@ describe("owned development process lifecycle", () => {
     run.controller.abort();
     await run.done;
     await expectClosed(port);
-  }, 10_000);
+  });
 
   it("checks auxiliary GET-only sandbox readiness and closes its listener", async () => {
     const [port, sandboxPort] = await freePorts();
@@ -459,7 +465,7 @@ describe("owned development process lifecycle", () => {
     run.controller.abort();
     await run.done;
     await Promise.all([port, sandboxPort].map(expectClosed));
-  }, 10_000);
+  });
 
   it("refuses a sandbox collision before launching any child", async () => {
     const sandboxPort = await listen(createServer((_req, res) => res.end("unrelated")));
@@ -480,7 +486,7 @@ describe("owned development process lifecycle", () => {
     run.controller.abort();
     await run.done;
     await Promise.all(ports.map(expectClosed));
-  }, 10_000);
+  });
 
   it("probes and stops container listeners through their shared loopback interface", async () => {
     const ports = await freePorts();
@@ -494,7 +500,7 @@ describe("owned development process lifecycle", () => {
     run.controller.abort();
     await run.done;
     await Promise.all(ports.map(expectClosed));
-  }, 10_000);
+  });
 
   it("refuses occupied ports without stopping or reusing the existing server", async () => {
     const occupied = createServer((_req, res) => res.end("unrelated"));
@@ -513,7 +519,7 @@ describe("owned development process lifecycle", () => {
     const run = start([fixtureCommand(ports[0]), fixtureCommand(ports[1], "crash")]);
     await expect(run.done).rejects.toThrow(/exit 23/);
     await Promise.all(ports.map(expectClosed));
-  }, 10_000);
+  });
 
   it("shuts down its peer when a ready child exits", async () => {
     const ports = await freePorts();
@@ -522,7 +528,7 @@ describe("owned development process lifecycle", () => {
     await fetch(`http://127.0.0.1:${ports[0]}/exit`);
     await expect(run.done).rejects.toThrow(/exit 23/);
     await Promise.all(ports.map(expectClosed));
-  }, 10_000);
+  });
 
   it("times out unhealthy startup and closes every owned child", async () => {
     const ports = await freePorts();
@@ -532,7 +538,7 @@ describe("owned development process lifecycle", () => {
     );
     await expect(run.done).rejects.toThrow(/not ready/);
     await Promise.all(ports.map(expectClosed));
-  }, 10_000);
+  });
 
   it("also stops descendants rather than leaving an orphaned worker", async () => {
     const [port, grandchildPort] = await freePorts();
@@ -549,7 +555,7 @@ describe("owned development process lifecycle", () => {
     run.controller.abort();
     await run.done;
     await Promise.all([port, grandchildPort].map(expectClosed));
-  }, 10_000);
+  });
 
   it.each(["exit", "hard kill"])(
     "stops a listening IPC grandchild and peer after its parent's %s",
@@ -576,7 +582,6 @@ describe("owned development process lifecycle", () => {
       await expect(run.done).rejects.toThrow(/stopped/);
       await Promise.all([port, peerPort, grandchildPort].map(expectClosed));
     },
-    10_000,
   );
 
   it("stops children and forked descendants if the launcher itself is killed", async () => {
@@ -627,15 +632,14 @@ describe("owned development process lifecycle", () => {
       if (launcher.exitCode === null && launcher.signalCode === null) launcher.kill("SIGKILL");
       await exited;
     }
-  }, 10_000);
+  });
 
   it("does not launch children after cancellation", async () => {
-    const [port] = await freePorts(1);
+    // Any work after cancellation would reject because this port is already taken.
+    const port = await listen(createServer());
     const controller = new AbortController();
     controller.abort();
     await supervise([fixtureCommand(port)], { signal: controller.signal });
-    await delay(20);
-    await expectClosed(port);
   });
 });
 

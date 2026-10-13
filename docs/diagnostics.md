@@ -9,7 +9,7 @@ pnpm react-doctor
 pnpm --silent react-doctor:json
 ```
 
-The first command prints detailed findings with file locations. The second writes a structured JSON report to stdout; `--silent` removes pnpm's script banner so another tool can parse it. The script is named `react-doctor` because pnpm 11 has its own unrelated `doctor` command. React Doctor also recognizes this script name when checking whether the project is configured.
+The first command prints detailed findings with file locations. The second writes a structured JSON report to stdout; `--silent` removes pnpm's script banner so another tool can parse it. The script is named `react-doctor` because pnpm has its own unrelated `doctor` command. React Doctor also recognizes this script name when checking whether the project is configured.
 
 ## Interpreting results
 

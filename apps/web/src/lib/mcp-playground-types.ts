@@ -24,7 +24,6 @@ export type McpPlaygroundErrorCode =
   | "errorInvalidOrigin"
   | "errorLocalOnly"
   | "errorDisabled"
-  | "errorUnavailable"
   | "errorTimeout"
   | "errorRequestFailed"
   | "errorInvalidToolArguments"

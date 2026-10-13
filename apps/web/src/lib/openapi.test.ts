@@ -3,20 +3,34 @@ import { RPCLink } from "@orpc/client/fetch";
 import { oc } from "@orpc/contract";
 import { OpenAPIGenerator } from "@orpc/openapi";
 import { RPCHandler } from "@orpc/server/fetch";
-import { type Context, createDemoRepository, router, type TaskRepository } from "@repo/api";
+import {
+  type Context,
+  createDemoRepository,
+  demoRepository,
+  router,
+  type TaskRepository,
+} from "@repo/api";
 import type { ApiClient, Task } from "@repo/contracts";
 import { type } from "arktype";
 import { describe, expect, it, vi } from "vitest";
+import { POST as rpcPost } from "../app/api/rpc/[[...rest]]/route";
 import { DirectionalArkTypeConverter, generateOpenApiSpec, handleOpenApiRequest } from "./openapi";
+
+// Route handlers receive a Proxy like this one; `new Request(proxy)` cannot read its fields.
+function nextRequest(request: Request) {
+  return new Proxy(request, { get: (target, key) => Reflect.get(target, key, target) });
+}
 
 function request(context: Context, path: string, method = "GET", body?: unknown) {
   return handleOpenApiRequest(
-    new Request(`http://localhost/api${path}`, {
-      method,
-      ...(body === undefined
-        ? {}
-        : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
-    }),
+    nextRequest(
+      new Request(`http://localhost/api${path}`, {
+        method,
+        ...(body === undefined
+          ? {}
+          : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+      }),
+    ),
     context,
   );
 }
@@ -485,6 +499,59 @@ describe("OpenAPI HTTP adapter", () => {
       expect(changed).not.toHaveBeenCalled();
     },
   );
+
+  it.each([
+    ["POST", "/v1/tasks"],
+    ["PATCH", "/v1/tasks/explore/title"],
+  ] as const)("rejects an oversized %s %s body before mutation", async (method, path) => {
+    const repository = createDemoRepository();
+    const before = repository.list("all");
+    const changed = vi.fn();
+    const response = await request({ repository, onTasksChanged: changed }, path, method, {
+      title: "Oversized",
+      pad: "x".repeat(64 * 1024),
+    });
+
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({ code: "PAYLOAD_TOO_LARGE" });
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(repository.list("all")).toEqual(before);
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it("rejects an oversized RPC body before mutation", async () => {
+    const before = demoRepository.list("all");
+    const response = await rpcPost(
+      nextRequest(
+        new Request("http://localhost/api/rpc/tasks/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ json: { title: "Oversized", pad: "x".repeat(64 * 1024) } }),
+        }),
+      ),
+    );
+
+    expect(response.status).toBe(413);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(demoRepository.list("all")).toEqual(before);
+  });
+
+  it("accepts an RPC body within the limit from a route-handler request", async () => {
+    const response = await rpcPost(
+      nextRequest(
+        new Request("http://localhost/api/rpc/tasks/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ json: { title: "Within limit" } }),
+        }),
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    const { json: task } = await response.json();
+    expect(demoRepository.list("all")).toContainEqual(task);
+    demoRepository.delete(task.id);
+  });
 
   it("rejects invalid repository output instead of exposing it as a successful response", async () => {
     const repository: TaskRepository = {

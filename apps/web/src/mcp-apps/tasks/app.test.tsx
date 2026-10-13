@@ -471,7 +471,10 @@ it("changes host language without reconnecting, losing drafts, refetching, or re
   });
   expect(screen.getByRole("heading", { name: "Tus tareas, aquí mismo." })).toBeVisible();
   expect(screen.getByRole("status")).toHaveTextContent("1 tarea en esta vista");
-  expect(screen.getByRole("button", { name: "Activas" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "Pendientes" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   await user.type(screen.getByRole("textbox", { name: "Nueva tarea" }), "Keep this create draft");
   await user.click(screen.getByRole("button", { name: `Editar ${task.title}` }));
   const edit = screen.getByRole("textbox", { name: "Título de la tarea" });

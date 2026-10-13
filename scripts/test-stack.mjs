@@ -53,7 +53,7 @@ const report = {
     build: "Dedicated empty Buildx builder; host Docker engine resource defaults.",
     size: "Unpacked bytes are SizeRootFs minus SizeRw from a never-started, network-disabled measurement container. Raw rootfs/writable values and image inspect Size (image-store bytes, potentially packed plus unpacked) are retained separately. Compressed bytes sum unique gzip OCI layers, excluding config/manifest metadata; not measured network transfer.",
     readiness:
-      "First successful task API response after compose up, with container-start-relative and command-relative timing; first HTML request reported separately.",
+      "First successful task API response after compose up, with container-start-relative and command-relative timing; first HTML request reported separately. The Compose healthcheck must then report healthy (commandToHealthyMs).",
     rss: "Sum of Node application processes' VmRSS from /proc, excluding the measurement process.",
   },
   builds: {},
@@ -453,11 +453,24 @@ async function launch(config) {
   const html = await fetch(config.origin);
   assert.equal(html.status, 200);
   await html.arrayBuffer();
+  const firstHtmlMs = performance.now() - htmlStart;
+  // Exercise the healthcheck the Compose file ships; `up --wait` users depend on it.
+  const healthStarted = performance.now();
+  let health;
+  while (performance.now() - healthStarted < 180_000) {
+    controller.signal.throwIfAborted();
+    health = (await docker(["inspect", "--format", "{{.State.Health.Status}}", id])).output.trim();
+    if (health === "healthy") break;
+    assert.notEqual(health, "unhealthy", `${config.name} healthcheck reported unhealthy`);
+    await delay(500);
+  }
+  assert.equal(health, "healthy", `${config.name} healthcheck did not pass`);
   return {
     id,
     commandToReadyMs,
     containerToReadyMs: readyAt - Date.parse(inspected.State.StartedAt),
-    firstHtmlMs: performance.now() - htmlStart,
+    firstHtmlMs,
+    commandToHealthyMs: performance.now() - started,
   };
 }
 
@@ -715,11 +728,13 @@ try {
   console.error(report.error);
   process.exitCode = 1;
 } finally {
-  await checkpoint();
   const cleanupErrors = [];
+  await checkpoint().catch((error) => cleanupErrors.push(error.message));
   await stopWatch().catch((error) => cleanupErrors.push(error.message));
   if (watchOutput)
-    await writeFile(path.join(reportDirectory, "compose-watch.log"), redact(watchOutput));
+    await writeFile(path.join(reportDirectory, "compose-watch.log"), redact(watchOutput)).catch(
+      (error) => cleanupErrors.push(error.message),
+    );
   const projects = new Map([...ownedProjects].map((config) => [config.name, config]));
   for (const config of projects.values()) {
     await docker([...config.args, "logs", "--no-color"], {

@@ -180,7 +180,7 @@ test("retries tool discovery after a network failure", async ({ page }) => {
   const widget = playground(page);
   const button = widget.getByRole("button", { name: "Discover tools", exact: true });
   await button.click();
-  await expect(widget.getByRole("alert")).toContainText("Use Discover tools to try again");
+  await expect(widget.getByRole("alert")).toContainText("Could not complete the MCP request");
   await expect(button).toBeEnabled();
   await page.unroute("**/*");
   await discover(page);

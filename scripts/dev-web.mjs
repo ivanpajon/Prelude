@@ -357,7 +357,7 @@ async function stopChild(owned) {
 
 export async function supervise(
   commands,
-  { signal, onReady = () => {}, stdio = "inherit", startupTimeoutMs = 60_000 } = {},
+  { signal, onReady = () => {}, stdio = "inherit", startupTimeoutMs = 180_000 } = {},
 ) {
   if (signal?.aborted) return;
   await assertPortsAvailable(commands);

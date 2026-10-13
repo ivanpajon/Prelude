@@ -1,3 +1,6 @@
+/* Only MCP hosts set data-theme; the site stays light whatever the OS theme. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 @theme inline {
   --font-sans: "Segoe UI", Arial, sans-serif;
   --font-mono: "Cascadia Code", "Consolas", monospace;

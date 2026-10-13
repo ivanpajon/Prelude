@@ -481,7 +481,7 @@ test("keeps compact view local while filters change", async ({ page, browser }) 
   await expect(compact).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
 
-  const isolated = await browser.newContext({ serviceWorkers: "block" });
+  const isolated = await browser.newContext();
   try {
     const freshPage = await isolated.newPage();
     await freshPage.goto(new URL("/playground", page.url()).href);
