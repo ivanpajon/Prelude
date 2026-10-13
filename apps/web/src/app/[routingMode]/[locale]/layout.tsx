@@ -36,7 +36,16 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const locale = await getLocale();
   const t = await getTranslations("Common");
   const pwa = await getTranslations("Pwa");
-  const { Common, Tasks, Mcp, Animation, Pwa, Errors } = await getMessages();
+  const {
+    Common,
+    Animation,
+    Pwa,
+    Errors,
+    // demo:start
+    Tasks,
+    Mcp,
+    // demo:end
+  } = await getMessages();
   return (
     <html lang={locale}>
       <body className="min-h-screen bg-background text-foreground antialiased">
@@ -46,7 +55,18 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         >
           {t("skip")}
         </a>
-        <NextIntlClientProvider messages={{ Common, Tasks, Mcp, Animation, Pwa, Errors }}>
+        <NextIntlClientProvider
+          messages={{
+            Common,
+            Animation,
+            Pwa,
+            Errors,
+            // demo:start
+            Tasks,
+            Mcp,
+            // demo:end
+          }}
+        >
           <RoutingPreferenceProvider mode={mode}>
             <Toaster dismissLabel={pwa("toastClose")} regionLabel={pwa("toastRegion")} />
             <PwaProvider>

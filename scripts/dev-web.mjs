@@ -20,7 +20,7 @@ Options:
   --port, -p <port>          Next.js port (PORT, or 3000)
   --hostname, -H <hostname>  127.0.0.1 or localhost; always binds 127.0.0.1
   --container               Bind both servers to 0.0.0.0 inside an isolated container
-  --no-inspector            Start only Next.js and the MCP App builder (pnpm dev:app)
+  --no-inspector            Skip the MCP Inspector and its sandbox (pnpm dev:app)
   --turbopack                Accepted for compatibility; always enabled
   --help, -h                Show this help
 
@@ -151,6 +151,7 @@ export function devCommands(root, options, env = process.env, binaries) {
     ),
   );
   const commands = [
+    // demo:start
     {
       name: "MCP App builder",
       script: path.join(root, "scripts/build-mcp-apps.mjs"),
@@ -160,6 +161,7 @@ export function devCommands(root, options, env = process.env, binaries) {
       readyMessage: "mcp-apps-ready",
       beforeServers: true,
     },
+    // demo:end
     {
       name: "Next.js",
       script: binaries?.next ?? resolvePackageBin("next", "next", app),

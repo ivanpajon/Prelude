@@ -24,7 +24,9 @@ const nextConfig: NextConfig = {
   // Preserve next-intl's internal rewrite origin when binding to loopback IPs.
   // Next.js 16.4.0 still normalizes them asymmetrically: vercel/next.js#94745.
   skipProxyUrlNormalize: true,
+  // demo:start
   outputFileTracingIncludes: { "/api/mcp": ["./.generated/mcp-apps/tasks.html"] },
+  // demo:end
   // Docker binds internally to 0.0.0.0; browsers still reach HMR over loopback.
   allowedDevOrigins: ["127.0.0.1"],
   ...(process.env.NEXT_OUTPUT_STANDALONE === "true"

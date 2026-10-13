@@ -41,14 +41,21 @@ for (const mode of ["always", "never"]) {
 }
 const publicDirectory = path.resolve(root, "apps/web/public");
 const worker = path.resolve(publicDirectory, "sw.js");
-const widget = path.resolve(root, "apps/web/.generated/mcp-apps/tasks.html");
-const artifacts = [worker, `${worker}.map`, widget].filter(existsSync);
+// Other generated files that the build must produce and the cache must restore.
+const generated = [
+  // demo:start
+  path.resolve(root, "apps/web/.generated/mcp-apps/tasks.html"),
+  // demo:end
+];
+const artifacts = [worker, `${worker}.map`, ...generated].filter(existsSync);
 assert(artifacts.includes(worker), "Build did not produce a service worker.");
-assert(artifacts.includes(widget), "Build did not produce the MCP App HTML.");
+for (const file of generated) {
+  assert(artifacts.includes(file), `Build did not produce ${path.relative(root, file)}.`);
+}
 const saved = artifacts.map((file) => {
   assert(
-    path.dirname(file) === publicDirectory || file === widget,
-    "Artifact must be a known generated service worker or MCP App file.",
+    path.dirname(file) === publicDirectory || generated.includes(file),
+    "Artifact must be a known generated file.",
   );
   return { file, bytes: readFileSync(file) };
 });
@@ -66,9 +73,7 @@ try {
       `Cache restoration changed ${path.basename(file)}.`,
     );
   }
-  console.log(
-    `Verified byte-for-byte restoration of ${saved.length} service-worker/MCP App artifacts.`,
-  );
+  console.log(`Verified byte-for-byte restoration of ${saved.length} generated artifacts.`);
 } finally {
   // Never overwrite a fresh build's output with the older saved bytes.
   for (const { file, bytes } of saved) if (!existsSync(file)) writeFileSync(file, bytes);

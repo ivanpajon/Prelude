@@ -1,6 +1,6 @@
 import { Badge } from "@repo/ui/components/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
-import { ArrowRightIcon, ArrowUpRightIcon, CheckIcon } from "lucide-react";
+import { ArrowUpRightIcon, CheckIcon } from "lucide-react";
 import { cacheLife } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
@@ -8,7 +8,12 @@ import { AnimationExamples } from "@/components/animation-examples";
 import { RoutingModeSwitch } from "@/components/routing-mode-switch";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+// demo:start
+
+import { ArrowRightIcon } from "lucide-react";
 import { Link } from "@/i18n/navigation";
+
+// demo:end
 
 const boundaries = [
   {
@@ -119,6 +124,7 @@ export default async function HomePage() {
             <p className="mt-6 max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg">
               {t("intro")}
             </p>
+            {/* demo:start */}
             <Link
               href="/playground"
               className="mt-8 inline-flex items-center gap-3 rounded-full bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
@@ -126,6 +132,7 @@ export default async function HomePage() {
               {t("openPlayground")}
               <ArrowRightIcon className="size-4" aria-hidden="true" />
             </Link>
+            {/* demo:end */}
           </div>
           <div className="lg:col-span-2">
             <Suspense

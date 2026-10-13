@@ -8,7 +8,7 @@ afterEach(() => {
 
 const context = {
   routerKind: "App Router",
-  routePath: "/[routingMode]/[locale]/playground",
+  routePath: "/[routingMode]/[locale]/about",
   routeType: "render",
   renderSource: "server-rendering",
   revalidateReason: undefined,
@@ -41,7 +41,7 @@ describe("instrumentation", () => {
     const error = Object.assign(new Error("Render failed"), { digest: "1234567890" });
     await onRequestError(
       error,
-      { path: "/en/playground?token=secret", method: "GET", headers: {} },
+      { path: "/en/about?token=secret", method: "GET", headers: {} },
       context,
     );
 
@@ -54,8 +54,8 @@ describe("instrumentation", () => {
       message: "Request failed",
       digest: "1234567890",
       method: "GET",
-      path: "/en/playground",
-      route: "/[routingMode]/[locale]/playground",
+      path: "/en/about",
+      route: "/[routingMode]/[locale]/about",
       routeType: "render",
       error: { name: "Error", message: "Render failed" },
     });
