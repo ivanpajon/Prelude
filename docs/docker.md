@@ -125,7 +125,7 @@ docker compose --env-file .env.second --project-name second-dev -f compose.dev.y
 
 The default production binding is appropriate for local use and a reverse proxy running on the same host. Set `PROD_HOST=0.0.0.0` only when the deployment needs the port reachable through other interfaces. Configure the server's network access and HTTPS ingress for the intended audience.
 
-Use HTTPS for a deployed PWA; browsers permit the local loopback exception during development. Preserve the public request Host when forwarding to Next.js so same-origin Server Actions can verify it, and preserve streaming responses. TLS termination, public DNS, authentication, persistence, and deployment-provider configuration remain the operator's choices.
+Use HTTPS for a deployed PWA; browsers permit the local loopback exception during development. Preserve the public request Host when forwarding to Next.js so same-origin Server Actions can verify it, and preserve streaming responses. TLS termination, public DNS, authentication, persistence, and deployment-provider configuration remain the operator's choices. Send `Strict-Transport-Security` from the HTTPS proxy; the app sends its other [security headers](architecture.md#security-headers) itself.
 
 The demo's REST, RPC, and MCP mutations are public. Set `MCP_ENABLED=false` if MCP should be hidden; this does not disable the other transports. Replace demo data access and add application authorization before adapting it to private data.
 

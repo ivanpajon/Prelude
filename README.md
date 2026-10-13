@@ -133,6 +133,7 @@ The command updates package names, workspace dependencies, imports, shadcn alias
 - Import dates and times from `@repo/temporal`; it selects native Temporal or a browser-compatible fallback. See [Temporal usage](docs/temporal.md) for serialization and hydration guidance.
 - Use the shared Motion provider and Morphicons wrapper for animations that honor reduced motion. The compact-view toggle demonstrates both; see [animation guidance](docs/motion.md).
 - Replace the task contracts, repository, and `/playground` workbench with your feature, updating the corresponding tests. Replace or remove the separate MCP App example too; keep the provider and transport infrastructure you need.
+- Add an origin to the Content Security Policy in `apps/web/next.config.ts` before pages load scripts, images, or APIs from another host. See [security headers](docs/architecture.md#security-headers).
 - Update the API title, version, tags, and descriptions in `apps/web/src/lib/openapi.ts`; keep route metadata with the contracts. See [OpenAPI customization and demo removal](docs/openapi.md).
 - MCP tools follow the same OpenAPI operations automatically. Configure exposure and request authorization with the rest of the API; see [MCP customization](docs/mcp.md).
 - MCP App interfaces have explicit resource associations. See [MCP Apps](docs/mcp-apps.md) for the widget's shared components, host connection, build pipeline, and removal checklist.

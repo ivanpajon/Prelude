@@ -73,3 +73,13 @@ An accessible, responsive toast at the top right announces a waiting worker. It 
 The close control or an upward/rightward swipe dismisses the notification for that worker for the lifetime of the current document, including locale changes and a back/forward-cache pause; a newer waiting worker can be offered again. Dismissing a waiting toast does not activate its worker. Dismissing during **Updating…** keeps the approval and pending reload, while suppressing further error messages and reminders for that worker. If an undismissed activation does not complete within 15 seconds, **Couldn’t update** offers **Try again**, retaining the application and its drafts rather than forcing a reload.
 
 For other client notifications, import `toast` from `@repo/ui/components/toast` and call `toast.add({ title, description })` in an event handler or effect. Keep one `Toaster` declaration in the locale root layout; do not add another provider per page. Next.js can retain a previous locale layout's hidden toast DOM through Activity, while the active layout presents notifications. Notifications expire after five seconds by default; use `timeout: 0` for persistent actions and a stable `id` to update one notification in place. `toast.update(id, options)` and `toast.close(id)` are available for custom flows.
+
+## Security headers
+
+`apps/web/next.config.ts` sends `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, and a `Permissions-Policy` that turns off camera, microphone, and geolocation on every response. `X-Powered-By` is disabled.
+
+Pages also receive a Content Security Policy that allows only same-origin scripts, styles, fonts, connections, and images (plus `data:` and `blob:` images), and blocks framing, plugins, and cross-origin form posts. Prerendered pages cannot carry per-request nonces, so inline scripts and styles stay allowed; development adds `'unsafe-eval'` for React's error stacks. A nonce-based policy would require dynamic rendering for every page; see the installed Next.js Content Security Policy guide. `/api/` responses keep the shared headers and set their own policies: the Scalar reference loads its pinned CDN renderer, and the development Inspector frames its local origin.
+
+When a page needs another host's scripts, images, or API, add that origin to the matching directive. The production browser suite checks the headers and fails on policy violations in the home and playground flows.
+
+The app does not send `Strict-Transport-Security`. It cannot tell whether visitors reach it over HTTPS, and on `https://localhost` the header would force HTTPS for other local projects too. Send it from the HTTPS proxy; see [deploying on a server](docker.md#deploying-on-a-server).

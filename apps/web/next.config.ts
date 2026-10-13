@@ -2,8 +2,23 @@ import path from "node:path";
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
+// Prerendered pages cannot carry per-request nonces, so inline scripts and styles stay allowed.
+// React uses eval only for development error stacks.
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' blob: data:",
+  "font-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join("; ");
+
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  poweredByHeader: false,
   // Preserve next-intl's internal rewrite origin when binding to loopback IPs.
   // Next.js 16.3.6 normalizes them asymmetrically: vercel/next.js#94745.
   skipProxyUrlNormalize: true,
@@ -16,6 +31,20 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@repo/ui", "@repo/contracts", "@repo/api", "@repo/temporal", "@repo/i18n"],
   async headers() {
     return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+        ],
+      },
+      {
+        // API routes set their own policies: the Scalar reference loads its pinned CDN script.
+        source: "/((?!api(?:/|$)).*)",
+        headers: [{ key: "Content-Security-Policy", value: contentSecurityPolicy }],
+      },
       {
         source: "/manifest.webmanifest",
         headers: [
