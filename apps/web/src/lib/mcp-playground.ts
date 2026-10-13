@@ -15,6 +15,7 @@ import {
   type McpPlaygroundResponse,
   type McpPlaygroundTool,
 } from "./mcp-playground-types";
+import { logServerError } from "./server-log";
 
 const endpointUrl = new URL("http://prelude.internal/api/mcp");
 
@@ -120,7 +121,7 @@ export function createMcpPlayground({
       if (controller.signal.aborted) {
         return { ok: false, error: "errorTimeout" };
       }
-      console.error("MCP playground request failed:", error);
+      logServerError("MCP playground request failed", error);
       return { ok: false, error: "errorRequestFailed" };
     } finally {
       clearTimeout(timeout);

@@ -379,6 +379,7 @@ describe.each(["modern", "legacy"] as const)("MCP %s HTTP compatibility", (era) 
   });
 
   it("returns safe tool errors for invalid repository output and unexpected failures", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const repository: TaskRepository = {
       ...createDemoRepository([]),
       list: () => [{ id: "broken", title: 42, completed: false } as unknown as Task],
@@ -409,6 +410,8 @@ describe.each(["modern", "legacy"] as const)("MCP %s HTTP compatibility", (era) 
         },
       ]);
     }
+    // One server-side entry per failed call; the cause stays in the log, not the result.
+    expect(logged).toHaveBeenCalledTimes(4);
   });
 
   it("rejects unknown tools and malformed protocol input", async () => {
@@ -741,7 +744,8 @@ describe("MCP endpoint lifecycle", () => {
     ).toMatchObject({ isError: true });
   });
 
-  it("does not expose unexpected adapter exceptions", async () => {
+  it("does not expose unexpected adapter exceptions, but logs them once", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const client = await connect(
       endpoint({
         getContext: () => ({ repository: createDemoRepository([]) }),
@@ -753,6 +757,12 @@ describe("MCP endpoint lifecycle", () => {
     const result = await client.callTool({ name: "listTasks", arguments: { status: "all" } });
     expect(result.isError).toBe(true);
     expect(JSON.stringify(result)).not.toContain("PRIVATE_ADAPTER_DETAILS");
+    expect(logged).toHaveBeenCalledOnce();
+    expect(JSON.parse(String(logged.mock.calls[0]?.[0]))).toMatchObject({
+      message: "MCP tool call failed",
+      tool: "listTasks",
+      error: { message: "PRIVATE_ADAPTER_DETAILS" },
+    });
   });
 
   it.each([200, 204])("supports generated operations with an empty %i response", async (status) => {

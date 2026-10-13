@@ -554,6 +554,7 @@ describe("OpenAPI HTTP adapter", () => {
   });
 
   it("rejects invalid repository output instead of exposing it as a successful response", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const repository: TaskRepository = {
       ...createDemoRepository(),
       list: () => [{ id: "broken", title: 42, completed: false } as unknown as Task],
@@ -563,9 +564,12 @@ describe("OpenAPI HTTP adapter", () => {
     expect(response.status).toBe(500);
     expect(await response.json()).toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
     expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(logged).toHaveBeenCalledOnce();
+    logged.mockRestore();
   });
 
   it("rejects invalid DELETE output instead of returning successful JSON", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const repository: TaskRepository = {
       ...createDemoRepository(),
       delete: () => ({ id: "broken", title: 42, completed: false }) as unknown as Task,
@@ -574,9 +578,12 @@ describe("OpenAPI HTTP adapter", () => {
     expect(response.status).toBe(500);
     expect(await response.json()).toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
     expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(logged).toHaveBeenCalledOnce();
+    logged.mockRestore();
   });
 
   it("rejects invalid title edit output instead of returning successful JSON", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const repository: TaskRepository = {
       ...createDemoRepository(),
       updateTitle: () => ({ id: "broken", title: 42, completed: false }) as unknown as Task,
@@ -587,6 +594,8 @@ describe("OpenAPI HTTP adapter", () => {
     expect(response.status).toBe(500);
     expect(await response.json()).toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
     expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(logged).toHaveBeenCalledOnce();
+    logged.mockRestore();
   });
 
   it("normalizes edits at the length limit and isolates HTTP request contexts", async () => {

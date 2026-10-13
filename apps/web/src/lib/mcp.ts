@@ -26,6 +26,7 @@ import {
   registerTaskAppResource,
 } from "./mcp-app-resource";
 import { generateOpenApiSpec, handleOpenApiRequest } from "./openapi";
+import { logServerError } from "./server-log";
 
 // Requests are dispatched in process. This origin is never contacted over the network.
 const apiBaseUrl = "http://prelude.internal/api";
@@ -121,6 +122,7 @@ async function executeTool(
       context,
     );
     if (!response.ok) {
+      // The API handler has already logged the cause of a 5xx response.
       if (response.status >= 500) return toolError("The API request failed.");
       const error: unknown = await response.json();
       if (error !== null && typeof error === "object" && "message" in error) {
@@ -134,8 +136,9 @@ async function executeTool(
     const data: JSONValue = text ? JSON.parse(text) : null;
     // SDK v2 preserves natural JSON for modern clients and projects arrays for legacy clients.
     return { content: [{ type: "text", text: JSON.stringify(data) }], structuredContent: data };
-  } catch {
-    // Unexpected repository/adapter errors must not expose causes, stacks, or secrets.
+  } catch (error) {
+    // Unexpected adapter errors must not expose causes, stacks, or secrets to the client.
+    if (!signal.aborted) logServerError("MCP tool call failed", error, { tool: tool.name });
     return toolError("The API request failed.");
   }
 }

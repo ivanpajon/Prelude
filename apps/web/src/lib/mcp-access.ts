@@ -6,6 +6,7 @@ import {
   localhostAllowedOrigins,
   originValidationResponse,
 } from "@modelcontextprotocol/server";
+import { logServerError } from "./server-log";
 
 export interface McpEnvironment {
   NODE_ENV?: string | undefined;
@@ -90,7 +91,10 @@ export async function handleMcpRequest(
   try {
     return withoutMcpCache(rejectMcpRequest(request, environment) ?? (await fetch(request)));
   } catch (error) {
-    console.error("MCP request failed:", error);
+    logServerError("MCP request failed", error, {
+      method: request.method,
+      path: new URL(request.url).pathname,
+    });
     return withoutMcpCache(
       new Response("MCP request failed. Check the server logs.", { status: 500 }),
     );

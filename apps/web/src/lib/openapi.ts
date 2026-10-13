@@ -9,10 +9,11 @@ import {
 } from "@orpc/openapi";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
-import { ORPCError } from "@orpc/server";
+import { ORPCError, onError } from "@orpc/server";
 import { BodyLimitPlugin } from "@orpc/server/fetch";
 import { type Context, router } from "@repo/api";
 import type { Type } from "arktype";
+import { logUnexpectedApiError } from "./api-errors";
 import { plainRequest } from "./plain-request";
 
 /** oRPC 1.15.4's converter does not select the input/output side of ArkType morphs. */
@@ -85,6 +86,9 @@ const handler = new OpenAPIHandler(router, {
       return next();
     },
   ],
+  // Wraps only the procedure call: malformed requests fail earlier and return 4xx quietly.
+  // MCP tools dispatch through this handler, so their failures are logged here once.
+  clientInterceptors: [onError(logUnexpectedApiError("rest"))],
 });
 
 export function generateOpenApiSpec() {
