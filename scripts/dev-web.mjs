@@ -13,18 +13,21 @@ export const workspaceRoot = fileURLToPath(new URL("../", import.meta.url));
 const help = `Start Next.js and the local MCP Inspector together.
 
   pnpm dev
+  pnpm dev:app
   pnpm --filter @repo/web dev --port 3100
 
 Options:
   --port, -p <port>          Next.js port (PORT, or 3000)
   --hostname, -H <hostname>  127.0.0.1 or localhost; always binds 127.0.0.1
   --container               Bind both servers to 0.0.0.0 inside an isolated container
+  --no-inspector            Start only Next.js and the MCP App builder (pnpm dev:app)
   --turbopack                Accepted for compatibility; always enabled
   --help, -h                Show this help
 
 MCP_INSPECTOR_PORT selects the Inspector port (default 6274).
 MCP_SANDBOX_PORT selects its app preview sandbox port (default 6275).
-All three ports must be free. No server reuses another process.
+MCP_ENABLED=false also skips the Inspector and its sandbox.
+All ports in use must be free. No server reuses another process.
 Container ports must be published on the host's loopback interface only.
 `;
 
@@ -42,12 +45,19 @@ export function parseDevOptions(args, env = process.env) {
       port: { type: "string", short: "p" },
       hostname: { type: "string", short: "H" },
       container: { type: "boolean" },
+      "no-inspector": { type: "boolean" },
       turbopack: { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
     allowPositionals: false,
   });
   if (values.help) return { help: true };
+  // The Inspector only connects to /api/mcp, which returns 404 when MCP is disabled.
+  const skipInspector = values["no-inspector"]
+    ? "--no-inspector"
+    : env.MCP_ENABLED?.trim().toLowerCase() === "false"
+      ? "MCP_ENABLED=false"
+      : undefined;
   if (values.container && values.hostname) {
     throw new Error("--container chooses the bind host; omit --hostname.");
   }
@@ -57,10 +67,16 @@ export function parseDevOptions(args, env = process.env) {
   const port = parsePort(values.port ?? env.PORT ?? "3000", "Next.js port");
   const inspectorPort = parsePort(env.MCP_INSPECTOR_PORT ?? "6274", "MCP_INSPECTOR_PORT");
   const sandboxPort = parsePort(env.MCP_SANDBOX_PORT ?? "6275", "MCP_SANDBOX_PORT");
-  if (new Set([port, inspectorPort, sandboxPort]).size !== 3) {
+  if (!skipInspector && new Set([port, inspectorPort, sandboxPort]).size !== 3) {
     throw new Error("Next.js, Inspector and its sandbox need different ports.");
   }
-  return { port, inspectorPort, sandboxPort, hostname: values.container ? "0.0.0.0" : "127.0.0.1" };
+  return {
+    port,
+    inspectorPort,
+    sandboxPort,
+    hostname: values.container ? "0.0.0.0" : "127.0.0.1",
+    ...(skipInspector ? { skipInspector } : {}),
+  };
 }
 
 export function resolvePackageBin(packageName, binName, from = workspaceRoot) {
@@ -134,7 +150,7 @@ export function devCommands(root, options, env = process.env, binaries) {
       ([key]) => !/^(MCP_INSPECTOR_API_TOKEN|MCP_PROXY_AUTH_TOKEN)$/i.test(key),
     ),
   );
-  return [
+  const commands = [
     {
       name: "MCP App builder",
       script: path.join(root, "scripts/build-mcp-apps.mjs"),
@@ -167,6 +183,10 @@ export function devCommands(root, options, env = process.env, binaries) {
       // Bind the fixed app port before Inspector chooses an auxiliary OS-assigned port.
       beforeServers: true,
     },
+  ];
+  if (options.skipInspector) return commands;
+  return [
+    ...commands,
     {
       name: "MCP Inspector",
       script:
@@ -400,6 +420,13 @@ export async function supervise(
   }
 }
 
+// playwright.dev.config.ts waits for the default "MCP Inspector: http" line.
+export function readyMessage(options) {
+  return options.skipInspector
+    ? `Next.js: http://127.0.0.1:${options.port} (MCP Inspector skipped: ${options.skipInspector})`
+    : `MCP Inspector: http://127.0.0.1:${options.port}/api/mcp/inspector`;
+}
+
 export async function devMain(args = process.argv.slice(2), env = loadDevEnvironment()) {
   const options = parseDevOptions(args, env);
   if (options.help) {
@@ -413,8 +440,7 @@ export async function devMain(args = process.argv.slice(2), env = loadDevEnviron
   try {
     await supervise(devCommands(workspaceRoot, options, env), {
       signal: controller.signal,
-      onReady: () =>
-        console.log(`MCP Inspector: http://127.0.0.1:${options.port}/api/mcp/inspector`),
+      onReady: () => console.log(readyMessage(options)),
     });
   } finally {
     process.removeListener("SIGINT", stop);

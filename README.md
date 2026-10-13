@@ -84,6 +84,7 @@ Development uses [localhost:3000](http://localhost:3000). Both workflows build t
 | --- | --- |
 | `pnpm customize --name my-app --scope "@acme"` | Rename the root package and workspace scope, reinstall, and validate. |
 | `pnpm dev` | Build/watch the MCP App, then start Next.js with Turbopack and the managed local MCP Inspector. |
+| `pnpm dev:app` | Same as `pnpm dev` without the MCP Inspector and its sandbox: lighter, and only the Next.js port must be free. |
 | `pnpm mcp:check` | Check the running MCP endpoint with the pinned Inspector CLI; supports `--url`. |
 | `pnpm build` | Build the MCP App, build Next.js, then generate the Serwist worker. |
 | `pnpm start` | Serve an existing production build. |

@@ -11,6 +11,7 @@
   "scripts": {
     "customize": "node scripts/customize.mjs",
     "dev": "turbo run dev",
+    "dev:app": "turbo run dev -- --no-inspector",
     "mcp:check": "node scripts/mcp-check.mjs",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck && tsc --project tsconfig.tools.json",

@@ -89,7 +89,7 @@ No environment file is required. For optional Compose configuration, copy the ro
 
 Choose three distinct free application, Inspector, and sandbox ports. All are published only on host loopback and retain the same numbers inside and outside the container, keeping target and sandbox URLs reachable by both the browser and Inspector. The additional internal app-origin helper remains dynamically allocated and unpublished. Update browser bookmarks and external MCP client URLs when changing ports. Production publishes only the application port and runs no Inspector or sandbox service.
 
-The managed launcher builds the widget, waits for Next.js to bind its fixed port, and then starts Inspector. This prevents Inspector's OS-assigned auxiliary listener from claiming a custom application port during startup or a watched container rebuild.
+The managed launcher builds the widget, waits for Next.js to bind its fixed port, and then starts Inspector. This prevents Inspector's OS-assigned auxiliary listener from claiming a custom application port during startup or a watched container rebuild. With `MCP_ENABLED=false`, the launcher starts no Inspector or sandbox, and the development healthcheck checks only the application.
 
 The root `.env` configures Docker Compose. Native development uses the application's environment, such as `apps/web/.env.local`; those local files are excluded from the Docker build context. Do not put secrets in Docker build arguments, image layers, or committed environment files.
 
