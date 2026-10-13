@@ -12,7 +12,7 @@
   "errorDescription": "No se ha podido activar la actualización. Inténtalo de nuevo.",
   "errorAction": "Reintentar",
   "offlineTitle": "No tienes conexión.",
-  "offlineDescription": "Esta página necesita conexión. Tus tareas de demostración no se guardan sin conexión. Vuelve a conectarte e inténtalo de nuevo.",
+  "offlineDescription": "Esta página necesita conexión. Los cambios que hagas sin conexión no se guardan. Vuelve a conectarte e inténtalo de nuevo.",
   "offlineAction": "Reintentar",
   "offlineDocumentTitle": "Sin conexión — Prelude",
   "manifestDescription": "Un punto de partida conectado para tu próximo proyecto.",

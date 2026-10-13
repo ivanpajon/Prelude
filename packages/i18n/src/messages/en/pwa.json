@@ -12,7 +12,7 @@
   "errorDescription": "The update could not be activated. Please try again.",
   "errorAction": "Try again",
   "offlineTitle": "You’re offline.",
-  "offlineDescription": "This page needs a connection. Your demo tasks aren’t saved offline. Reconnect, then try again.",
+  "offlineDescription": "This page needs a connection. Changes made while offline aren’t saved. Reconnect, then try again.",
   "offlineAction": "Try again",
   "offlineDocumentTitle": "You’re offline — Prelude",
   "manifestDescription": "A connected starting point for your next project.",
