@@ -6,7 +6,7 @@ import type { RuntimeEnvironment } from "@/env";
 import { createMcpEndpoint } from "./mcp";
 import { handleMcpRequest } from "./mcp-access";
 import { createMcpPlayground } from "./mcp-playground";
-import { handleOpenApiRequest } from "./openapi";
+import { generateOpenApiSpec, handleOpenApiRequest } from "./openapi";
 
 const endpoints: ReturnType<typeof createMcpEndpoint>[] = [];
 
@@ -25,6 +25,8 @@ function fixture(
 ) {
   const contexts: Request[] = [];
   const endpoint = createMcpEndpoint({
+    getSpec: generateOpenApiSpec,
+    dispatch: handleOpenApiRequest,
     getContext: (request) => {
       contexts.push(request);
       return context;
@@ -285,6 +287,8 @@ describe("homepage MCP protocol client", () => {
     const first = { repository: createDemoRepository([]), onTasksChanged: vi.fn() };
     const second = { repository: createDemoRepository([]), onTasksChanged: vi.fn() };
     const endpoint = createMcpEndpoint({
+      getSpec: generateOpenApiSpec,
+      dispatch: handleOpenApiRequest,
       getContext: (request) => (request.headers.get("authorization") === "first" ? first : second),
     });
     endpoints.push(endpoint);

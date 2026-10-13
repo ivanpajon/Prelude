@@ -9,9 +9,9 @@ import {
 } from "@orpc/openapi";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
-import { ORPCError, onError } from "@orpc/server";
+import { type AnyRouter, type InferRouterInitialContext, ORPCError, onError } from "@orpc/server";
 import { BodyLimitPlugin } from "@orpc/server/fetch";
-import { type Context, router } from "@repo/api";
+import { router } from "@repo/api";
 import type { Type } from "arktype";
 import { site } from "@/site";
 import { logUnexpectedApiError } from "./api-errors";
@@ -31,74 +31,89 @@ export class DirectionalArkTypeConverter extends ArkTypeToJsonSchemaConverter {
   }
 }
 
-const schemaConverters = [new DirectionalArkTypeConverter()];
-const specOptions: OpenAPIGeneratorGenerateOptions = {
+/** Creates the REST adapter and OpenAPI document for a router. */
+export function createOpenApi<TRouter extends AnyRouter>(
+  apiRouter: TRouter,
+  specOptions: OpenAPIGeneratorGenerateOptions,
+) {
+  const schemaConverters = [new DirectionalArkTypeConverter()];
+  const generator = new OpenAPIGenerator({ schemaConverters });
+  const handler = new OpenAPIHandler(apiRouter, {
+    plugins: [
+      new BodyLimitPlugin({ maxBodySize: 64 * 1024 }),
+      new OpenAPIReferencePlugin({
+        schemaConverters,
+        specGenerateOptions: specOptions,
+        docsPath: "/docs",
+        specPath: "/openapi.json",
+        docsProvider: "scalar",
+        docsTitle: `${site.name} API Reference`,
+        // Pin the renderer separately: the oRPC package version does not pin this CDN asset.
+        docsScriptUrl:
+          "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.72.1/dist/browser/standalone.js",
+        docsConfig: {
+          withDefaultFonts: false,
+          telemetry: false,
+          agent: { disabled: true },
+        },
+      }),
+    ],
+    interceptors: [
+      async ({ request, next }) => {
+        if (
+          (request.method === "PATCH" || request.method === "DELETE") &&
+          /^\/api\/v1\/tasks\/[^/]+(?:\/title)?\/?$/.test(request.url.pathname)
+        ) {
+          if (request.url.searchParams.has("id")) {
+            throw new ORPCError("BAD_REQUEST", { message: "Provide the task id only in the URL." });
+          }
+          let body: unknown;
+          try {
+            body = await request.body();
+          } catch (cause) {
+            if (cause instanceof ORPCError) throw cause;
+            throw new ORPCError("BAD_REQUEST", { message: "Malformed request body.", cause });
+          }
+          // oRPC compact inputs combine parameters and the body; IDs belong only in the URL path.
+          if (body !== null && typeof body === "object" && Object.hasOwn(body, "id")) {
+            throw new ORPCError("BAD_REQUEST", { message: "Provide the task id only in the URL." });
+          }
+        }
+        return next();
+      },
+    ],
+    // Wraps only the procedure call: malformed requests fail earlier and return 4xx quietly.
+    // MCP tools dispatch through this handler, so their failures are logged here once.
+    clientInterceptors: [onError(logUnexpectedApiError("rest"))],
+  });
+
+  return {
+    generateSpec() {
+      return generator.generate(apiRouter, specOptions);
+    },
+    async handle(request: Request, context: InferRouterInitialContext<TRouter>): Promise<Response> {
+      const { response } = await handler.handle(plainRequest(request), { prefix: "/api", context });
+      const result = response ?? new Response("Not found", { status: 404 });
+      result.headers.set("Cache-Control", "no-store");
+      return result;
+    },
+  };
+}
+
+const openApi = createOpenApi(router, {
   info: {
     title: `${site.name} API`,
     version: "1.0.0",
+    // demo:start
     description:
       "Public, shared, in-memory demo tasks. Changes affect every visitor on this server instance and reset when it restarts. Reload or refetch the workbench to see changes made here.",
+    // demo:end
   },
   servers: [{ url: "/api" }],
+  // demo:start
   tags: [{ name: "Tasks", description: "Read and update the shared demo task list." }],
-};
-const generator = new OpenAPIGenerator({ schemaConverters });
-const handler = new OpenAPIHandler(router, {
-  plugins: [
-    new BodyLimitPlugin({ maxBodySize: 64 * 1024 }),
-    new OpenAPIReferencePlugin({
-      schemaConverters,
-      specGenerateOptions: specOptions,
-      docsPath: "/docs",
-      specPath: "/openapi.json",
-      docsProvider: "scalar",
-      docsTitle: `${site.name} API Reference`,
-      // Pin the renderer separately: the oRPC package version does not pin this CDN asset.
-      docsScriptUrl:
-        "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.72.1/dist/browser/standalone.js",
-      docsConfig: {
-        withDefaultFonts: false,
-        telemetry: false,
-        agent: { disabled: true },
-      },
-    }),
-  ],
-  interceptors: [
-    async ({ request, next }) => {
-      if (
-        (request.method === "PATCH" || request.method === "DELETE") &&
-        /^\/api\/v1\/tasks\/[^/]+(?:\/title)?\/?$/.test(request.url.pathname)
-      ) {
-        if (request.url.searchParams.has("id")) {
-          throw new ORPCError("BAD_REQUEST", { message: "Provide the task id only in the URL." });
-        }
-        let body: unknown;
-        try {
-          body = await request.body();
-        } catch (cause) {
-          if (cause instanceof ORPCError) throw cause;
-          throw new ORPCError("BAD_REQUEST", { message: "Malformed request body.", cause });
-        }
-        // oRPC compact inputs combine parameters and the body; IDs belong only in the URL path.
-        if (body !== null && typeof body === "object" && Object.hasOwn(body, "id")) {
-          throw new ORPCError("BAD_REQUEST", { message: "Provide the task id only in the URL." });
-        }
-      }
-      return next();
-    },
-  ],
-  // Wraps only the procedure call: malformed requests fail earlier and return 4xx quietly.
-  // MCP tools dispatch through this handler, so their failures are logged here once.
-  clientInterceptors: [onError(logUnexpectedApiError("rest"))],
+  // demo:end
 });
 
-export function generateOpenApiSpec() {
-  return generator.generate(router, specOptions);
-}
-
-export async function handleOpenApiRequest(request: Request, context: Context): Promise<Response> {
-  const { response } = await handler.handle(plainRequest(request), { prefix: "/api", context });
-  const result = response ?? new Response("Not found", { status: 404 });
-  result.headers.set("Cache-Control", "no-store");
-  return result;
-}
+export const generateOpenApiSpec = openApi.generateSpec;
+export const handleOpenApiRequest = openApi.handle;

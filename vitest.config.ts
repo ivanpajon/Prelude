@@ -37,7 +37,12 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "html", "lcov"],
       include: ["{apps,packages}/*/src/**/*.{ts,tsx}"],
-      exclude: ["**/*.{test,spec}.{ts,tsx}", "**/*.d.ts", "**/contract-types.ts"],
+      exclude: [
+        "**/*.{test,spec}.{ts,tsx}",
+        "**/*.d.ts",
+        "**/contract-types.ts",
+        "**/src/testing/**",
+      ],
     },
   },
 });
