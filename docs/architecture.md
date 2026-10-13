@@ -74,6 +74,14 @@ The close control or an upward/rightward swipe dismisses the notification for th
 
 For other client notifications, import `toast` from `@repo/ui/components/toast` and call `toast.add({ title, description })` in an event handler or effect. Keep one `Toaster` declaration in the locale root layout; do not add another provider per page. Next.js can retain a previous locale layout's hidden toast DOM through Activity, while the active layout presents notifications. Notifications expire after five seconds by default; use `timeout: 0` for persistent actions and a stable `id` to update one notification in place. `toast.update(id, options)` and `toast.close(id)` are available for custom flows.
 
+## Errors, logs, and configuration
+
+`apps/web/src/lib/server-log.ts` writes one JSON line per server error to stderr, with the level, time, message, error name/message/stack, and context fields. Container runtimes and log drains collect it without extra setup. The RPC and REST handlers log procedure errors that become 5xx responses, including invalid procedure output; expected 4xx errors stay quiet. Responses never include the cause. MCP tools dispatch through the REST handler, so a failing tool is logged once.
+
+`apps/web/src/instrumentation.ts` runs when the server starts. Its `register()` validates the runtime environment, and `onRequestError()` logs rendering, Route Handler, and Server Action failures with the error digest, method, path (without the query string), and route. Next.js prints the stack for these errors itself, so this line leaves it out. Connect Sentry, OpenTelemetry, or another reporting service in this file.
+
+`apps/web/src/env.ts` parses every runtime variable the server reads (`MCP_ENABLED`, `MCP_ALLOWED_ORIGINS`, and the development-only `MCP_INSPECTOR_PORT`). An invalid value stops startup with one error that names each variable and its allowed form. Callers parse it again per request, so values apply without a rebuild. Add new server variables there and to both `.env.example` files.
+
 ## Security headers
 
 `apps/web/next.config.ts` sends `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, and a `Permissions-Policy` that turns off camera, microphone, and geolocation on every response. `X-Powered-By` is disabled.

@@ -1,10 +1,12 @@
 import "server-only";
 
-import { type McpEnvironment, rejectNonLocalRequest, withoutMcpCache } from "./mcp-access";
+import { parseServerEnvironment, type RuntimeEnvironment } from "@/env";
+import { rejectNonLocalRequest, withoutMcpCache } from "./mcp-access";
+import { logServerError } from "./server-log";
 
 export function handleInspectorRequest(
   request: Request,
-  environment: McpEnvironment = process.env,
+  environment: RuntimeEnvironment = process.env,
 ): Response {
   if (environment.NODE_ENV !== "development") {
     return withoutMcpCache(new Response("Not found", { status: 404 }));
@@ -16,11 +18,16 @@ export function handleInspectorRequest(
       new Response("Method not allowed", { status: 405, headers: { Allow: "GET, HEAD" } }),
     );
   }
-  const port = environment.MCP_INSPECTOR_PORT ?? "6274";
-  if (!/^\d+$/.test(port) || Number(port) < 1 || Number(port) > 65535) {
-    return withoutMcpCache(new Response("Invalid MCP_INSPECTOR_PORT.", { status: 500 }));
+  let port: number;
+  try {
+    port = parseServerEnvironment(environment).mcpInspectorPort;
+  } catch (error) {
+    logServerError("MCP Inspector request failed", error, { method: request.method });
+    return withoutMcpCache(
+      new Response("Invalid configuration. Check the server logs.", { status: 500 }),
+    );
   }
-  const inspectorOrigin = `http://127.0.0.1:${Number(port)}`;
+  const inspectorOrigin = `http://127.0.0.1:${port}`;
   const html = `<!doctype html>
 <html lang="en">
 <head>

@@ -2,8 +2,9 @@ import { Client } from "@modelcontextprotocol/client";
 import { type Context, createDemoRepository, type TaskRepository } from "@repo/api";
 import type { Task } from "@repo/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { RuntimeEnvironment } from "@/env";
 import { createMcpEndpoint } from "./mcp";
-import { handleMcpRequest, type McpEnvironment } from "./mcp-access";
+import { handleMcpRequest } from "./mcp-access";
 import { createMcpPlayground } from "./mcp-playground";
 import { handleOpenApiRequest } from "./openapi";
 
@@ -20,7 +21,7 @@ function pageHeaders(overrides: Record<string, string> = {}) {
 
 function fixture(
   context: Context = { repository: createDemoRepository([]) },
-  environment: McpEnvironment = { NODE_ENV: "production" },
+  environment: RuntimeEnvironment = { NODE_ENV: "production" },
 ) {
   const contexts: Request[] = [];
   const endpoint = createMcpEndpoint({
@@ -81,7 +82,7 @@ describe("homepage MCP access", () => {
   });
 
   it("enforces runtime disabling before accessing the endpoint", async () => {
-    const environment: McpEnvironment = { NODE_ENV: "production", MCP_ENABLED: "false" };
+    const environment: RuntimeEnvironment = { NODE_ENV: "production", MCP_ENABLED: "false" };
     const endpoint = { fetch: vi.fn() };
     const playground = createMcpPlayground({ endpoint, environment: () => environment });
     expect(await playground.discover(pageHeaders())).toEqual({

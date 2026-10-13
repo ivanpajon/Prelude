@@ -11,7 +11,7 @@
       "suspicious": {
         "noUndeclaredEnvVars": {
           "level": "warn",
-          "options": { "allowedEnvVars": ["PRELUDE_STACK_.*"] }
+          "options": { "allowedEnvVars": ["PRELUDE_STACK_.*", "NEXT_RUNTIME"] }
         }
       }
     }

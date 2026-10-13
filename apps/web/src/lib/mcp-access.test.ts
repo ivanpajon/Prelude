@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { handleMcpRequest, type McpEnvironment } from "./mcp-access";
+import type { RuntimeEnvironment } from "@/env";
+import { handleMcpRequest } from "./mcp-access";
 import { handleInspectorRequest } from "./mcp-inspector";
 
 function request(headers: Record<string, string> = {}, method = "POST") {
@@ -82,7 +83,7 @@ describe("MCP request access", () => {
     }
   });
 
-  it.each<McpEnvironment>([
+  it.each<RuntimeEnvironment>([
     { MCP_ENABLED: "yes" },
     { MCP_ALLOWED_ORIGINS: "*" },
     { MCP_ALLOWED_ORIGINS: "https://*.example.com" },
