@@ -1,5 +1,15 @@
 # Verification
 
+## Security headers and CI
+
+Verified on 2026-10-13 with Node 26.10.0 and pnpm 12.6.0:
+
+- On Windows, the complete `pnpm verify` workflow passed: Biome, strict TypeScript, 402 unit/component/script tests with coverage, 10 development browser scenarios, 88 production browser scenarios, and byte-for-byte widget/service-worker cache restoration. `pnpm test:stack` passed (run `prelude-stack-80402474`); a production sample was ready in 1.4 s and healthy in 2.2 s, with about 140 MB RSS and a 30 ms p95.
+- The CI **Verify** job's steps passed in a clean `node:26.10.0-trixie-slim` container with the same results and no leftover processes. The first Linux rehearsal hung after both browser suites: pnpm runs scripts in their own process group, so Playwright's shutdown orphaned the servers. Both Playwright configurations now start their servers directly and stop them with SIGTERM.
+- The new production browser case checks page and API headers and fails on Content Security Policy violations. It failed as expected when `'unsafe-inline'` was removed from `script-src`, because Next.js starts prerendered pages with inline scripts.
+
+The Docker stack job was not rehearsed on Linux.
+
 ## Interactive locale routing
 
 Verified on 2026-09-30 with Node 26.10.0 and pnpm 12.6.0:
@@ -127,7 +137,9 @@ pnpm exec playwright install chromium
 pnpm verify
 ```
 
-No CI provider is configured. A future CI job can run these commands; on Linux runners, install Chromium's OS dependencies as required. Set `HUSKY=0` in the job environment if Git hooks should not be installed there. This does not replace the verification commands.
+## Continuous integration
+
+GitHub Actions runs `.github/workflows/ci.yml` on pushes to `develop`, pull requests, and manual dispatch. The **Verify** job runs `pnpm verify`; the **Docker stack** job runs `pnpm test:stack`. Both use Ubuntu, the Node version in `.node-version`, the pinned pnpm from `packageManager`, Chromium with its OS dependencies, and `HUSKY=0`. Failed runs upload Playwright traces, screenshots, and the HTML report; the stack job always uploads its measurement report. Actions are pinned to commit SHAs with the release in a comment; update both together.
 
 ## Checks and scenarios
 

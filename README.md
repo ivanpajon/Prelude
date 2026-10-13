@@ -109,7 +109,7 @@ pnpm exec playwright install chromium
 pnpm verify
 ```
 
-Biome handles source linting and formatting. Husky runs its safe fixes through lint-staged before commits. Commitlint checks Conventional Commit messages in the separate `commit-msg` hook, such as `feat: add profile settings` or `fix(api): reject invalid input`. Unresolved errors block the commit; unstaged hunks are preserved. Full-repository checks remain necessary because hooks only inspect staged files. See [verification](docs/verification.md) for scenarios and generated-file handling.
+Biome handles source linting and formatting. Husky runs its safe fixes through lint-staged before commits. Commitlint checks Conventional Commit messages in the separate `commit-msg` hook, such as `feat: add profile settings` or `fix(api): reject invalid input`. Unresolved errors block the commit; unstaged hunks are preserved. Full-repository checks remain necessary because hooks only inspect staged files. GitHub Actions runs `pnpm verify` and `pnpm test:stack` on pushes to `develop` and pull requests. See [verification](docs/verification.md) for scenarios, CI, and generated-file handling.
 
 ## Make it yours
 
