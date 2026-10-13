@@ -6,6 +6,14 @@ Use compatible stable releases, with React 19.x, Next.js 16.x, and Tailwind 4.x.
 
 TypeScript remains pinned to the verified 6.0.3 baseline; compiler upgrades are separate from linting changes. oRPC packages share stable version 1.15.4; follow the [v1 documentation](https://v1.orpc.dev/docs/getting-started), rather than mixing newer prerelease APIs into this implementation.
 
+### Dependency updates
+
+`renovate.json` configures [Renovate](https://docs.renovatebot.com/). Install the free [Renovate GitHub App](https://github.com/apps/renovate) on your repository to enable it. Every Monday it opens one pull request for non-major npm updates, with separate groups for Next.js and React, oRPC, the MCP SDK, Serwist, and Vitest. Each major update gets its own pull request. Security fixes are labeled `security` and are not held for the schedule. It keeps exact versions, the SHA pins in `.github/workflows`, and the Dockerfile image digests. It also keeps TypeScript on 6.0.x and Node on 26.x. Once a month it refreshes the lockfile so indirect dependencies pick up patched releases.
+
+Renovate is used instead of Dependabot because Dependabot cannot yet read pnpm 12 lockfiles. Either way, the CI **Audit** job checks production dependencies for known advisories on every run and once a week.
+
+`pnpm-workspace.yaml` overrides the `browserslist` version that `@serwist/next` 9.5.12 pins, because that version has known advisories. The override stops applying when Serwist is updated.
+
 ## Stack
 
 - React 19.3.0, Next.js 16.4.0 App Router, Turbopack development/production builds, and Cache Components.

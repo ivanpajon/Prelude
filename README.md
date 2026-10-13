@@ -111,6 +111,8 @@ pnpm verify
 
 Biome handles source linting and formatting. Husky runs its safe fixes through lint-staged before commits. Commitlint checks Conventional Commit messages in the separate `commit-msg` hook, such as `feat: add profile settings` or `fix(api): reject invalid input`. Unresolved errors block the commit; unstaged hunks are preserved. Full-repository checks remain necessary because hooks only inspect staged files. GitHub Actions runs `pnpm verify` and `pnpm test:stack` on pushes to `develop` and pull requests. See [verification](docs/verification.md) for scenarios, CI, and generated-file handling.
 
+Renovate keeps dependencies up to date once you install its free GitHub App; see [dependency updates](docs/requirements.md#dependency-updates).
+
 ## Make it yours
 
 Keep the default `@repo` workspace scope, or optionally choose your own:
