@@ -246,7 +246,7 @@ On 2026-09-25, the two-step workflow was tested in a fresh Windows temporary dir
 
 ## Project customization acceptance
 
-The optional `pnpm customize` command preserves `@repo` unless the consumer supplies a scope. Its 34 regression cases use isolated temporary Git repositories to verify name/scope independence, exact package references and subpaths, all configuration targets, ignored files, untracked files, dry runs, invalid arguments, dependency collisions, duplicate names, repeat renames, and failure recovery. The Windows checks exercise temporary paths containing spaces and 8.3 user-directory aliases.
+The optional `pnpm customize` command preserves `@repo` unless the consumer supplies a scope. Its 35 regression cases use isolated temporary Git repositories to verify name/scope independence, an unchanged customization guide, exact package references and subpaths, all configuration targets, ignored files, untracked files, dry runs, invalid arguments, dependency collisions, duplicate names, repeat renames, and failure recovery. The Windows checks exercise temporary paths containing spaces and 8.3 user-directory aliases.
 
 On 2026-09-25, a separate consumer copy was customized with `pnpm customize --name sonata-app --scope "@sonata"`. The command successfully updated package names and references, refreshed the workspace links and lockfile, and passed Biome, TypeScript, and the unit/component suite. A subsequent frozen-lockfile installation, production build with Serwist, and two production browser checks passed. Those browser checks exercised hydration without duplicate RPC requests and a task mutation surviving reload, using the renamed package filter in Playwright's server command.
 

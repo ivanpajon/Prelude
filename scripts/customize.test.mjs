@@ -193,6 +193,23 @@ describe("customization planning", () => {
     expect(changes.has("pnpm-lock.yaml")).toBe(false);
   });
 
+  it("keeps the customization guide's default-scope examples intact", () => {
+    const root = fixture();
+    const guide = `For \`--scope @acme\`, \`${scopes.fixture}/ui\` becomes \`@acme/ui\`.\n`;
+    write(root, "docs/customization.md", guide);
+    write(root, "docs/other.md", `Import \`${scopes.fixture}/ui\`.\n`);
+    const changes = new Map(
+      planCustomization(root, { scope: "@product" }).changes.map(({ file, after }) => [
+        file,
+        after,
+      ]),
+    );
+    expect(changes.has("docs/customization.md")).toBe(false);
+    expect(read(root, "docs/customization.md")).toBe(guide);
+    expect(changes.get("docs/other.md")).toBe(`Import \`${scopes.product}/ui\`.\n`);
+    expect(changes.get("README.md")).toContain(`${scopes.product}/ui/components/button`);
+  });
+
   it("includes untracked source while respecting package boundaries, ignored files, and binary content", () => {
     const root = fixture();
     write(

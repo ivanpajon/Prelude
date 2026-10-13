@@ -137,8 +137,10 @@ export function planCustomization(directory, options) {
   const changes = [];
   for (const file of files) {
     // pnpm owns its lockfile. Limit edits to source, configuration, and documentation.
+    // The customization guide explains the default scope, so its examples stay as written.
     if (
       file === "pnpm-lock.yaml" ||
+      file === "docs/customization.md" ||
       !/\.(?:[cm]?[jt]sx?|jsonc?|css|mdx?|ya?ml|html|txt|toml|sh|ps1)$/.test(file)
     )
       continue;
