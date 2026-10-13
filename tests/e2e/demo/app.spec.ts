@@ -1,0 +1,531 @@
+import { expect, test } from "@playwright/test";
+
+const listRpc = /\/api\/rpc\/tasks\/list(?:\?|$)/;
+const createRpc = /\/api\/rpc\/tasks\/create(?:\?|$)/;
+const deleteRpc = /\/api\/rpc\/tasks\/delete(?:\?|$)/;
+const updateTitleRpc = /\/api\/rpc\/tasks\/updateTitle(?:\?|$)/;
+
+test.describe("server rendering", () => {
+  test.use({ javaScriptEnabled: false });
+
+  test("includes the task list in server-rendered HTML without browser JavaScript", async ({
+    page,
+  }) => {
+    const response = await page.goto("/playground");
+    expect(response?.ok()).toBe(true);
+    // A streamed Suspense segment may be hidden until React's reveal script runs.
+    // Assert its real HTML list exists, rather than relying on that script.
+    const tasks = page.getByRole("list", { name: "Tasks", includeHidden: true });
+    await expect(tasks.getByText("Explore the workspace", { exact: true })).toHaveCount(1);
+    await expect(tasks.getByText("Make this template yours", { exact: true })).toHaveCount(1);
+    const icon = page
+      .getByRole("button", { name: "Compact view", exact: true, includeHidden: true })
+      .locator("svg");
+    await expect(icon).toHaveAttribute("aria-hidden", "true");
+    await expect(icon.locator("path").first()).toHaveAttribute("d", /\S/);
+  });
+
+  test("links the homepage to the playground without loading the task workbench", async ({
+    page,
+  }) => {
+    const response = await page.goto("/");
+    expect(response?.ok()).toBe(true);
+    await expect(
+      page.getByRole("link", { name: "Open playground", exact: true, includeHidden: true }),
+    ).toHaveAttribute("href", "/en/playground");
+    await expect(page.getByRole("list", { name: "Tasks", includeHidden: true })).toHaveCount(0);
+  });
+});
+
+test("opens the playground from home and supports browser history on narrow screens", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const navigation = page.getByRole("link", { name: "Playground", exact: true });
+  const open = page.getByRole("link", { name: "Open playground", exact: true });
+  await expect(navigation).toHaveAttribute("href", "/en/playground");
+  await expect(open).toHaveAttribute("href", "/en/playground");
+  await expect(page.getByRole("region", { name: "Small details. More life." })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Tasks" })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+
+  await open.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/playground$/);
+  await expect(page).toHaveTitle("Playground — Prelude");
+  await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Discover tools", exact: true })).toBeVisible();
+  const appSection = page.getByRole("region", {
+    name: "The same tasks. A new place to work.",
+    exact: true,
+  });
+  const appLink = page
+    .getByRole("navigation", { name: "Playground sections" })
+    .getByRole("link", { name: "MCP App", exact: true });
+  await appLink.click();
+  await expect(page).toHaveURL(/\/playground#mcp-app$/);
+  await expect(appSection).toBeInViewport();
+  await expect(appSection).toContainText("/api/mcp");
+  await expect(appSection.getByRole("link", { name: /Open Inspector/ })).toHaveCount(0);
+  // Keep this test's back/forward assertions about route history rather than the local anchor.
+  await page.goBack();
+  await expect(page.getByRole("button", { name: "Move to end", exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+
+  await page.goBack();
+  await expect(page).toHaveURL((url) => url.pathname === "/en");
+  await expect(open).toBeVisible();
+  await page.goForward();
+  await expect(page).toHaveURL(/\/playground$/);
+  await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
+  await page.getByRole("link", { name: "Prelude home", exact: true }).click();
+  await expect(page).toHaveURL((url) => url.pathname === "/en");
+  await navigation.click();
+  await expect(page).toHaveURL(/\/playground$/);
+  await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
+});
+
+test("hydrates without an immediate duplicate RPC or hydration errors", async ({ page }) => {
+  const listRequests: string[] = [];
+  const pageErrors: string[] = [];
+  const hydrationErrors: string[] = [];
+  page.on("request", (request) => {
+    if (listRpc.test(request.url())) listRequests.push(request.url());
+  });
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  page.on("console", (message) => {
+    if (/hydration|server rendered|didn't match/i.test(message.text())) {
+      hydrationErrors.push(message.text());
+    }
+  });
+
+  await page.goto("/playground");
+  await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
+  const compact = page.getByRole("button", { name: "Compact view", exact: true });
+  await expect(compact).toHaveAttribute("aria-pressed", "false");
+  await compact.click();
+  await expect(compact).toHaveAttribute("aria-pressed", "true");
+  // Let the interactive render and its effects paint before checking requests.
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
+
+  expect(listRequests).toEqual([]);
+  expect(pageErrors).toEqual([]);
+  expect(hydrationErrors).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+});
+
+test("sends security headers and runs the playground within its Content Security Policy", async ({
+  page,
+  request,
+}) => {
+  const violations: string[] = [];
+  page.on("console", (message) => {
+    if (/Content Security Policy/i.test(message.text())) violations.push(message.text());
+  });
+
+  const playground = await page.goto("/playground");
+  const headers = playground?.headers() ?? {};
+  expect(headers["content-security-policy"]).toContain("frame-ancestors 'none'");
+  expect(headers["x-content-type-options"]).toBe("nosniff");
+  expect(headers).not.toHaveProperty("x-powered-by");
+  await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
+  await page.getByRole("button", { name: "Discover tools", exact: true }).click();
+  await expect(page.getByRole("button", { name: "createTask", exact: true })).toBeVisible();
+
+  // API routes keep the shared headers but set their own policies (the API reference uses a CDN).
+  const api = (await request.get("/api/v1/tasks?status=all")).headers();
+  expect(api["x-content-type-options"]).toBe("nosniff");
+  expect(api).not.toHaveProperty("content-security-policy");
+  expect(api).not.toHaveProperty("x-powered-by");
+  expect(violations).toEqual([]);
+});
+
+test("prevents duplicate creation when a form submits twice before rendering", async ({ page }) => {
+  const title = `Single submission ${crypto.randomUUID()}`;
+  const requests: string[] = [];
+  page.on("request", (request) => {
+    if (createRpc.test(request.url())) requests.push(request.url());
+  });
+  await page.goto("/playground");
+  await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
+  await page.getByRole("textbox", { name: "New task" }).fill(title);
+  await page.locator("form").evaluate((form: HTMLFormElement) => {
+    form.requestSubmit();
+    form.requestSubmit();
+  });
+  await expect(
+    page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
+  ).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Add task", exact: true })).toBeEnabled();
+  expect(requests).toHaveLength(1);
+});
+
+test("creates, edits, completes and deletes a task across hard reloads", async ({
+  page,
+  request,
+}, testInfo) => {
+  let title = `Build ${testInfo.project.name} ${crypto.randomUUID()}`;
+  await page.goto("/playground");
+  await page.getByRole("textbox", { name: "New task", exact: true }).fill(title);
+  await page.getByRole("button", { name: "Add task", exact: true }).click();
+  await expect(
+    page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "New task", exact: true })).toHaveValue("");
+
+  await page.getByRole("button", { name: `Edit ${title}`, exact: true }).click();
+  const editor = page.getByRole("textbox", { name: "Task title", exact: true });
+  await expect(editor).toBeFocused();
+  await expect(editor).toHaveValue(title);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  title = `Edited ${title}`;
+  await editor.fill(`  ${title}  `);
+  const saved = page.waitForResponse(updateTitleRpc);
+  await editor.press("Enter");
+  expect((await saved).ok()).toBe(true);
+  await expect(editor).toHaveCount(0);
+  await expect(page.getByRole("button", { name: `Edit ${title}`, exact: true })).toBeFocused();
+
+  await page.getByRole("button", { name: `Mark ${title} as completed`, exact: true }).click();
+  const completed = page.getByRole("button", { name: `Mark ${title} as active`, exact: true });
+  await expect(completed).toHaveAttribute("aria-pressed", "true");
+  await page.reload();
+  await expect(completed).toHaveAttribute("aria-pressed", "true");
+  // Populate multiple filter caches before deletion, then revisit them afterward.
+  await page.getByRole("button", { name: "Completed", exact: true }).click();
+  await expect(
+    page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
+  ).toBeVisible();
+  const deletion = page.waitForResponse(deleteRpc);
+  const remove = page.getByRole("button", { name: `Delete ${title}`, exact: true });
+  await remove.focus();
+  await remove.press("Enter");
+  expect((await deletion).ok()).toBe(true);
+  const tasks = page.getByRole("list", { name: "Tasks" });
+  await expect(tasks.getByText(title, { exact: true })).toHaveCount(0);
+  expect(await (await request.get("/api/v1/tasks?status=all")).json()).not.toEqual(
+    expect.arrayContaining([expect.objectContaining({ title })]),
+  );
+  for (const filter of ["All tasks", "Active", "Completed"]) {
+    await page.getByRole("button", { name: filter, exact: true }).click();
+    await expect(tasks.getByText(title, { exact: true })).toHaveCount(0);
+  }
+  await page.reload();
+  await expect(tasks.getByText(title, { exact: true })).toHaveCount(0);
+});
+
+test("cancels title edits, validates input, and retries a failed save without losing either draft", async ({
+  page,
+  request,
+}) => {
+  const title = `Edit retry ${crypto.randomUUID()}`;
+  const created = await (await request.post("/api/v1/tasks", { data: { title } })).json();
+  await page.goto("/playground");
+  const creationDraft = page.getByRole("textbox", { name: "New task", exact: true });
+  await creationDraft.fill("Keep this separate creation draft");
+  const edit = page.getByRole("button", { name: `Edit ${title}`, exact: true });
+  const editor = page.getByRole("textbox", { name: "Task title", exact: true });
+  const requests: string[] = [];
+  page.on("request", (outgoing) => {
+    if (updateTitleRpc.test(outgoing.url())) requests.push(outgoing.url());
+  });
+  await edit.click();
+  await editor.fill("Cancel with Escape");
+  await editor.press("Escape");
+  await expect(editor).toHaveCount(0);
+  await expect(edit).toBeFocused();
+  await edit.press("Enter");
+  await editor.fill("Cancel with button");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(editor).toHaveCount(0);
+  expect(requests).toEqual([]);
+
+  await edit.click();
+  await editor.fill("   ");
+  await editor.press("Enter");
+  await expect(
+    page.getByText("Enter a task between 1 and 120 characters.", { exact: true }),
+  ).toBeVisible();
+  expect(requests).toEqual([]);
+  const renamed = `Renamed ${title}`;
+  await editor.fill(renamed);
+  await page.route(updateTitleRpc, (route) => route.abort("internetdisconnected"));
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.locator("#task-edit-feedback")).toContainText(/\S/);
+  await expect(page.locator("#task-edit-feedback")).not.toContainText("Enter a task");
+  await expect(editor).toHaveValue(renamed);
+  await expect(page.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
+  await expect(creationDraft).toHaveValue("Keep this separate creation draft");
+  expect(
+    (await (await request.get("/api/v1/tasks?status=all")).json()).find(
+      (task: { id: string }) => task.id === created.id,
+    ),
+  ).toMatchObject({ title });
+  await page.unroute(updateTitleRpc);
+  await editor.press("Enter");
+  await expect(editor).toHaveCount(0);
+  await expect(
+    page.getByRole("list", { name: "Tasks" }).getByText(renamed, { exact: true }),
+  ).toBeVisible();
+  await expect(creationDraft).toHaveValue("Keep this separate creation draft");
+  expect(
+    (await (await request.get("/api/v1/tasks?status=all")).json()).find(
+      (task: { id: string }) => task.id === created.id,
+    ),
+  ).toEqual({ ...created, title: renamed });
+});
+
+test("sends only one title update when Save is clicked twice before rendering", async ({
+  page,
+  request,
+}) => {
+  const title = `Single edit ${crypto.randomUUID()}`;
+  await request.post("/api/v1/tasks", { data: { title } });
+  await page.goto("/playground");
+  await page.getByRole("button", { name: `Edit ${title}`, exact: true }).click();
+  const renamed = `Saved ${title}`;
+  await page.getByRole("textbox", { name: "Task title", exact: true }).fill(renamed);
+  const requests: string[] = [];
+  page.on("request", (outgoing) => {
+    if (updateTitleRpc.test(outgoing.url())) requests.push(outgoing.url());
+  });
+  await page
+    .getByRole("button", { name: "Save", exact: true })
+    .evaluate((button: HTMLButtonElement) => {
+      button.click();
+      button.click();
+    });
+  await expect(page.getByRole("textbox", { name: "Task title", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: `Edit ${renamed}`, exact: true })).toBeEnabled();
+  expect(requests).toHaveLength(1);
+});
+
+test("retains a cached inline editor when another tool invalidates a failing task query", async ({
+  page,
+  request,
+}) => {
+  const title = `Background edit ${crypto.randomUUID()}`;
+  await request.post("/api/v1/tasks", { data: { title } });
+  await page.goto("/playground");
+  await page.getByRole("button", { name: `Edit ${title}`, exact: true }).click();
+  const editor = page.getByRole("textbox", { name: "Task title", exact: true });
+  await editor.fill("Keep this edit through a failed refresh");
+  const creationDraft = page.getByRole("textbox", { name: "New task", exact: true });
+  await creationDraft.fill("Keep this separate creation draft");
+  const playground = page.getByRole("region", {
+    name: "A little input. Real action.",
+    exact: true,
+  });
+  await playground.getByRole("button", { name: "Discover tools", exact: true }).click();
+  await playground.getByRole("button", { name: "createTask", exact: true }).click();
+  await playground
+    .getByRole("textbox", { name: "Arguments JSON" })
+    .fill(JSON.stringify({ title: `Invalidate ${crypto.randomUUID()}` }));
+  await page.route(listRpc, (route) => route.abort("internetdisconnected"));
+  await playground.getByRole("button", { name: "Run tool", exact: true }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "Could not refresh tasks." })).toBeVisible(
+    { timeout: 10_000 },
+  );
+  await expect(editor).toHaveValue("Keep this edit through a failed refresh");
+  await expect(creationDraft).toHaveValue("Keep this separate creation draft");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(editor).toHaveCount(0);
+  await expect(page.getByRole("button", { name: `Edit ${title}`, exact: true })).toBeFocused();
+});
+
+test("retains a task after failed deletion and supports retry without losing a draft", async ({
+  page,
+}) => {
+  const title = `Delete retry ${crypto.randomUUID()}`;
+  await page.goto("/playground");
+  const input = page.getByRole("textbox", { name: "New task", exact: true });
+  await input.fill(title);
+  await page.getByRole("button", { name: "Add task", exact: true }).click();
+  const remove = page.getByRole("button", { name: `Delete ${title}`, exact: true });
+  await expect(remove).toBeVisible();
+  await input.fill("   ");
+  await page.getByRole("button", { name: "Add task", exact: true }).click();
+  await expect(page.locator("#task-feedback")).toContainText("Enter a task");
+  await input.fill("Keep this deletion draft");
+  await page.route(deleteRpc, (route) => route.abort("internetdisconnected"));
+  await remove.click();
+  await expect(page.locator("#task-feedback")).toContainText(/\S/);
+  await expect(page.locator("#task-feedback")).not.toContainText("Enter a task");
+  await expect(remove).toBeEnabled();
+  await expect(input).toHaveValue("Keep this deletion draft");
+  await page.unroute(deleteRpc);
+  await remove.click();
+  await expect(remove).toHaveCount(0);
+  await expect(input).toHaveValue("Keep this deletion draft");
+  await expect(page.locator("#task-feedback")).toBeEmpty();
+});
+
+test("sends only one deletion when its button is clicked twice before rendering", async ({
+  page,
+}) => {
+  const title = `Single deletion ${crypto.randomUUID()}`;
+  await page.goto("/playground");
+  await page.getByRole("textbox", { name: "New task", exact: true }).fill(title);
+  await page.getByRole("button", { name: "Add task", exact: true }).click();
+  const remove = page.getByRole("button", { name: `Delete ${title}`, exact: true });
+  await expect(remove).toBeEnabled();
+  const requests: string[] = [];
+  page.on("request", (request) => {
+    if (deleteRpc.test(request.url())) requests.push(request.url());
+  });
+  await remove.evaluate((button: HTMLButtonElement) => {
+    button.click();
+    button.click();
+  });
+  await expect(remove).toHaveCount(0);
+  expect(requests).toHaveLength(1);
+});
+
+test("keeps URL filters consistent through history, reloads, and invalid values", async ({
+  page,
+}) => {
+  await page.goto("/playground");
+  const active = page.getByRole("button", { name: "Active", exact: true });
+  const completed = page.getByRole("button", { name: "Completed", exact: true });
+  const all = page.getByRole("button", { name: "All tasks", exact: true });
+  const tasks = page.getByRole("list", { name: "Tasks" });
+
+  await active.click();
+  await expect(page).toHaveURL(/\?status=active$/);
+  await expect(active).toHaveAttribute("aria-pressed", "true");
+  await expect(tasks.getByText("Create your first feature", { exact: true })).toBeVisible();
+  await expect(tasks.getByText("Explore the workspace", { exact: true })).toHaveCount(0);
+
+  await completed.click();
+  await expect(page).toHaveURL(/\?status=completed$/);
+  await expect(completed).toHaveAttribute("aria-pressed", "true");
+  await expect(tasks.getByText("Explore the workspace", { exact: true })).toBeVisible();
+  await expect(tasks.getByText("Create your first feature", { exact: true })).toHaveCount(0);
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\?status=active$/);
+  await expect(active).toHaveAttribute("aria-pressed", "true");
+  await expect(tasks.getByText("Create your first feature", { exact: true })).toBeVisible();
+  await page.goForward();
+  await expect(page).toHaveURL(/\?status=completed$/);
+  await expect(completed).toHaveAttribute("aria-pressed", "true");
+  await page.reload();
+  await expect(completed).toHaveAttribute("aria-pressed", "true");
+  await expect(tasks.getByText("Explore the workspace", { exact: true })).toBeVisible();
+
+  await page.goto("/playground?status=invalid");
+  await expect(all).toHaveAttribute("aria-pressed", "true");
+  await expect(tasks.getByText("Explore the workspace", { exact: true })).toBeVisible();
+  await expect(tasks.getByText("Create your first feature", { exact: true })).toBeVisible();
+});
+
+test("keeps compact view local while filters change", async ({ page, browser }) => {
+  await page.goto("/playground");
+  const compact = page.getByRole("button", { name: "Compact view", exact: true });
+  await compact.click();
+  await expect(compact).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Active", exact: true }).click();
+  await expect(page).toHaveURL(/\?status=active$/);
+  await expect(compact).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
+
+  const isolated = await browser.newContext();
+  try {
+    const freshPage = await isolated.newPage();
+    await freshPage.goto(new URL("/playground", page.url()).href);
+    await expect(
+      freshPage.getByRole("button", { name: "Compact view", exact: true }),
+    ).toHaveAttribute("aria-pressed", "false");
+    await expect(compact).toHaveAttribute("aria-pressed", "true");
+  } finally {
+    await isolated.close();
+  }
+});
+
+test("supports keyboard density changes with reduced motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/playground");
+  const tasks = page.getByRole("list", { name: "Tasks" });
+  const compact = page.getByRole("button", { name: "Compact view", exact: true });
+  const icon = compact.locator("svg");
+  const path = icon.locator("path").first();
+  await expect(tasks).toBeVisible();
+  const originalText = await tasks.innerText();
+  const originalHeight = await tasks.evaluate((element) => element.getBoundingClientRect().height);
+  const originalPath = await path.getAttribute("d");
+  expect(originalPath).toBeTruthy();
+
+  await page.getByRole("button", { name: "Completed", exact: true }).focus();
+  await page.keyboard.press("Tab");
+  await expect(compact).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect(compact).toHaveAttribute("aria-pressed", "true");
+  await expect(compact).toBeFocused();
+  await expect(icon).toBeVisible();
+  await expect(icon).toHaveAttribute("aria-hidden", "true");
+  await expect.poll(() => path.getAttribute("d")).not.toBe(originalPath);
+  await expect
+    .poll(() => tasks.evaluate((element) => element.getBoundingClientRect().height))
+    .toBeLessThan(originalHeight * 0.6);
+  expect(await tasks.innerText()).toBe(originalText);
+
+  await page.keyboard.press("Enter");
+  await expect(compact).toHaveAttribute("aria-pressed", "false");
+  await expect(compact).toBeFocused();
+  await expect.poll(() => path.getAttribute("d")).toBe(originalPath);
+  await expect
+    .poll(() => tasks.evaluate((element) => element.getBoundingClientRect().height))
+    .toBe(originalHeight);
+});
+
+test("recovers a failed query when the connection returns", async ({ page }) => {
+  await page.goto("/playground");
+  await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
+  await page.route(listRpc, (route) => route.abort("internetdisconnected"));
+
+  // Only the all-tasks query was hydrated; active must go through the network.
+  await page.getByRole("button", { name: "Active", exact: true }).click();
+  const error = page.getByRole("alert").filter({ hasText: "Could not load tasks" });
+  await expect(error).toBeVisible({ timeout: 10_000 });
+  await page.unroute(listRpc);
+  await error.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(error).toHaveCount(0);
+  await expect(
+    page
+      .getByRole("list", { name: "Tasks" })
+      .getByText("Create your first feature", { exact: true }),
+  ).toBeVisible();
+});
+
+test("retains a failed mutation's draft and supports retry", async ({ page }, testInfo) => {
+  const title = `Retry ${testInfo.project.name} ${crypto.randomUUID()}`;
+  await page.goto("/playground");
+  const input = page.getByRole("textbox", { name: "New task", exact: true });
+  const add = page.getByRole("button", { name: "Add task", exact: true });
+  const feedback = page.locator("#task-feedback");
+  await page.route(createRpc, (route) => route.abort("internetdisconnected"));
+  await input.fill(title);
+  await add.click();
+
+  await expect(feedback).toContainText(/\S/);
+  await expect(input).toHaveValue(title);
+  await expect(add).toBeEnabled();
+  await page.unroute(createRpc);
+  await add.click();
+  await expect(
+    page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
+  ).toBeVisible();
+  await expect(input).toHaveValue("");
+  await expect(feedback).toBeEmpty();
+});

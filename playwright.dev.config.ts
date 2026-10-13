@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
+  // Includes tests/dev/demo/.
   testDir: "./tests/dev",
   outputDir: "./test-results/development",
   workers: 1,

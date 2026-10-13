@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
+import { expectedToolNames } from "../openapi-operations";
 
-test("embedded Inspector discovers generated tools and performs real CRUD against the shared API", async ({
+test("embedded Inspector stays authenticated and discovers every generated tool", async ({
   baseURL,
   page,
   request,
@@ -34,80 +35,16 @@ test("embedded Inspector discovers generated tools and performs real CRUD agains
   // Mantine's decorative switch track overlays its input; use the native keyboard action.
   await connection.press("Space");
   await expect(connection).toBeChecked();
-  await inspector.getByText("Tools", { exact: true }).click();
-  const tools = inspector.getByTestId("tools-screen");
-  await expect(tools).toHaveAttribute("data-tool-count", "5");
-  for (const name of [
-    "listTasks",
-    "createTask",
-    "setTaskCompleted",
-    "deleteTask",
-    "updateTaskTitle",
-  ]) {
-    await expect(tools.getByRole("button", { name: new RegExp(name) })).toBeVisible();
+
+  const names = expectedToolNames(await (await request.get("/api/openapi.json")).json());
+  // An API without operations has no tools for the Inspector to list.
+  if (names.length > 0) {
+    await inspector.getByText("Tools", { exact: true }).click();
+    const tools = inspector.getByTestId("tools-screen");
+    await expect(tools).toHaveAttribute("data-tool-count", String(names.length));
+    for (const name of names) {
+      await expect(tools.getByRole("button", { name: new RegExp(name) })).toBeVisible();
+    }
   }
-
-  let title = `Inspector ${crypto.randomUUID()}`;
-  await tools.getByRole("button", { name: /createTask/ }).click();
-  await tools.getByRole("textbox", { name: /^title/ }).fill(`  ${title}  `);
-  await tools.getByRole("button", { name: "Execute Tool", exact: true }).click();
-  await expect(tools).toHaveAttribute("data-call-status", "ok");
-  await expect(tools).toContainText(title);
-  const listed = await request.get("/api/v1/tasks?status=all");
-  expect(listed.ok()).toBe(true);
-  const created = (await listed.json()).find((task: { title: string }) => task.title === title);
-  expect(created).toMatchObject({ id: expect.any(String), title, completed: false });
-
-  await tools.getByRole("button", { name: "Close results", exact: true }).click();
-  await tools.getByRole("button", { name: /updateTaskTitle/ }).click();
-  await tools.getByRole("textbox", { name: /^id/ }).fill(created.id);
-  title = `Edited ${title}`;
-  await tools.getByRole("textbox", { name: /^title/ }).fill(`  ${title}  `);
-  await tools.getByRole("button", { name: "Execute Tool", exact: true }).click();
-  await expect(tools).toHaveAttribute("data-call-status", "ok");
-  await expect(tools).toContainText(title);
-  created.title = title;
-
-  await tools.getByRole("button", { name: "Close results", exact: true }).click();
-  await tools.getByRole("button", { name: /setTaskCompleted/ }).click();
-  await tools.getByRole("textbox", { name: /^id/ }).fill(created.id);
-  await tools.getByRole("checkbox", { name: /^completed/ }).check();
-  await tools.getByRole("button", { name: "Execute Tool", exact: true }).click();
-  await expect(tools).toHaveAttribute("data-call-status", "ok");
-  await expect(tools).toContainText(title);
-
-  await tools.getByRole("button", { name: "Close results", exact: true }).click();
-  await tools.getByRole("button", { name: /listTasks/ }).click();
-  // The generated enum has no redundant type keyword, so Inspector uses its JSON editor.
-  const status = tools.getByRole("textbox", { name: /^status/ });
-  await status.press("ControlOrMeta+A");
-  await status.pressSequentially('"completed"');
-  await tools.getByRole("button", { name: "Execute Tool", exact: true }).click();
-  await expect(tools).toHaveAttribute("data-call-status", "ok");
-  await expect(tools).toContainText(title);
   await page.screenshot({ path: test.info().outputPath("mcp-inspector.png") });
-
-  const completed = await request.get("/api/v1/tasks?status=completed");
-  expect(await completed.json()).toEqual(expect.arrayContaining([{ ...created, completed: true }]));
-  await tools.getByRole("button", { name: "Close results", exact: true }).click();
-  await tools.getByRole("button", { name: /deleteTask/ }).click();
-  await tools.getByRole("textbox", { name: /^id/ }).fill(created.id);
-  await tools.getByRole("button", { name: "Execute Tool", exact: true }).click();
-  await expect(tools).toHaveAttribute("data-call-status", "ok");
-  await expect(tools).toContainText(title);
-  expect(await (await request.get("/api/v1/tasks?status=all")).json()).not.toEqual(
-    expect.arrayContaining([expect.objectContaining({ id: created.id })]),
-  );
-  await page.goto("/playground");
-  await expect(
-    page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
-  ).toHaveCount(0);
-  const rpc = page.waitForResponse((result) =>
-    new URL(result.url()).pathname.startsWith("/api/rpc/"),
-  );
-  await page.getByRole("button", { name: "Completed", exact: true }).click();
-  expect((await rpc).ok()).toBe(true);
-  await expect(
-    page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
-  ).toHaveCount(0);
 });

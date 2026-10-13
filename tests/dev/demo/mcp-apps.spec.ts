@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { exerciseTaskApp } from "../mcp-apps";
+import { exerciseTaskApp } from "../../demo/mcp-apps";
 
 test("opens the official Inspector from the playground and runs the real sandboxed Task App", async ({
   page,

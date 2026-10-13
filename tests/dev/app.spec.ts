@@ -16,12 +16,11 @@ test("development rendering and reloads have no framework errors", async ({ page
     "true",
   );
 
-  await page.getByRole("link", { name: "Open playground", exact: true }).click();
-  await expect(page).toHaveURL(/\/playground$/);
   await page.reload();
-  await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
-  await page.getByRole("button", { name: "Compact view", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Compact view", exact: true })).toHaveAttribute(
+  const save = page.getByRole("button", { name: "Save idea", exact: true });
+  await expect(save).toHaveAttribute("aria-pressed", "false");
+  await save.click();
+  await expect(page.getByRole("button", { name: "Idea saved", exact: true })).toHaveAttribute(
     "aria-pressed",
     "true",
   );

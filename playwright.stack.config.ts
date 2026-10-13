@@ -15,6 +15,7 @@ export default defineConfig({
   timeout: 90_000,
   expect: { timeout: 30_000 },
   reporter: "list",
+  // Matches by file name, so tests/stack/demo/ specs for this mode run too.
   testMatch: `${mode}.spec.ts`,
   use: {
     ...devices["Desktop Chrome"],

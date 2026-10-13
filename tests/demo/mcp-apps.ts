@@ -1,13 +1,13 @@
 import { readFileSync } from "node:fs";
 import type { Client } from "@modelcontextprotocol/client";
 import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
-import type { Locale } from "../packages/i18n/src";
-import type { getWidgetMessages } from "../packages/i18n/src/widget";
+import type { Locale } from "../../packages/i18n/src";
+import type { getWidgetMessages } from "../../packages/i18n/src/widget";
 
 function catalog<T>(locale: Locale, namespace: string): T {
   return JSON.parse(
     readFileSync(
-      new URL(`../packages/i18n/src/messages/${locale}/${namespace}.json`, import.meta.url),
+      new URL(`../../packages/i18n/src/messages/${locale}/${namespace}.json`, import.meta.url),
       "utf8",
     ),
   ) as T;
