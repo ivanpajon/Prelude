@@ -20,10 +20,8 @@ async function checkForUpdate(page: Page) {
 
 test("localizes waiting updates and the precached fallback without network translations", async ({
   browser,
-  baseURL,
 }) => {
-  if (!baseURL) throw new Error("Missing production URL");
-  const context = await browser.newContext({ locale: "es-ES", serviceWorkers: "allow", baseURL });
+  const context = await browser.newContext({ locale: "es-ES" });
   try {
     const page = await context.newPage();
     await page.goto("/");
@@ -142,6 +140,8 @@ test("shows an offline fallback without caching API docs, application data, or R
 }) => {
   await page.goto("/playground");
   await waitForWorker(page);
+  // Navigate once under worker control so document caching would show up in Cache Storage.
+  await page.reload();
   const apiPaths = ["/api/docs", "/api/openapi.json", "/api/v1/tasks?status=all", "/api/mcp"];
   const apiResponses = await page.evaluate(
     async (paths) =>
@@ -330,7 +330,7 @@ test("keeps another tab's draft until that tab approves its own reload", async (
   });
 });
 
-test("remembers a dismissed worker but offers a newer waiting worker", async ({ page }) => {
+test("dismisses an update by swipe and offers a newer waiting worker", async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto("/");
   await waitForWorker(page);
@@ -351,8 +351,6 @@ test("remembers a dismissed worker but offers a newer waiting worker", async ({ 
     await expect(title).toBeHidden();
     await expect(update).toBeHidden();
 
-    await checkForUpdate(page);
-    await expect(title).toBeHidden();
     expect(
       await page.evaluate(async () => (await navigator.serviceWorker.ready).waiting?.state),
     ).toBe("installed");

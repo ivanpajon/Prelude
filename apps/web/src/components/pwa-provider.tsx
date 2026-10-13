@@ -3,80 +3,47 @@
 import { toast } from "@repo/ui/components/toast";
 import { SerwistProvider, useSerwist } from "@serwist/next/react";
 import { useTranslations } from "next-intl";
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import type { PwaUpdateNotice } from "../lib/pwa-update-controller";
-import { getPwaUpdateSession, type PwaUpdateSession } from "../lib/pwa-update-session";
+import { type ReactNode, useEffect } from "react";
+import { getPwaUpdateController, type PwaUpdateStatus } from "../lib/pwa-update-controller";
 
 const noticeId = "pwa-update";
-let activePresenter: object | null = null;
-let programmaticCloses = 0;
 
 function UpdateNotice() {
   const { serwist } = useSerwist();
   const t = useTranslations("Pwa");
-  const [notice, setNotice] = useState<PwaUpdateNotice | null>(null);
-  const controller = useRef<PwaUpdateSession["controller"] | null>(null);
-  const presenter = useRef({});
-  const closeNotice = useCallback(() => {
-    programmaticCloses += 1;
-    try {
-      toast.close(noticeId);
-    } finally {
-      programmaticCloses -= 1;
-    }
-  }, []);
 
-  // Language changes update presentation without resetting approval or dismissal guards.
+  // Every mounted locale tree mirrors the document's update state into its own Toaster.
+  // Activity re-runs this when a hidden tree is shown again, which refreshes its stale toast.
   useEffect(() => {
-    if (!serwist || !("serviceWorker" in navigator)) return;
-    const session = getPwaUpdateSession({
+    if (!serwist) return;
+    const updates = getPwaUpdateController({
       serviceWorker: navigator.serviceWorker,
-      lifecycle: window,
-      register: () => serwist.register(),
+      serwist,
       reload: () => window.location.reload(),
     });
-    const identity = presenter.current;
-    activePresenter = identity;
-    controller.current = session.controller;
-    const unsubscribe = session.subscribe(setNotice);
-    setNotice(session.getNotice());
-
-    return () => {
-      unsubscribe();
-      controller.current = null;
-      // A previous Activity may clean up after its replacement has subscribed.
-      // It must not close the replacement's notification or revoke its consent.
-      if (activePresenter === identity) {
-        activePresenter = null;
-        closeNotice();
+    const show = (status: PwaUpdateStatus | null) => {
+      if (!status) {
+        toast.close(noticeId);
+        return;
       }
-      setNotice(null);
+      toast.add({
+        id: noticeId,
+        title: t(`${status}Title`),
+        description: t(`${status}Description`),
+        type: status === "updating" ? "loading" : status === "error" ? "error" : "info",
+        priority: status === "error" ? "high" : "low",
+        timeout: 0,
+        actionProps: {
+          children: t(`${status}Action`),
+          disabled: status === "updating",
+          onClick: updates.apply,
+        },
+        onClose: updates.dismiss,
+      });
     };
-  }, [serwist, closeNotice]);
-
-  useEffect(() => {
-    if (activePresenter !== presenter.current) return;
-    if (!notice) {
-      closeNotice();
-      return;
-    }
-    toast.add({
-      id: noticeId,
-      title: t(`${notice.status}Title`),
-      description: t(`${notice.status}Description`),
-      type: notice.status === "updating" ? "loading" : notice.status === "error" ? "error" : "info",
-      priority: notice.status === "error" ? "high" : "low",
-      timeout: 0,
-      actionProps: {
-        children: t(`${notice.status}Action`),
-        disabled: notice.status === "updating",
-        onClick: () => controller.current?.apply(),
-      },
-      onClose: () => {
-        if (programmaticCloses === 0) controller.current?.dismiss();
-      },
-    });
-  }, [notice, t, closeNotice]);
+    show(updates.getStatus());
+    return updates.subscribe(show);
+  }, [serwist, t]);
 
   return null;
 }

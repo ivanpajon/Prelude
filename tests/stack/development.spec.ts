@@ -10,14 +10,12 @@ localizationAcceptance();
 
 test("runs the Spanish MCP App through the container Inspector and sandbox", async ({
   browser,
-  baseURL,
 }) => {
-  if (!baseURL) throw new Error("Missing isolated development URL");
   const inspectorOrigin = process.env.PRELUDE_STACK_INSPECTOR_URL;
   const sandboxOrigin = process.env.PRELUDE_STACK_SANDBOX_URL;
   if (!inspectorOrigin || !sandboxOrigin)
     throw new Error("Missing isolated Inspector sandbox URLs");
-  const context = await browser.newContext({ baseURL, locale: "es-ES", serviceWorkers: "block" });
+  const context = await browser.newContext({ locale: "es-ES" });
   try {
     await exerciseTaskApp({
       page: await context.newPage(),
@@ -44,10 +42,8 @@ test("serves the MCP App through the official Inspector and published sandbox po
 
 test("does not attempt service-worker registration when the browser allows it", async ({
   browser,
-  baseURL,
 }) => {
-  if (!baseURL) throw new Error("Missing isolated development URL");
-  const context = await browser.newContext({ baseURL, serviceWorkers: "allow" });
+  const context = await browser.newContext({ serviceWorkers: "allow" });
   try {
     const page = await context.newPage();
     await page.addInitScript(() => {

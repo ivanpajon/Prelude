@@ -10,7 +10,8 @@ function evaluateRuntime(source: string): unknown {
   return JSON.parse(
     execFileSync(process.execPath, ["--input-type=module", "--eval", source], {
       encoding: "utf8",
-      timeout: 10_000,
+      // Below the node project's testTimeout, so a hung child reports this timeout.
+      timeout: 60_000,
     }),
   );
 }

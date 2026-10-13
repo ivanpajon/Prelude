@@ -155,7 +155,12 @@ describe("generated MCP catalog", () => {
       },
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
       metadata: { operationId: "deleteTask", method: "delete", path: "/v1/tasks/{id}" },
+      description: expect.stringContaining("NOT_FOUND"),
     });
+    // Only the descriptions state the normalized title limit; input schemas omit it on purpose.
+    expect(catalog.find((tool) => tool.name === "createTask")?.description).toContain(
+      "1–120 characters",
+    );
     expect(catalog.find((tool) => tool.name === "updateTaskTitle")).toMatchObject({
       inputSchema: {
         type: "object",
@@ -169,6 +174,7 @@ describe("generated MCP catalog", () => {
       },
       annotations: { readOnlyHint: false, destructiveHint: true },
       metadata: { operationId: "updateTaskTitle", method: "patch", path: "/v1/tasks/{id}/title" },
+      description: expect.stringMatching(/1–120 characters[\s\S]*NOT_FOUND/),
     });
     expect(spec).toEqual(before);
     expect(Object.isFrozen(catalog)).toBe(true);
@@ -241,7 +247,7 @@ describe("generated MCP catalog", () => {
           },
         }),
       ),
-    ).rejects.toThrow();
+    ).rejects.toThrow("MCP schema for the OpenAPI document contains an external reference");
   });
 });
 
@@ -749,7 +755,7 @@ describe("MCP endpoint lifecycle", () => {
     expect(JSON.stringify(result)).not.toContain("PRIVATE_ADAPTER_DETAILS");
   });
 
-  it("supports generated operations with no response body", async () => {
+  it.each([200, 204])("supports generated operations with an empty %i response", async (status) => {
     const client = await connect(
       endpoint({
         getContext: () => ({ repository: createDemoRepository([]) }),
@@ -758,11 +764,11 @@ describe("MCP endpoint lifecycle", () => {
             "/empty": {
               delete: {
                 operationId: "emptyResponse",
-                responses: { "204": { description: "Deleted" } },
+                responses: { [status]: { description: "Deleted" } },
               },
             },
           }),
-        dispatch: async () => new Response(null, { status: 204 }),
+        dispatch: async () => new Response(null, { status }),
       }),
     );
     const result = await client.callTool({ name: "emptyResponse", arguments: {} });

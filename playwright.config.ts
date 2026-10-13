@@ -3,7 +3,6 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests/e2e",
   outputDir: "./test-results/production",
-  fullyParallel: false,
   workers: 1,
   forbidOnly: Boolean(process.env.CI),
   retries: 0,
@@ -38,9 +37,13 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "pnpm --filter @repo/web start --hostname 127.0.0.1 --port 3100",
+    // Run Next.js directly: pnpm starts scripts in their own POSIX process group, so
+    // Playwright's shutdown signal would orphan the server and wait for it forever.
+    command: "node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3100",
+    cwd: "apps/web",
     url: "http://127.0.0.1:3100",
     reuseExistingServer: false,
     timeout: 60_000,
+    gracefulShutdown: { signal: "SIGTERM", timeout: 30_000 },
   },
 });

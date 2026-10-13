@@ -55,8 +55,8 @@ export type WorkbenchStoreApi = ReturnType<typeof createWorkbenchStore>;
 let browserStore: WorkbenchStoreApi | undefined;
 
 /** Retain tab-local state across locale route remounts; never share server state. */
-export function getWorkbenchStore(initial?: WorkbenchState): WorkbenchStoreApi {
-  if (typeof window === "undefined") return createWorkbenchStore(initial);
-  browserStore ??= createWorkbenchStore(initial);
+export function getWorkbenchStore(): WorkbenchStoreApi {
+  if (typeof window === "undefined") return createWorkbenchStore();
+  browserStore ??= createWorkbenchStore();
   return browserStore;
 }

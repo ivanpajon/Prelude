@@ -10,7 +10,6 @@ export default defineConfig({
   testDir: "./tests/stack",
   outputDir: `./test-results/stack/browser/${mode}`,
   workers: 1,
-  fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: 0,
   timeout: 90_000,

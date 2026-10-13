@@ -12,7 +12,7 @@ test("isolates server-rendered language and negotiates only unprefixed entries",
   test.setTimeout(60_000);
   const contexts = await Promise.all(
     ["es-ES", "en-US", "fr-FR"].map((locale) =>
-      browser.newContext({ locale, javaScriptEnabled: false, serviceWorkers: "block" }),
+      browser.newContext({ locale, javaScriptEnabled: false }),
     ),
   );
   try {
@@ -55,9 +55,7 @@ for (const locale of ["en", "es"] as const) {
     }) => {
       if (!baseURL) throw new Error("Missing production URL");
       const context = await browser.newContext({
-        baseURL,
         javaScriptEnabled: false,
-        serviceWorkers: "block",
         locale: locale === "en" ? "es-ES" : "en-US",
       });
       try {
@@ -166,7 +164,7 @@ test("hydrates Spanish tasks without immediately fetching them again", async ({
   browser,
   baseURL,
 }) => {
-  const context = await browser.newContext({ locale: "es-ES", serviceWorkers: "block" });
+  const context = await browser.newContext({ locale: "es-ES" });
   try {
     const page = await context.newPage();
     const requests: string[] = [];

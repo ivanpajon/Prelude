@@ -134,6 +134,34 @@ test("hydrates without an immediate duplicate RPC or hydration errors", async ({
   );
 });
 
+test("sends security headers and runs pages within their Content Security Policy", async ({
+  page,
+  request,
+}) => {
+  const violations: string[] = [];
+  page.on("console", (message) => {
+    if (/Content Security Policy/i.test(message.text())) violations.push(message.text());
+  });
+
+  const home = await page.goto("/");
+  const headers = home?.headers() ?? {};
+  expect(headers["content-security-policy"]).toContain("frame-ancestors 'none'");
+  expect(headers["x-content-type-options"]).toBe("nosniff");
+  expect(headers).not.toHaveProperty("x-powered-by");
+  await page.getByRole("button", { name: "Move to end", exact: true }).click();
+  await page.getByRole("link", { name: "Open playground", exact: true }).click();
+  await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
+  await page.getByRole("button", { name: "Discover tools", exact: true }).click();
+  await expect(page.getByRole("button", { name: "createTask", exact: true })).toBeVisible();
+
+  // API routes keep the shared headers but set their own policies (the API reference uses a CDN).
+  const api = (await request.get("/api/v1/tasks?status=all")).headers();
+  expect(api["x-content-type-options"]).toBe("nosniff");
+  expect(api).not.toHaveProperty("content-security-policy");
+  expect(api).not.toHaveProperty("x-powered-by");
+  expect(violations).toEqual([]);
+});
+
 for (const reducedMotion of ["no-preference", "reduce"] as const) {
   test(`animation previews respond to keyboard with motion preference ${reducedMotion}`, async ({
     page,
@@ -481,7 +509,7 @@ test("keeps compact view local while filters change", async ({ page, browser }) 
   await expect(compact).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
 
-  const isolated = await browser.newContext({ serviceWorkers: "block" });
+  const isolated = await browser.newContext();
   try {
     const freshPage = await isolated.newPage();
     await freshPage.goto(new URL("/playground", page.url()).href);

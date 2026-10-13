@@ -280,13 +280,8 @@ describe("homepage MCP protocol client", () => {
     }
   });
 
-  it("isolates concurrent callers and awaits mutation callbacks", async () => {
-    const first = {
-      repository: createDemoRepository([]),
-      onTasksChanged: vi.fn(async () => {
-        await Promise.resolve();
-      }),
-    };
+  it("isolates concurrent callers", async () => {
+    const first = { repository: createDemoRepository([]), onTasksChanged: vi.fn() };
     const second = { repository: createDemoRepository([]), onTasksChanged: vi.fn() };
     const endpoint = createMcpEndpoint({
       getContext: (request) => (request.headers.get("authorization") === "first" ? first : second),

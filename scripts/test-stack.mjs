@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import { copyFile, mkdir, mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { createServer } from "node:net";
@@ -49,11 +50,10 @@ const report = {
     runtime: { cpus: 2, memory: "1g" },
     development: { cpus: 2, memory: "4g" },
     requests: { warmup: 6, count: 50, concurrency: 4, routes: ["/", "/api/v1/tasks?status=all"] },
-    build:
-      "Dedicated empty Buildx builder; host Docker engine resource defaults. Production includes the common cold build. Slim cold assembly reuses exactly those artifacts; its time is not a second full cold build.",
+    build: "Dedicated empty Buildx builder; host Docker engine resource defaults.",
     size: "Unpacked bytes are SizeRootFs minus SizeRw from a never-started, network-disabled measurement container. Raw rootfs/writable values and image inspect Size (image-store bytes, potentially packed plus unpacked) are retained separately. Compressed bytes sum unique gzip OCI layers, excluding config/manifest metadata; not measured network transfer.",
     readiness:
-      "First successful task API response after compose up, with container-start-relative and command-relative timing; first HTML request reported separately.",
+      "First successful task API response after compose up, with container-start-relative and command-relative timing; first HTML request reported separately. The Compose healthcheck must then report healthy (commandToHealthyMs).",
     rss: "Sum of Node application processes' VmRSS from /proc, excluding the measurement process.",
   },
   builds: {},
@@ -172,7 +172,9 @@ async function copyContext() {
         file,
       ) &&
       !/(^|\/)\.env(?:\.|$)/.test(file) &&
-      !/public\/sw\.js(?:\.map)?$/.test(file),
+      !/public\/sw\.js(?:\.map)?$/.test(file) &&
+      // The index still lists deletions that are not staged yet.
+      existsSync(path.join(root, file)),
   );
   const digest = createHash("sha256");
   for (const file of files.sort()) {
@@ -295,7 +297,7 @@ async function ociSize(archive) {
 
 const nodeBin = (target) => (target === "production" ? "/nodejs/bin/node" : "/usr/local/bin/node");
 const inspectRuntimeSource = `
-const fs=require('node:fs'), path=require('node:path'), crypto=require('node:crypto');
+const fs=require('node:fs'), path=require('node:path');
 const assert=require('node:assert/strict');
 assert.notEqual(process.getuid(),0,'Runtime must not use root');
 assert.equal(Intl.DateTimeFormat.supportedLocalesOf(['en','es','ja','ar']).length,4);
@@ -311,16 +313,7 @@ const fromNext=require('node:module').createRequire(fromApp.resolve('next/packag
 const sharp=fromNext('sharp'); assert(sharp.versions.vips);
 const cache='/app/apps/web/.next/cache'; fs.mkdirSync(cache,{recursive:true});
 const probe=path.join(cache,'stack-permission-probe'); fs.writeFileSync(probe,'ok'); fs.unlinkSync(probe);
-const hash=crypto.createHash('sha256');
-function walk(dir){for(const name of fs.readdirSync(dir).sort()){
- const file=path.join(dir,name), relative=path.relative('/app',file);
- if(relative.replaceAll('\\\\','/').includes('.next/cache')) continue;
- const info=fs.lstatSync(file); hash.update(relative);
- if(info.isSymbolicLink()) hash.update(fs.readlinkSync(file));
- else if(info.isDirectory()) walk(file); else hash.update(fs.readFileSync(file));
-}}
-walk('/app');
-console.log(JSON.stringify({uid:process.getuid(),node:process.version,icu:process.versions.icu,sharp:sharp.versions.sharp,nativeTemporal:true,mcpApp:true,buildToolsAbsent:true,artifactsSha256:hash.digest('hex')}));
+console.log(JSON.stringify({uid:process.getuid(),node:process.version,icu:process.versions.icu,sharp:sharp.versions.sharp,nativeTemporal:true,mcpApp:true,buildToolsAbsent:true}));
 `;
 
 async function imageMetrics(target) {
@@ -370,7 +363,7 @@ async function imageMetrics(target) {
   await checkpoint();
 }
 
-async function composeConfig(mode, target = "production", extraEnvironment = {}) {
+async function composeConfig(mode, extraEnvironment = {}) {
   const name = `${project}-${mode}`;
   const port = await freePort();
   let inspectorPort = await freePort();
@@ -393,22 +386,10 @@ async function composeConfig(mode, target = "production", extraEnvironment = {})
     JSON.stringify({
       services: {
         web: {
-          image: `${project}:${target}`,
+          image: `${project}:${mode}`,
           build: { labels: { "dev.prelude.stack.run": project } },
           cpus: 2,
           mem_limit: mode === "production" ? "1g" : "4g",
-          ...(mode === "production"
-            ? {
-                healthcheck: {
-                  test: [
-                    "CMD",
-                    nodeBin(target),
-                    "-e",
-                    "fetch('http://127.0.0.1:3000/offline').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
-                  ],
-                },
-              }
-            : {}),
         },
       },
     }),
@@ -472,11 +453,24 @@ async function launch(config) {
   const html = await fetch(config.origin);
   assert.equal(html.status, 200);
   await html.arrayBuffer();
+  const firstHtmlMs = performance.now() - htmlStart;
+  // Exercise the healthcheck the Compose file ships; `up --wait` users depend on it.
+  const healthStarted = performance.now();
+  let health;
+  while (performance.now() - healthStarted < 180_000) {
+    controller.signal.throwIfAborted();
+    health = (await docker(["inspect", "--format", "{{.State.Health.Status}}", id])).output.trim();
+    if (health === "healthy") break;
+    assert.notEqual(health, "unhealthy", `${config.name} healthcheck reported unhealthy`);
+    await delay(500);
+  }
+  assert.equal(health, "healthy", `${config.name} healthcheck did not pass`);
   return {
     id,
     commandToReadyMs,
     containerToReadyMs: readyAt - Date.parse(inspected.State.StartedAt),
-    firstHtmlMs: performance.now() - htmlStart,
+    firstHtmlMs,
+    commandToHealthyMs: performance.now() - started,
   };
 }
 
@@ -546,7 +540,7 @@ async function browserChecks(config, target, id) {
     [require.resolve("@playwright/test/cli"), "test", "--config", "playwright.stack.config.ts"],
     {
       env: {
-        PRELUDE_STACK_MODE: target === "development" ? "development" : "production",
+        PRELUDE_STACK_MODE: target,
         PRELUDE_STACK_URL: config.origin,
         PRELUDE_STACK_INSPECTOR_URL: `http://127.0.0.1:${config.inspectorPort}`,
         PRELUDE_STACK_SANDBOX_URL: `http://127.0.0.1:${config.sandboxPort}`,
@@ -610,65 +604,39 @@ try {
   await docker(["buildx", "create", "--name", builder, "--driver", "docker-container"]);
   builderCreated = true;
   await build("production", "production-cold");
-  await build("production-slim", "slim-cold-assembly");
-  for (const target of ["production", "production-slim"]) {
-    const cached = await build(target, `${target}-unchanged`);
-    assert(cached.dependencyCacheHit, "Unchanged build must reuse dependency installation");
-    assert(cached.compilationCacheHit, "Unchanged build must reuse Next.js compilation");
-  }
+  const cached = await build("production", "production-unchanged");
+  assert(cached.dependencyCacheHit, "Unchanged build must reuse dependency installation");
+  assert(cached.compilationCacheHit, "Unchanged build must reuse Next.js compilation");
   const changedSource = path.join(context, "apps/web/src/components/animation-examples.tsx");
   const original = await readFile(changedSource, "utf8");
   await writeFile(changedSource, `${original}\n// isolated stack source-cache probe\n`);
-  for (const target of ["production", "production-slim"]) {
-    const changed = await build(target, `${target}-source-change`);
-    assert(changed.dependencyCacheHit, "Source changes must reuse dependency installation");
-    if (target === "production")
-      assert(
-        !changed.compilationCacheHit,
-        "A source change must recompile the common application build",
-      );
-  }
+  const changed = await build("production", "production-source-change");
+  assert(changed.dependencyCacheHit, "Source changes must reuse dependency installation");
+  assert(!changed.compilationCacheHit, "A source change must recompile the application build");
   await writeFile(changedSource, original);
-  for (const target of ["production", "production-slim"]) {
-    await build(target, `${target}-restore`);
-    await imageMetrics(target);
-  }
-  assert.equal(
-    report.images.production.runtime.artifactsSha256,
-    report.images["production-slim"].runtime.artifactsSha256,
-    "Runtime images must contain byte-identical app artifacts",
-  );
-  assert(
-    report.images.production.unpackedBytes < report.images["production-slim"].unpackedBytes,
-    "Production image must be smaller than the slim baseline when unpacked",
-  );
-  assert(
-    report.images.production.gzipLayerBytes < report.images["production-slim"].gzipLayerBytes,
-    "Production image must be smaller than the slim baseline when compressed",
-  );
-  for (const target of ["production", "production-slim"]) {
-    const config = await composeConfig("production", target);
-    for (let index = 0; index < samples; index++) {
-      console.log(`Stack: ${target} runtime sample ${index + 1}/${samples}`);
-      const ready = await launch(config);
-      const idleRssBytes = await rss(ready.id, target);
-      const latency = await load(config.origin);
-      report.images[target].samples.push({
-        ...ready,
-        idleRssBytes,
-        loadedRssBytes: await rss(ready.id, target),
-        latency,
-      });
+  await build("production", "production-restore");
+  await imageMetrics("production");
+  const production = await composeConfig("production");
+  for (let index = 0; index < samples; index++) {
+    console.log(`Stack: production runtime sample ${index + 1}/${samples}`);
+    const ready = await launch(production);
+    const idleRssBytes = await rss(ready.id, "production");
+    const latency = await load(production.origin);
+    report.images.production.samples.push({
+      ...ready,
+      idleRssBytes,
+      loadedRssBytes: await rss(ready.id, "production"),
+      latency,
+    });
+    await checkpoint();
+    if (index === 0) {
+      await browserChecks(production, "production", ready.id);
+      report.acceptance.production = "passed";
       await checkpoint();
-      if (index === 0) {
-        await browserChecks(config, target, ready.id);
-        report.acceptance[target] = "passed";
-        await checkpoint();
-      }
-      await stopStack(config);
     }
+    await stopStack(production);
   }
-  const disabled = await composeConfig("production", "production", { MCP_ENABLED: "false" });
+  const disabled = await composeConfig("production", { MCP_ENABLED: "false" });
   await launch(disabled);
   assert.equal((await fetch(`${disabled.origin}/api/mcp`)).status, 404);
   assert.equal((await fetch(`${disabled.origin}/api/v1/tasks?status=all`)).status, 200);
@@ -679,7 +647,7 @@ try {
   await checkpoint();
   await stopStack(disabled);
   await build("development", "development");
-  const development = await composeConfig("development", "development");
+  const development = await composeConfig("development");
   const ready = await launch(development);
   watch = spawn("docker", [...development.args, "watch", "--no-up", "web"], {
     env: { ...process.env, ...development.env, BUILDX_BUILDER: builder },
@@ -746,7 +714,6 @@ try {
   };
   await checkpoint();
   await stopWatch();
-  await writeFile(path.join(reportDirectory, "compose-watch.log"), redact(watchOutput));
   assert.equal(
     await sourceDigest(files),
     report.source.sha256,
@@ -761,11 +728,13 @@ try {
   console.error(report.error);
   process.exitCode = 1;
 } finally {
-  await checkpoint();
   const cleanupErrors = [];
+  await checkpoint().catch((error) => cleanupErrors.push(error.message));
   await stopWatch().catch((error) => cleanupErrors.push(error.message));
   if (watchOutput)
-    await writeFile(path.join(reportDirectory, "compose-watch.log"), redact(watchOutput));
+    await writeFile(path.join(reportDirectory, "compose-watch.log"), redact(watchOutput)).catch(
+      (error) => cleanupErrors.push(error.message),
+    );
   const projects = new Map([...ownedProjects].map((config) => [config.name, config]));
   for (const config of projects.values()) {
     await docker([...config.args, "logs", "--no-color"], {

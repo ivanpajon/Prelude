@@ -1,7 +1,7 @@
 import type { Locale } from "@repo/i18n";
 import { getMessages } from "@repo/i18n/messages";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -134,16 +134,17 @@ it("keeps pending execution and its result across locale remounts without duplic
   );
   const { locale, client } = fixture();
   await user.click(screen.getByRole("button", { name: "Discover tools" }));
-  await screen.findByRole("button", { name: "Run tool" });
-  await user.click(screen.getByRole("button", { name: "Run tool" }));
+  const run = await screen.findByRole("button", { name: "Run tool" });
+  // Both clicks land before React re-renders, so only the in-flight guard stops the second.
+  await act(async () => {
+    run.click();
+    run.click();
+  });
   expect(actions.executeMcpTool).toHaveBeenCalledOnce();
 
   locale("es");
-  const running = screen.getByRole("button", { name: "Ejecutando…" });
-  expect(running).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Ejecutando…" })).toBeDisabled();
   expect(screen.getByRole("textbox", { name: "Argumentos JSON" })).toBeDisabled();
-  fireEvent.click(running);
-  expect(actions.executeMcpTool).toHaveBeenCalledOnce();
   await act(async () =>
     complete({
       ok: true,

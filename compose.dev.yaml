@@ -4,16 +4,12 @@ services:
       context: .
       target: development
     init: true
-    working_dir: /app
-    command: ["node", "scripts/dev-web.mjs", "--container"]
     environment:
-      NODE_ENV: development
       PORT: "${DEV_PORT:-3000}"
       MCP_INSPECTOR_PORT: "${MCP_INSPECTOR_PORT:-6274}"
       MCP_SANDBOX_PORT: "${MCP_SANDBOX_PORT:-6275}"
       MCP_ENABLED: "${MCP_ENABLED:-true}"
       MCP_ALLOWED_ORIGINS: "${MCP_ALLOWED_ORIGINS:-}"
-      NEXT_TELEMETRY_DISABLED: "1"
     # Keep the container's wildcard listeners reachable from this machine only.
     # Matching host/container ports preserve Inspector URLs and origin checks.
     ports:
@@ -47,7 +43,6 @@ services:
             - "**/package.json"
             - pnpm-lock.yaml
             - pnpm-workspace.yaml
-            - .npmrc
             - Dockerfile
             - .dockerignore
             - "compose*.yaml"
@@ -73,6 +68,5 @@ services:
             - "**/package.json"
             - pnpm-lock.yaml
             - pnpm-workspace.yaml
-            - .npmrc
             - Dockerfile
             - .dockerignore

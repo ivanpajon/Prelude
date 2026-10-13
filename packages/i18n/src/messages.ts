@@ -10,7 +10,10 @@ import esTasks from "./messages/es/tasks.json";
 
 export const englishMessages = { ...enSite, Tasks: enTasks, Mcp: enMcp, Pwa: enPwa };
 export type Messages = typeof englishMessages;
-const spanishMessages: Messages = { ...esSite, Tasks: esTasks, Mcp: esMcp, Pwa: esPwa };
+const catalogs: Record<Locale, Messages> = {
+  en: englishMessages,
+  es: { ...esSite, Tasks: esTasks, Mcp: esMcp, Pwa: esPwa },
+};
 export function getMessages(locale: Locale): Messages {
-  return locale === "es" ? spanishMessages : englishMessages;
+  return catalogs[locale];
 }

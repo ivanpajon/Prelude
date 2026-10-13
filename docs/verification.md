@@ -1,5 +1,15 @@
 # Verification
 
+## Security headers and CI
+
+Verified on 2026-10-13 with Node 26.10.0 and pnpm 12.6.0:
+
+- On Windows, the complete `pnpm verify` workflow passed: Biome, strict TypeScript, 402 unit/component/script tests with coverage, 10 development browser scenarios, 88 production browser scenarios, and byte-for-byte widget/service-worker cache restoration. `pnpm test:stack` passed (run `prelude-stack-80402474`); a production sample was ready in 1.4 s and healthy in 2.2 s, with about 140 MB RSS and a 30 ms p95.
+- The CI **Verify** job's steps passed in a clean `node:26.10.0-trixie-slim` container with the same results and no leftover processes. The first Linux rehearsal hung after both browser suites: pnpm runs scripts in their own process group, so Playwright's shutdown orphaned the servers. Both Playwright configurations now start their servers directly and stop them with SIGTERM.
+- The new production browser case checks page and API headers and fails on Content Security Policy violations. It failed as expected when `'unsafe-inline'` was removed from `script-src`, because Next.js starts prerendered pages with inline scripts.
+
+On the first GitHub Actions run, **Verify** passed. **Docker stack** passed its production builds and runtime samples, then failed to start the development stack: the runner's Compose 2.38.2 rejects `initial_sync`. The job now installs Compose 5.6.0, the version used locally.
+
 ## Interactive locale routing
 
 Verified on 2026-09-30 with Node 26.10.0 and pnpm 12.6.0:
@@ -28,7 +38,7 @@ Verified on 2026-09-30 (Europe/Madrid) with Node 26.10.0 and pnpm 12.6.0 on Wind
 
 Coverage includes English/Spanish browser detection and saved-cookie precedence, catalog parity and ICU formatting, concurrent request-isolated SSR, localized metadata and manifest identity, hydration without duplicate fetching, stable public URLs and browser filter history, and drafts/errors/pending actions surviving locale changes. The real Inspector renders both widget languages and exercises mutations; host-language changes preserve its connection, drafts, filter, and initial query data. Production PWA checks cover translated update notices, dismissal and per-tab approval, plus a precached offline fallback that selects bundled translations without network access. API identifiers, descriptions, JSON output, and task content retain their original values.
 
-`pnpm test:stack --samples 1` passed all 29 container browser scenarios: ten on the distroless runtime, ten on the slim baseline, and nine on the development stack. Checks include standalone locale rewrites and public-origin redirects, runtime MCP toggling, dependency-layer reuse, cached unchanged builds, authenticated Inspector widgets, Fast Refresh draft preservation, shared-theme/catalog rebuilds, manifest-triggered container rebuilding, unchanged host source, and process/port cleanup. This sequential functional regression run uses one runtime sample per image and does not establish a new performance baseline. Widget build measurements including both languages are recorded in [MCP Apps](mcp-apps.md#measure-the-widget-build).
+`pnpm test:stack --samples 1` passed all 29 container browser scenarios: ten on the distroless runtime, ten on the slim baseline, and nine on the development stack. Checks include standalone locale rewrites and public-origin redirects, runtime MCP toggling, dependency-layer reuse, cached unchanged builds, authenticated Inspector widgets, Fast Refresh draft preservation, shared-theme/catalog rebuilds, manifest-triggered container rebuilding, unchanged host source, and process/port cleanup. This sequential functional regression run uses one runtime sample per image and does not establish a new performance baseline.
 
 See [localization](i18n.md) for adding catalogs, cache ownership, state lifetimes, and the static offline document's brief English presentation before hydration.
 
@@ -52,7 +62,7 @@ Coverage includes deletion through RPC, REST, Scalar, modern/legacy MCP, the liv
 
 Verified on 2026-09-29 with Node 26.10.0 and pnpm 12.6.0 on Windows: frozen installation and `pnpm verify` passed, including Biome, strict TypeScript, 271 unit/component/script tests with coverage, three native development browser scenarios, 47 production browser scenarios, the production build, and byte-for-byte Turbo restoration of the widget HTML and service worker.
 
-The real Inspector preview exercised initial rendering without duplicate fetching, creation, completion, filtering, external-write refresh, a 360 px host frame, size notifications, and zero external widget asset requests under its restrictive CSP. It also exposed the pinned SDK's record-only bridge result validation; the explicit public result-schema adapter is covered by real SDK tests for modern arrays and legacy wrappers. Widget build measurements are recorded in [MCP Apps](mcp-apps.md#measure-the-widget-build).
+The real Inspector preview exercised initial rendering without duplicate fetching, creation, completion, filtering, external-write refresh, a 360 px host frame, size notifications, and zero external widget asset requests under its restrictive CSP. It also exposed the pinned SDK's record-only bridge result validation; the explicit public result-schema adapter is covered by real SDK tests for modern arrays and legacy wrappers.
 
 The same source passed `pnpm test:stack` on Docker Engine 29.8.1, Compose 5.5.1, Linux amd64. Six production browser scenarios passed on each runtime, and four development scenarios passed, including the real widget over custom application/Inspector/sandbox ports and fresh resource reads after a shared-theme rebuild. Runtime MCP toggling, manifest-triggered rebuilding, unchanged host source, shutdown, and port cleanup passed. Both images contained identical application artifacts and the generated widget, with no tsdown, Tailwind CLI, or Inspector package in the runtime. See the [current container measurements](docker-measurements.md#playground-and-mcp-app-run).
 
@@ -64,7 +74,7 @@ The real preview requires Inspector's **Apps** interface: connect, select **List
 
 ## Docker stacks
 
-Run `pnpm test:stack` with Docker's Linux engine running and host dependencies installed. This separate acceptance command verifies the packaged production runtime and development workflow; `pnpm verify` continues to run natively without requiring Docker. See [Docker verification and measurements](docker.md#verification-and-measurements) for scope and prerequisites.
+Run `pnpm test:stack` with Docker's Linux engine running and host dependencies installed. This separate acceptance command verifies the packaged production runtime and development workflow; `pnpm verify` continues to run natively without requiring Docker. See [Docker verification and measurements](docker.md#verification-and-measurements) for scope and prerequisites. Dated runs in this guide that mention a Node slim runtime predate the removal of that measurement-only target; current runs build only the Distroless runtime and the development stack.
 
 The run report is written to ignored `test-results/stack/report.json`. Inspect its completed checks, image-size measurements, timings, and platform information before reporting Docker acceptance. Results from native tests or an image build alone do not establish that the standalone runtime, service worker, MCP transports, or Compose Watch work in a container.
 
@@ -127,7 +137,9 @@ pnpm exec playwright install chromium
 pnpm verify
 ```
 
-No CI provider is configured. A future CI job can run these commands; on Linux runners, install Chromium's OS dependencies as required. Set `HUSKY=0` in the job environment if Git hooks should not be installed there. This does not replace the verification commands.
+## Continuous integration
+
+GitHub Actions runs `.github/workflows/ci.yml` on pushes to `develop`, pull requests, and manual dispatch. The **Verify** job runs `pnpm verify`; the **Docker stack** job runs `pnpm test:stack`. Both use Ubuntu, the Node version in `.node-version`, the pinned pnpm from `packageManager`, Chromium with its OS dependencies, and `HUSKY=0`. The stack job also installs a pinned Docker Compose release and checks its SHA-256, because the runner's plugin is older than the minimum in [Docker workflows](docker.md); update the version and checksum together. Failed runs upload Playwright traces, screenshots, and the HTML report; the stack job always uploads its measurement report. Actions are pinned to commit SHAs with the release in a comment; update both together.
 
 ## Checks and scenarios
 
@@ -152,7 +164,7 @@ PWA scenarios inspect the manifest/icons, wait for a controlling worker, test a 
 
 Update scenarios change only the generated worker and explicitly call `registration.update()` to trigger a deterministic browser check; production code uses the browser's default timing without polling. They cover a quiet first installation, a waiting worker that stays inactive before approval, keyboard activation at desktop and 320px widths, reduced motion at 320px, one reload per approval, and pointer-swipe dismissal followed by notification for a newer worker. Both width checks save an `update-toast.png` screenshot in their test output directories. A two-tab scenario leaves an unfinished task draft in the second tab: approval in the first tab activates the worker, while the second tab retains its draft until its own **Reload now** action. Each test restores the original worker in cleanup. These scenarios share one production worker file and run serially; do not run another build or worker-update suite concurrently. If a run is forcibly interrupted, regenerate artifacts with `pnpm build --force` before retrying.
 
-The cache check saves `apps/web/public/sw.js` and its map when present, removes only those explicit generated files, checks the restored hashes after a Turbo cache hit, and restores the saved bytes in `finally`. Do not run it alongside a development/production server or another build. Source files, the lockfile, and directories are not its cleanup targets.
+The cache check saves `apps/web/public/sw.js`, its map when present, and `apps/web/.generated/mcp-apps/tasks.html`, removes only those explicit generated files, checks the restored hashes after a Turbo cache hit, and in `finally` writes the saved bytes back only for files that are still missing. Do not run it alongside a development/production server or another build. Source files, the lockfile, and directories are not its cleanup targets.
 
 ## Commit hook regression
 

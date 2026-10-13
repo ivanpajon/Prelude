@@ -54,4 +54,4 @@ Husky runs Biome safe fixes on staged files through lint-staged. Full checks, un
 
 ## Deferred
 
-Authentication, production persistence/ORM, deployment provider, CI provider, cross-origin API configuration, generated client SDKs, offline documentation/data reading/writing, and push notifications remain project decisions. Vitest and Playwright are the selected verification tools. The removable example uses an explicitly nonpersistent, public demo repository; exposing REST does not add a database or backend platform requirement.
+Authentication, production persistence/ORM, deployment provider, cross-origin API configuration, generated client SDKs, offline documentation/data reading/writing, and push notifications remain project decisions. Vitest and Playwright are the selected verification tools; GitHub Actions runs them and the Docker stack checks. The removable example uses an explicitly nonpersistent, public demo repository; exposing REST does not add a database or backend platform requirement.

@@ -10,7 +10,7 @@
   "save": "Guardar",
   "saving": "Guardando…",
   "cancel": "Cancelar",
-  "invalidTitle": "Escribe una tarea de entre 1 y 120 caracteres.",
+  "invalidTitle": "Escribe una tarea de entre {min} y {max} caracteres.",
   "savingTask": "Guardando tarea…",
   "savedTask": "Se ha guardado {title}.",
   "deletingTask": "Eliminando tarea…",

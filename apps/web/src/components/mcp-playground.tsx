@@ -152,7 +152,7 @@ export function McpPlayground({ store: injectedStore }: { store?: McpPlaygroundS
           </p>
           {discovery.isError && (
             <p role="alert" className="mt-3 text-sm text-destructive">
-              {t(errorCode(discovery.error))} {t("discoveryRetry")}
+              {t(errorCode(discovery.error))}
             </p>
           )}
           {discovery.data && tools.length === 0 && (

@@ -1,4 +1,5 @@
 import type { Task, TaskStatus } from "@repo/contracts";
+import { titleMaxLength } from "@repo/contracts/limits";
 import { QueryClient } from "@tanstack/react-query";
 
 export type TaskAppErrorCode =
@@ -92,7 +93,7 @@ function isTask(value: unknown): value is Task {
     value.id.length > 0 &&
     typeof value.title === "string" &&
     value.title.length > 0 &&
-    value.title.length <= 120 &&
+    value.title.length <= titleMaxLength &&
     typeof value.completed === "boolean"
   );
 }

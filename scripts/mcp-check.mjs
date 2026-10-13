@@ -2,7 +2,13 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { inspectorEnvironment, parsePort, resolvePackageBin, workspaceRoot } from "./dev-web.mjs";
+import {
+  inspectorEnvironment,
+  loadDevEnvironment,
+  parsePort,
+  resolvePackageBin,
+  workspaceRoot,
+} from "./dev-web.mjs";
 
 export function parseCheckOptions(args, env = process.env) {
   const { values } = parseArgs({
@@ -38,7 +44,7 @@ export function checkCommand(url, root = workspaceRoot, env = process.env) {
   };
 }
 
-export function checkMain(args = process.argv.slice(2), env = process.env) {
+export function checkMain(args = process.argv.slice(2), env = loadDevEnvironment()) {
   const options = parseCheckOptions(args, env);
   if (options.help) {
     console.log(`List MCP tools without executing them.

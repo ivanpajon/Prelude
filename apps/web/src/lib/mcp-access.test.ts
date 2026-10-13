@@ -131,15 +131,20 @@ describe("MCP request access", () => {
 
   it("does not expose internal failures and preserves SDK response headers", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const failure = await handleMcpRequest(request(), async () => {
-      throw new Error("private implementation detail");
-    });
+    const failure = await handleMcpRequest(
+      request(),
+      async () => {
+        throw new Error("private implementation detail");
+      },
+      {},
+    );
     expect(failure.status).toBe(500);
     expect(await failure.text()).not.toContain("private implementation detail");
     const success = await handleMcpRequest(
       request(),
       async () =>
         new Response("event: message\n\n", { headers: { "Content-Type": "text/event-stream" } }),
+      {},
     );
     expect(success.headers.get("content-type")).toBe("text/event-stream");
   });

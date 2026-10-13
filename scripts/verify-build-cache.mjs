@@ -70,5 +70,6 @@ try {
     `Verified byte-for-byte restoration of ${saved.length} service-worker/MCP App artifacts.`,
   );
 } finally {
-  for (const { file, bytes } of saved) writeFileSync(file, bytes);
+  // Never overwrite a fresh build's output with the older saved bytes.
+  for (const { file, bytes } of saved) if (!existsSync(file)) writeFileSync(file, bytes);
 }

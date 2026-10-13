@@ -76,7 +76,7 @@ The official App SDK handles the host handshake and parent-window messaging. Too
 
 Resource metadata declares empty network, external-resource, and nested-frame allowlists. It requests no browser permissions or custom sandbox domain. The generated HTML also denies direct connections and external assets, permits only its inline script/styles and data images, and does not allow `unsafe-eval`. It contains no CDN imports, remote fonts, dynamic chunks, or server-only code.
 
-The SDK uses its CSP-safe validation mode. Widget imports from `@repo/contracts` are type-only; it performs narrow display-shape checks instead of importing ArkType's runtime compiler into the sandbox. ArkType still validates all real inputs and outputs in the server procedures. Preserve this distinction when adding widget features.
+The SDK uses its CSP-safe validation mode. Widget imports from `@repo/contracts` are type-only, apart from the dependency-free `@repo/contracts/limits` constants; it performs narrow display-shape checks instead of importing ArkType's runtime compiler into the sandbox. ArkType still validates all real inputs and outputs in the server procedures. Preserve this distinction when adding widget features.
 
 The task repository remains **public, shared, and process-local**, with unauthenticated writes and no persistence across restarts. `MCP_ENABLED=false` disables access to tools and resources, as well as the website's MCP actions. Origin checks, iframe isolation, and tool annotations are not authorization. Add authentication and procedure-level authorization consistently across every API transport before adapting the demo to private data. There are no offline writes, subscriptions, or automatic mutation retries.
 
@@ -100,33 +100,11 @@ For an isolated asset build from the repository root:
 node scripts/build-mcp-apps.mjs
 ```
 
-The builder rejects unresolved imports, extra chunks, external CSS assets, and unsafe inline closing tags, then atomically replaces the HTML. Development watches widget sources, shared UI sources, and `packages/i18n/src`. Build-script or dependency changes require restarting development; Compose Watch handles the configured restart/rebuild triggers.
+The builder rejects unresolved imports, extra chunks, external CSS assets, and unsafe inline closing tags, then atomically replaces the HTML. Development watches widget sources, shared UI sources, `packages/i18n/src`, and `packages/contracts/src`. Build-script or dependency changes require restarting development; Compose Watch handles the configured restart/rebuild triggers.
 
 Turbo includes `.generated/mcp-apps/**` in build outputs and the builder script in cache inputs. `pnpm test:cache` removes only the known generated widget/worker files, restores the build cache, and compares their bytes. Next.js explicitly traces the widget HTML for `/api/mcp`, allowing the standalone Docker image to carry it without shipping the compiler or source tree.
 
 The server loads HTML only when a client reads the resource. Production memoizes successful reads for the process lifetime; development reads the current rebuilt file each time. A missing or malformed asset returns a generic resource error while JSON tools remain usable. Rebuild and restart production after changing the widget. Task data and MCP responses are not cached with the HTML; all `/api/` traffic bypasses the service worker.
-
-## Measure the widget build
-
-Stop development watchers before measuring so they cannot overwrite the production asset during the run:
-
-```sh
-node scripts/measure-mcp-apps.mjs
-```
-
-The ignored `test-results/mcp-apps/report.json` records three sequential full production builds, raw JavaScript/CSS/HTML bytes, gzipped HTML bytes, versions, build options, and output hashes. Each timed build includes JavaScript bundling, a fresh Tailwind CLI process, and atomic HTML output. Runs share one Node process, so module and operating-system caches may be warmer after the first sample; these are not three independent cold builds. Gzip is a separate artifact-size measurement, not the size or transfer time of an MCP response. Use the report from the current source before claiming measured savings or timing improvements.
-
-Measured on 2026-09-30 (Europe/Madrid), including both widget languages, using Node 26.10.0 on Windows x64, with tsdown 0.23.0, Tailwind CLI 4.3.3 and Lightning CSS 1.32.0:
-
-| Measurement | Result |
-| --- | --- |
-| Full production build, three sequential samples | 913.05 ms / 697.21 ms / 703.43 ms |
-| JavaScript | 600,342 bytes |
-| CSS | 29,629 bytes |
-| Complete HTML | 630,463 bytes |
-| Gzipped HTML | 179,138 bytes |
-
-All three generated files were byte-identical. These measurements include the pinned React and MCP Apps runtimes; they describe this machine and source revision, not expected deployment latency.
 
 ## Replace or remove the example
 
@@ -135,7 +113,7 @@ To keep MCP Apps for a different feature, replace the widget UI/model, resource 
 To remove just the widget:
 
 1. Remove `apps/web/src/mcp-apps/tasks`, its tests, the resource module/tests, and the task resource registration/metadata integration in `lib/mcp.ts`. Retain the regular generated `registerTool` path and JSON execution.
-2. Remove `scripts/build-mcp-apps.mjs`, its tests, and `scripts/measure-mcp-apps.mjs`, its web build-script prefix and managed development child, and widget-specific Watch/restart handling.
+2. Remove `scripts/build-mcp-apps.mjs`, its tests, its web build-script prefix and managed development child, and widget-specific Watch/restart handling.
 3. Remove the generated-HTML trace include, Turbo widget outputs/builder input, and widget assertions in cache, browser, and Docker acceptance. Keep the worker cache checks.
 4. Remove the `/playground#mcp-app` panel/link from `apps/web/src/app/[routingMode]/[locale]/playground/page.tsx` and update its section navigation. Remove unused `Widget` catalogs and its catalog-loader exports, plus widget-specific playground messages in both languages. Keep the browser workbench and JSON explorer if useful.
 5. Remove unused `ext-apps`, its now-unused direct peers, tsdown, and Tailwind CLI dependencies, then regenerate the lockfile. Retain SDK packages needed by JSON MCP and the independent Next.js Tailwind PostCSS setup.

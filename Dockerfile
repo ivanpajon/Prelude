@@ -12,7 +12,7 @@ USER node
 
 FROM base AS dependencies
 ARG TARGETARCH
-COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY --parents --chown=node:node ./apps/*/package.json ./packages/*/package.json ./
 RUN --mount=type=cache,id=prelude-pnpm-${TARGETARCH},target=/pnpm/store,uid=1000,gid=1000,sharing=locked \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store
@@ -37,16 +37,6 @@ RUN mkdir -p /app/runtime/apps/web/.next/cache \
     && cp -a apps/web/.next/standalone/. /app/runtime/ \
     && cp -a apps/web/.next/static /app/runtime/apps/web/.next/static \
     && cp -a apps/web/public /app/runtime/apps/web/public
-
-# Measurement baseline only; both runtimes receive precisely the same artifacts.
-FROM ${NODE_IMAGE} AS production-slim
-WORKDIR /app
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
-COPY --from=runtime-artifacts --chown=65532:65532 /app/runtime/ ./
-USER 65532:65532
-EXPOSE 3000
-ENTRYPOINT ["/usr/local/bin/node"]
-CMD ["apps/web/server.js"]
 
 FROM ${RUNTIME_IMAGE} AS production
 WORKDIR /app

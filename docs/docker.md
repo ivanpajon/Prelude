@@ -6,7 +6,7 @@ The task repository remains shared, process-local demo data. Rebuilding or resta
 
 ## Prerequisites and commands
 
-Use a current Docker Desktop with Linux containers, or Docker Engine with BuildKit and the Compose plugin **2.32.2 or later**. The Dockerfile uses the current stable Dockerfile frontend, including `COPY --parents`. Start the Docker engine before running these commands. The `pnpm` shortcuts use the project's pinned pnpm **12.6.0**; the images install their own dependencies with Node **26.10.0**. A host dependency installation is not needed just to start a stack.
+Use a current Docker Desktop with Linux containers, or Docker Engine with BuildKit and the Compose plugin **5.5.1 or later**. The development stack's `initial_sync` watch option fails validation before Compose 2.39.4 and skips files older than the image before 5.5.1. The Dockerfile uses the current stable Dockerfile frontend, including `COPY --parents`. Start the Docker engine before running these commands. The `pnpm` shortcuts use the project's pinned pnpm **12.6.0**; the images install their own dependencies with Node **26.10.0**. A host dependency installation is not needed just to start a stack.
 
 From the repository root:
 
@@ -57,7 +57,7 @@ docker compose -f compose.dev.yaml logs --follow
 docker compose -f compose.dev.yaml down
 ```
 
-`pnpm stack:dev` runs Compose Watch in the foreground; use Ctrl+C to stop it and `down` to remove its containers and network. Edit files on the host: Watch synchronizes source into the container and Turbopack refreshes the application. The managed widget builder watches its own sources, shared UI sources, and shared localization catalogs inside the container; reopen Inspector's App preview to load rebuilt HTML. Dependency manifests, the lockfile, package-manager configuration, and Dockerfile changes trigger a rebuild. Next.js, PostCSS, TypeScript, development-launcher, and widget-build-script changes synchronize and restart the service. Restart Compose after editing a Compose file or its environment values. Linux dependencies and generated output stay inside Docker; Windows or macOS `node_modules` are never mounted over them.
+`pnpm stack:dev` runs Compose Watch in the foreground; use Ctrl+C to stop it and `down` to remove its containers and network. Edit files on the host: Watch synchronizes source into the container and Turbopack refreshes the application. The managed widget builder watches its own sources, shared UI sources, shared localization catalogs, and shared contract limits inside the container; reopen Inspector's App preview to load rebuilt HTML. Dependency manifests, the lockfile, package-manager configuration, and Dockerfile changes trigger a rebuild. Next.js, PostCSS, TypeScript, development-launcher, and widget-build-script changes synchronize and restart the service. Restart Compose after editing a Compose file or its environment values. Linux dependencies and generated output stay inside Docker; Windows or macOS `node_modules` are never mounted over them.
 
 Watch synchronization is **one way, from host to container**. Run dependency updates, workspace customization, and source-generating commands on the host so their results remain in Git. For example:
 
@@ -125,7 +125,7 @@ docker compose --env-file .env.second --project-name second-dev -f compose.dev.y
 
 The default production binding is appropriate for local use and a reverse proxy running on the same host. Set `PROD_HOST=0.0.0.0` only when the deployment needs the port reachable through other interfaces. Configure the server's network access and HTTPS ingress for the intended audience.
 
-Use HTTPS for a deployed PWA; browsers permit the local loopback exception during development. Preserve the public request Host when forwarding to Next.js so same-origin Server Actions can verify it, and preserve streaming responses. TLS termination, public DNS, authentication, persistence, and deployment-provider configuration remain the operator's choices.
+Use HTTPS for a deployed PWA; browsers permit the local loopback exception during development. Preserve the public request Host when forwarding to Next.js so same-origin Server Actions can verify it, and preserve streaming responses. TLS termination, public DNS, authentication, persistence, and deployment-provider configuration remain the operator's choices. Send `Strict-Transport-Security` from the HTTPS proxy; the app sends its other [security headers](architecture.md#security-headers) itself.
 
 The demo's REST, RPC, and MCP mutations are public. Set `MCP_ENABLED=false` if MCP should be hidden; this does not disable the other transports. Replace demo data access and add application authorization before adapting it to private data.
 
@@ -140,7 +140,7 @@ docker compose exec web /nodejs/bin/node -e "console.log({ node: process.version
 
 The development image contains a shell and the development tools. Diagnose package installation and compiler failures there or in the builder rather than installing tools into a running production container.
 
-For a clean rebuild of this stack, use `docker compose build --no-cache` followed by `docker compose up --detach --wait`. The build context excludes host dependencies, build output, tool downloads, local environment files, and test reports. Persistent engine-wide cache deletion is not required for a normal rebuild.
+For a clean rebuild of this stack, use `docker compose build --no-cache` followed by `docker compose up --detach --wait`. The build context excludes host dependencies, build output, tool and agent folders, local environment files, test reports, documentation, root Markdown files, and the host-only `tests` directory, so editing them does not rebuild the application. Persistent engine-wide cache deletion is not required for a normal rebuild.
 
 ## Verification and measurements
 
@@ -153,14 +153,14 @@ pnpm test:stack
 
 The Docker acceptance workflow complements `pnpm verify`; it is separate so the ordinary native checks do not require Docker. It works in a temporary project copy with isolated Compose resources, leaving the checkout's source unchanged. Check `test-results/stack/report.json` for completed scenarios, platform information, image sizes, and timings. A completed native build alone does not verify the packaged container.
 
-The report compares Distroless and the `production-slim` measurement target using identical standalone artifacts. Runtime samples use the same two-CPU, 1-GiB limits, with three samples by default; `pnpm test:stack --samples 5` changes the sample count. Each sample records HTTP readiness, process RSS, and a small mixed HTML/API workload with latency percentiles. These measurements describe this workload on the reported machine, not a general performance guarantee.
+Runtime samples of the Distroless image use two-CPU, 1-GiB limits, with three samples by default; `pnpm test:stack --samples 5` changes the sample count. Each sample records HTTP readiness, the time until the Compose healthcheck reports healthy, process RSS, and a small mixed HTML/API workload with latency percentiles. These measurements describe this workload on the reported machine, not a general performance guarantee.
 
 Image sizes distinguish the unpacked filesystem, Docker's image-store accounting, and the sum of gzip-compressed OCI layers. Unpacked bytes come from a fresh, stopped container's `SizeRootFs` minus `SizeRw`; Docker's image `Size` can also include compressed storage with the containerd backend. Compressed layer bytes exclude registry metadata and do not estimate network transfer time or account for layers already present on another machine. Smaller download size does not establish faster application execution.
 
-The slim target reuses the common compilation stage for its cold assembly, source-change, and restore builds. Those timings measure additional runtime assembly, not a second independent compilation. The unchanged-build checks require cached compilation; the production source-change check requires a new compilation with cached dependencies.
+The unchanged-build check requires cached compilation; the source-change check requires a new compilation with cached dependencies.
 
 The initial production build uses a dedicated empty Buildx builder, including a fresh pnpm store and Next.js cache. It does not reset Docker Desktop or measure network transfer, so it is not a fresh-machine installation benchmark.
 
-Container verification covers rendering, static assets and image optimization, REST/RPC/MCP access, runtime MCP enablement, absent production Inspector routes, Temporal/Intl, writable caches, PWA offline behavior, and graceful shutdown. MCP App checks include the traced HTML resource and a working host-browser preview through the published development sandbox. Development checks cover source synchronization, managed Inspector access, rebuilds, and independent host/container dependencies. The [recorded measurements](docker-measurements.md#playground-and-mcp-app-run) distinguish the widget-containing image from the historical baseline. Rerun acceptance when the source or environment changes; image size and latency vary across machines.
+Container verification covers rendering, static assets and image optimization, REST/RPC/MCP access, runtime MCP enablement, absent production Inspector routes, Temporal/Intl, writable caches, PWA offline behavior, both Compose healthchecks, and graceful shutdown. MCP App checks include the traced HTML resource and a working host-browser preview through the published development sandbox. Development checks cover source synchronization, managed Inspector access, rebuilds, and independent host/container dependencies. The [recorded measurements](docker-measurements.md#playground-and-mcp-app-run) include the one-time comparison with a Node slim runtime and distinguish the widget-containing image from the historical baseline. Rerun acceptance when the source or environment changes; image size and latency vary across machines.
 
 When upgrading Node, update both pinned image references in `Dockerfile` together with the repository runtime baseline, and verify the actual Node versions in both images. Update the Dockerfile's pnpm version with `packageManager`. Rerun native and container acceptance after either change. The packaging follows the official [Distroless Node runtime](https://github.com/GoogleContainerTools/distroless/tree/main/nodejs), [Next.js standalone output](https://nextjs.org/docs/app/api-reference/config/next-config-js/output), and [Compose Watch](https://docs.docker.com/compose/how-tos/file-watch/) documentation.

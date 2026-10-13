@@ -13,10 +13,6 @@
       {
         "files": ["src/app/actions/locale.ts"],
         "rules": ["react-doctor/server-auth-actions"]
-      },
-      {
-        "files": ["src/components/pwa-provider.tsx"],
-        "rules": ["react-doctor/no-loading-flag-reset-outside-finally"]
       }
     ]
   }

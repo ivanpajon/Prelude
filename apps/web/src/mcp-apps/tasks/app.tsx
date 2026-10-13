@@ -1,5 +1,6 @@
 import { useApp, useAutoResize, useHostStyleVariables } from "@modelcontextprotocol/ext-apps/react";
 import type { Task, TaskStatus } from "@repo/contracts";
+import { titleMaxLength } from "@repo/contracts/limits";
 import { type Locale, resolveLocale } from "@repo/i18n";
 import { getWidgetMessages } from "@repo/i18n/widget";
 import { Button } from "@repo/ui/components/button";
@@ -24,6 +25,10 @@ const filters: [TaskStatus, "filterAll" | "filterActive" | "filterCompleted"][] 
   ["active", "filterActive"],
   ["completed", "filterCompleted"],
 ];
+const invalidTitle: TaskAppIssue = {
+  code: "errorInvalidTitle",
+  values: { min: 1, max: titleMaxLength },
+};
 
 export function widgetLocale(hostLocale?: string): Locale {
   return resolveLocale(hostLocale, ...navigator.languages, navigator.language);
@@ -92,8 +97,8 @@ function TaskTitleEditor({
     event.preventDefault();
     if (pending.current || disabled) return;
     const normalized = title.trim();
-    if (!normalized || normalized.length > 120) {
-      setError({ code: "errorInvalidTitle", values: { min: 1, max: 120 } });
+    if (!normalized || normalized.length > titleMaxLength) {
+      setError(invalidTitle);
       input.current?.focus();
       return;
     }
@@ -161,7 +166,9 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
     enabled: false,
   });
   const [title, setTitle] = useState("");
+  const [titleError, setTitleError] = useState<TaskAppIssue | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const titleInput = useRef<HTMLInputElement>(null);
   const focusAfterEdit = useRef<string | null>(null);
   const editButtons = useRef(new Map<string, HTMLButtonElement>());
   const refreshButton = useRef<HTMLButtonElement>(null);
@@ -195,10 +202,13 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
     event.preventDefault();
     if (editing) return;
     const normalized = title.trim();
-    if (!normalized || normalized.length > 120) {
-      session.fail({ code: "errorInvalidTitle", values: { min: 1, max: 120 } });
+    // Validation stays local: failing the session would discard an in-flight load.
+    if (!normalized || normalized.length > titleMaxLength) {
+      setTitleError(invalidTitle);
+      titleInput.current?.focus();
       return;
     }
+    setTitleError(null);
     if (await session.mutate("createTask", { title: normalized })) {
       setTitle((current) => (current === title ? "" : current));
     }
@@ -229,18 +239,29 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
             {t("newTaskLabel")}
           </label>
           <Input
+            ref={titleInput}
             id="task-title"
             className="min-w-0 flex-1"
             placeholder={t("newTaskPlaceholder")}
             value={title}
-            maxLength={120}
-            onChange={(event) => setTitle(event.target.value)}
+            maxLength={titleMaxLength}
+            aria-invalid={titleError ? true : undefined}
+            aria-describedby={titleError ? "task-title-error" : undefined}
+            onChange={(event) => {
+              setTitle(event.target.value);
+              setTitleError(null);
+            }}
             disabled={busy}
           />
           <Button type="submit" disabled={busy || editing}>
             <PlusIcon aria-hidden="true" />
             {t("addTask")}
           </Button>
+          {titleError && (
+            <p id="task-title-error" className="basis-full text-xs text-destructive" role="alert">
+              {t(titleError.code, titleError.values)}
+            </p>
+          )}
         </form>
       )}
       <nav className="mt-5 flex flex-wrap gap-1" aria-label={t("filtersLabel")}>

@@ -10,8 +10,10 @@ import {
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { ORPCError } from "@orpc/server";
+import { BodyLimitPlugin } from "@orpc/server/fetch";
 import { type Context, router } from "@repo/api";
 import type { Type } from "arktype";
+import { plainRequest } from "./plain-request";
 
 /** oRPC 1.15.4's converter does not select the input/output side of ArkType morphs. */
 export class DirectionalArkTypeConverter extends ArkTypeToJsonSchemaConverter {
@@ -41,6 +43,7 @@ const specOptions: OpenAPIGeneratorGenerateOptions = {
 const generator = new OpenAPIGenerator({ schemaConverters });
 const handler = new OpenAPIHandler(router, {
   plugins: [
+    new BodyLimitPlugin({ maxBodySize: 64 * 1024 }),
     new OpenAPIReferencePlugin({
       schemaConverters,
       specGenerateOptions: specOptions,
@@ -71,6 +74,7 @@ const handler = new OpenAPIHandler(router, {
         try {
           body = await request.body();
         } catch (cause) {
+          if (cause instanceof ORPCError) throw cause;
           throw new ORPCError("BAD_REQUEST", { message: "Malformed request body.", cause });
         }
         // oRPC compact inputs combine parameters and the body; IDs belong only in the URL path.
@@ -88,7 +92,7 @@ export function generateOpenApiSpec() {
 }
 
 export async function handleOpenApiRequest(request: Request, context: Context): Promise<Response> {
-  const { response } = await handler.handle(request, { prefix: "/api", context });
+  const { response } = await handler.handle(plainRequest(request), { prefix: "/api", context });
   const result = response ?? new Response("Not found", { status: 404 });
   result.headers.set("Cache-Control", "no-store");
   return result;

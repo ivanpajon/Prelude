@@ -5,7 +5,7 @@ export const LOCALE_COOKIE = "PRELUDE_LOCALE";
 export const localeCookieMaxAge = 60 * 60 * 24 * 365;
 
 export function isLocale(value: unknown): value is Locale {
-  return value === "en" || value === "es";
+  return (locales as readonly unknown[]).includes(value);
 }
 
 /** Match supported BCP 47 languages without trusting arbitrary cookie/host values. */

@@ -12,11 +12,16 @@
 .git
 .github
 .agents
+.claude
 .codex
 .tools
 .husky
 .vscode
 .idea
+# Documentation and host-only tests are not read by any image or container.
+docs
+tests
+*.md
 **/.env*
 **/*.log
 apps/web/public/sw.js

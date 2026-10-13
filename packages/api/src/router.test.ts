@@ -311,4 +311,11 @@ describe("demo repository ownership", () => {
     expect(repository.delete(created.id)).toBeUndefined();
     expect(repository.list("all")).toEqual([{ id: "seed", title: "Original", completed: false }]);
   });
+
+  it("keeps at most 100 tasks by evicting the oldest on create", () => {
+    const repository = createDemoRepository();
+    const created = Array.from({ length: 100 }, (_, index) => repository.create(`Task ${index}`));
+
+    expect(repository.list("all")).toEqual(created);
+  });
 });

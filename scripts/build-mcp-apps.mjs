@@ -193,7 +193,12 @@ export async function watchMcpApps({
   };
   const watchers = [];
   try {
-    for (const directory of ["apps/web/src/mcp-apps", "packages/ui/src", "packages/i18n/src"]) {
+    for (const directory of [
+      "apps/web/src/mcp-apps",
+      "packages/ui/src",
+      "packages/i18n/src",
+      "packages/contracts/src",
+    ]) {
       const watcher = watch(path.join(root, directory), { recursive: true }, changed);
       watcher.on("error", onError);
       watchers.push(watcher);

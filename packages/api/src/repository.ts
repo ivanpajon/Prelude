@@ -16,6 +16,10 @@ const initialTasks: readonly Task[] = [
   { id: "customize", title: "Make this template yours", completed: false },
 ];
 
+// shortcut: public writes are unauthenticated, so the demo keeps at most 100 tasks
+// and evicts the oldest on create. A real app replaces this repository.
+const demoTaskLimit = 100;
+
 /**
  * A replaceable demonstration adapter, with fresh state for every factory call.
  * Returned objects are copies so callers cannot mutate the backing collection.
@@ -30,6 +34,10 @@ export function createDemoRepository(seed: readonly Task[] = initialTasks): Task
         .map((task) => ({ ...task }));
     },
     create(title) {
+      if (tasks.size >= demoTaskLimit) {
+        const oldest = tasks.keys().next().value;
+        if (oldest !== undefined) tasks.delete(oldest);
+      }
       const task: Task = { id: crypto.randomUUID(), title, completed: false };
       tasks.set(task.id, task);
       return { ...task };

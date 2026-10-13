@@ -96,11 +96,7 @@ export function createMcpPlayground({
       validatePageOrigin(incoming, config);
       const headers = nativeHeaders(incoming);
       const rejection = rejectMcpRequest(new Request(endpointUrl, { headers }), config);
-      if (rejection) {
-        throw new McpPlaygroundError(
-          rejection.status === 404 ? "errorDisabled" : "errorUnavailable",
-        );
-      }
+      if (rejection) throw new McpPlaygroundError("errorDisabled");
       client = new Client(
         { name: "prelude-playground", version: "1.0.0" },
         { versionNegotiation: { mode: "auto" } },
