@@ -7,7 +7,7 @@ The same oRPC procedures serve the workbench over RPC, direct Server Component c
 | Endpoint | Input and behavior |
 | --- | --- |
 | `GET /api/docs` | Public, interactive Scalar reference; linked from the shared homepage/playground navigation. |
-| `GET /api/openapi.json` | Generated specification, titled **Prelude API**, version **1.0.0**. |
+| `GET /api/openapi.json` | Generated specification, titled **Prelude API** (the site name from `apps/web/src/site.ts`), version **1.0.0**. |
 | `GET /api/v1/tasks?status=all` | Required status: `all`, `active`, or `completed`; returns 200. |
 | `POST /api/v1/tasks` | JSON `{ "title": "Build a feature" }`; returns the new task with 201. |
 | `PATCH /api/v1/tasks/{id}` | JSON `{ "completed": true }`; returns the updated task with 200, or `NOT_FOUND` with 404. |

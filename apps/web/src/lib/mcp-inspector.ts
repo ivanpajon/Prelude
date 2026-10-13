@@ -1,6 +1,7 @@
 import "server-only";
 
 import { parseServerEnvironment, type RuntimeEnvironment } from "@/env";
+import { site } from "@/site";
 import { rejectNonLocalRequest, withoutMcpCache } from "./mcp-access";
 import { logServerError } from "./server-log";
 
@@ -33,10 +34,10 @@ export function handleInspectorRequest(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Prelude MCP Inspector</title>
+<title>${site.name} MCP Inspector</title>
 <style>html,body{height:100%;margin:0}iframe{display:block;width:100%;height:100%;border:0}</style>
 </head>
-<body><iframe src="${inspectorOrigin}/" title="Prelude MCP Inspector"></iframe></body>
+<body><iframe src="${inspectorOrigin}/" title="${site.name} MCP Inspector"></iframe></body>
 </html>`;
   return withoutMcpCache(
     new Response(request.method === "HEAD" ? null : html, {

@@ -3,6 +3,7 @@ import { type Context, createDemoRepository, type TaskRepository } from "@repo/a
 import type { Task } from "@repo/contracts";
 import { OpenAPIToolGenerator } from "mcp-from-openapi";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { site } from "@/site";
 import { createMcpEndpoint, generateMcpCatalog, type McpEndpointOptions } from "./mcp";
 import { mcpAppResourceUri } from "./mcp-app-resource";
 import { generateOpenApiSpec, handleOpenApiRequest } from "./openapi";
@@ -265,6 +266,7 @@ describe.each(["modern", "legacy"] as const)("MCP %s HTTP compatibility", (era) 
     });
     const handler = endpoint({ getContext: () => context, dispatch });
     const client = await connect(handler, era);
+    expect(client.getServerVersion()?.name).toBe(site.slug);
     const { tools } = await client.listTools();
     expect(Object.fromEntries(tools.map((tool) => [tool.name, tool.annotations]))).toEqual(
       expectedTaskAnnotations,

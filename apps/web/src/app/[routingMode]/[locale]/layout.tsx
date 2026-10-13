@@ -11,14 +11,15 @@ import { Providers } from "@/components/providers";
 import { PwaProvider } from "@/components/pwa-provider";
 import { isRoutingMode, routingModes } from "@/i18n/routing";
 import { RoutingPreferenceProvider } from "@/i18n/routing-preference-provider";
+import { site } from "@/site";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Home");
   return {
     title: t("metaTitle"),
     description: t("metaDescription"),
-    applicationName: "Prelude",
-    appleWebApp: { capable: true, statusBarStyle: "default", title: "Prelude" },
+    applicationName: site.name,
+    appleWebApp: { capable: true, statusBarStyle: "default", title: site.name },
     icons: { icon: "/icons/icon.svg", apple: "/icons/apple-touch-icon.png" },
   };
 }

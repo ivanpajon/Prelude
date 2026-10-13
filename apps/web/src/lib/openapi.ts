@@ -13,6 +13,7 @@ import { ORPCError, onError } from "@orpc/server";
 import { BodyLimitPlugin } from "@orpc/server/fetch";
 import { type Context, router } from "@repo/api";
 import type { Type } from "arktype";
+import { site } from "@/site";
 import { logUnexpectedApiError } from "./api-errors";
 import { plainRequest } from "./plain-request";
 
@@ -33,7 +34,7 @@ export class DirectionalArkTypeConverter extends ArkTypeToJsonSchemaConverter {
 const schemaConverters = [new DirectionalArkTypeConverter()];
 const specOptions: OpenAPIGeneratorGenerateOptions = {
   info: {
-    title: "Prelude API",
+    title: `${site.name} API`,
     version: "1.0.0",
     description:
       "Public, shared, in-memory demo tasks. Changes affect every visitor on this server instance and reset when it restarts. Reload or refetch the workbench to see changes made here.",
@@ -51,7 +52,7 @@ const handler = new OpenAPIHandler(router, {
       docsPath: "/docs",
       specPath: "/openapi.json",
       docsProvider: "scalar",
-      docsTitle: "Prelude API Reference",
+      docsTitle: `${site.name} API Reference`,
       // Pin the renderer separately: the oRPC package version does not pin this CDN asset.
       docsScriptUrl:
         "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.72.1/dist/browser/standalone.js",

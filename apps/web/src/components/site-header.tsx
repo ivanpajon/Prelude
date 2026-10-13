@@ -2,6 +2,7 @@ import { ArrowUpRightIcon } from "lucide-react";
 import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
+import { site } from "@/site";
 import { LanguageSelector } from "./language-selector";
 
 export async function SiteHeader({ activePage }: { activePage?: "playground" }) {
@@ -15,7 +16,7 @@ export async function SiteHeader({ activePage }: { activePage?: "playground" }) 
       >
         <Image
           src="/branding/prelude-logo.png"
-          alt="Prelude"
+          alt={site.name}
           width={2027}
           height={776}
           className="h-auto w-36 sm:w-44"

@@ -18,6 +18,7 @@ import {
   type McpOpenAPITool,
   OpenAPIToolGenerator,
 } from "mcp-from-openapi";
+import { site } from "@/site";
 import {
   createMcpAppHtmlLoader,
   getTaskAppTools,
@@ -166,7 +167,7 @@ export function createMcpEndpoint({
     if (!requestInfo) throw new Error("MCP requires an HTTP request.");
     const tools = await getCatalog();
     const context = await getContext(requestInfo);
-    const server = new McpServer({ name: "prelude", version: "1.0.0" });
+    const server = new McpServer({ name: site.slug, version: "1.0.0" });
     const appTools = getTaskAppTools(tools);
     if (appTools) registerTaskAppResource(server, appTools, getAppHtml);
     for (const tool of tools) {

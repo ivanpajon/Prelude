@@ -4,6 +4,7 @@ import { browserLocale, defaultLocale, type Locale } from "@repo/i18n";
 import { getPwaMessages } from "@repo/i18n/pwa";
 import { WifiOffIcon } from "lucide-react";
 import { useEffect, useState } from "react";
+import { site } from "@/site";
 
 /** One static document serves every language and remains readable without JavaScript. */
 export function OfflineContent() {
@@ -31,7 +32,7 @@ export function OfflineContent() {
       <div className="mb-8 flex size-14 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
         <WifiOffIcon className="size-6" aria-hidden="true" />
       </div>
-      <p className="mb-3 font-mono text-xs text-muted-foreground">PRELUDE</p>
+      <p className="mb-3 font-mono text-xs text-muted-foreground uppercase">{site.name}</p>
       <h1 className="text-4xl font-medium tracking-tight">{messages.offlineTitle}</h1>
       <p className="mt-5 text-base leading-relaxed text-muted-foreground">
         {messages.offlineDescription}

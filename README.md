@@ -128,7 +128,8 @@ pnpm customize --name my-app --scope "@acme"
 
 The command updates package names, workspace dependencies, imports, shadcn aliases, TypeScript paths, framework/tool configuration, and documentation references. It regenerates the lockfile, refreshes workspace links, formats changed source/configuration files, and runs `pnpm check` and `pnpm test`. Omitted options preserve the current value. See [customization](docs/customization.md) for requirements, reruns, and recovery.
 
-- Change translated branding/metadata in `packages/i18n/src/messages/{en,es}`, application metadata in `apps/web/src/app/[routingMode]/[locale]/layout.tsx`, and the manifest in `apps/web/src/app/manifest.ts`. Replace the icons in `apps/web/public/icons` and customize `packages/ui/src/styles/globals.css`.
+- Start with `apps/web/src/site.ts`: the display name (metadata, manifest, API reference, offline page), the slug (MCP server name), and the repository URL linked from the footer (leave it unset to hide the link).
+- Change translated branding/metadata in `packages/i18n/src/messages/{en,es}`, other application metadata in `apps/web/src/app/[routingMode]/[locale]/layout.tsx`, and the manifest colors in `apps/web/src/app/manifest.ts`. Replace the icons in `apps/web/public/icons` and customize `packages/ui/src/styles/globals.css`.
 - Replace the transparent web logo in `apps/web/public/branding` and the README banner in `docs/assets` with your own branding.
 - Add components with the pinned CLI from the workspace root: `pnpm --filter @repo/ui exec shadcn add dialog`. The UI package's `base-nova` configuration selects Base UI and writes shared components there.
 - Import components from `@repo/ui/components/*` and `cn` from `@repo/ui/lib/utils`; the latter re-exports the `cn` package.
@@ -136,7 +137,7 @@ The command updates package names, workspace dependencies, imports, shadcn alias
 - Use the shared Motion provider and Morphicons wrapper for animations that honor reduced motion. The compact-view toggle demonstrates both; see [animation guidance](docs/motion.md).
 - Replace the task contracts, repository, and `/playground` workbench with your feature, updating the corresponding tests. Replace or remove the separate MCP App example too; keep the provider and transport infrastructure you need.
 - Add an origin to the Content Security Policy in `apps/web/next.config.ts` before pages load scripts, images, or APIs from another host. See [security headers](docs/architecture.md#security-headers).
-- Update the API title, version, tags, and descriptions in `apps/web/src/lib/openapi.ts`; keep route metadata with the contracts. See [OpenAPI customization and demo removal](docs/openapi.md).
+- Update the API version, tags, and descriptions in `apps/web/src/lib/openapi.ts` (its title follows the site name); keep route metadata with the contracts. See [OpenAPI customization and demo removal](docs/openapi.md).
 - MCP tools follow the same OpenAPI operations automatically. Configure exposure and request authorization with the rest of the API; see [MCP customization](docs/mcp.md).
 - MCP App interfaces have explicit resource associations. See [MCP Apps](docs/mcp-apps.md) for the widget's shared components, host connection, build pipeline, and removal checklist.
 - Add or adapt translations in `@repo/i18n`; use typed next-intl hooks in the website and use-intl in standalone widgets. See [localization](docs/i18n.md) for routing, cache privacy, and supported-locale changes.
