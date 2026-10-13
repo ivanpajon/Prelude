@@ -8,7 +8,7 @@ Verified on 2026-10-13 with Node 26.10.0 and pnpm 12.6.0:
 - The CI **Verify** job's steps passed in a clean `node:26.10.0-trixie-slim` container with the same results and no leftover processes. The first Linux rehearsal hung after both browser suites: pnpm runs scripts in their own process group, so Playwright's shutdown orphaned the servers. Both Playwright configurations now start their servers directly and stop them with SIGTERM.
 - The new production browser case checks page and API headers and fails on Content Security Policy violations. It failed as expected when `'unsafe-inline'` was removed from `script-src`, because Next.js starts prerendered pages with inline scripts.
 
-The Docker stack job was not rehearsed on Linux.
+On the first GitHub Actions run, **Verify** passed. **Docker stack** passed its production builds and runtime samples, then failed to start the development stack: the runner's Compose 2.38.2 rejects `initial_sync`. The job now installs Compose 5.6.0, the version used locally.
 
 ## Interactive locale routing
 
@@ -139,7 +139,7 @@ pnpm verify
 
 ## Continuous integration
 
-GitHub Actions runs `.github/workflows/ci.yml` on pushes to `develop`, pull requests, and manual dispatch. The **Verify** job runs `pnpm verify`; the **Docker stack** job runs `pnpm test:stack`. Both use Ubuntu, the Node version in `.node-version`, the pinned pnpm from `packageManager`, Chromium with its OS dependencies, and `HUSKY=0`. Failed runs upload Playwright traces, screenshots, and the HTML report; the stack job always uploads its measurement report. Actions are pinned to commit SHAs with the release in a comment; update both together.
+GitHub Actions runs `.github/workflows/ci.yml` on pushes to `develop`, pull requests, and manual dispatch. The **Verify** job runs `pnpm verify`; the **Docker stack** job runs `pnpm test:stack`. Both use Ubuntu, the Node version in `.node-version`, the pinned pnpm from `packageManager`, Chromium with its OS dependencies, and `HUSKY=0`. The stack job also installs a pinned Docker Compose release and checks its SHA-256, because the runner's plugin is older than the minimum in [Docker workflows](docker.md); update the version and checksum together. Failed runs upload Playwright traces, screenshots, and the HTML report; the stack job always uploads its measurement report. Actions are pinned to commit SHAs with the release in a comment; update both together.
 
 ## Checks and scenarios
 

@@ -59,6 +59,15 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
+      # The runner image ships an older Compose plugin; docs/docker.md lists the minimum.
+      - name: Install Docker Compose 5.6.0
+        run: |
+          mkdir -p ~/.docker/cli-plugins
+          curl -fsSL --retry 3 -o ~/.docker/cli-plugins/docker-compose \
+            https://github.com/docker/compose/releases/download/v5.6.0/docker-compose-linux-x86_64
+          echo "40343e21ca777173e69cff5dbafeb37c6f81f3b0d57d9e597f036e95eb63e76a  $HOME/.docker/cli-plugins/docker-compose" | sha256sum --check
+          chmod +x ~/.docker/cli-plugins/docker-compose
+          docker compose version
       - run: pnpm test:stack
       - if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
