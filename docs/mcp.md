@@ -12,7 +12,7 @@ Prelude exposes a Model Context Protocol server at **`/api/mcp`**. It derives to
 | `updateTaskTitle` | `{ "id": "task-id", "title": "Refine the feature" }` | Trim and validate a 1–120-character title; return the task with ID and completion unchanged. Missing IDs return `NOT_FOUND`. |
 | `deleteTask` | `{ "id": "task-id" }` | Remove a task and return its previous data; missing or already-deleted IDs return `NOT_FOUND`. |
 
-The tools execute real operations against the **public, shared, process-local demo repository**. All visitors and transports see the same data in one server process. Data resets on restart and is not synchronized across instances. MCP mutations become visible through REST, RPC, and server rendering; an already-open workbench needs a refetch or reload.
+The tools execute real operations against the **public, shared, process-local demo repository**. All visitors and transports see the same data in one server process. Data resets on restart and is not synchronized across instances. The list keeps at most 100 tasks; each create beyond that evicts the oldest task. MCP mutations become visible through REST, RPC, and server rendering; an already-open workbench needs a refetch or reload.
 
 `mcp-from-openapi` **2.8.0** generates tool definitions and request mappings from `generateOpenApiSpec()`. The bridge dispatches mapped requests directly to the existing REST adapter with request-scoped context. It does not make an HTTP request back to itself or bypass ArkType validation, typed errors, the task mutation path-ID guards, or awaited mutation callbacks. The MCP SDK server and client are pinned to **2.2.0**. Zod is infrastructure for the SDK/tooling; ArkType remains the application schema source.
 

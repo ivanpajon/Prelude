@@ -10,7 +10,7 @@
   "save": "Save",
   "saving": "Saving…",
   "cancel": "Cancel",
-  "invalidTitle": "Enter a task between 1 and 120 characters.",
+  "invalidTitle": "Enter a task between {min} and {max} characters.",
   "savingTask": "Saving task…",
   "savedTask": "Saved {title}.",
   "deletingTask": "Deleting task…",

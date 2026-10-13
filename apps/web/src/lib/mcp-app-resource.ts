@@ -5,17 +5,10 @@ import path from "node:path";
 import { RESOURCE_MIME_TYPE, registerAppResource } from "@modelcontextprotocol/ext-apps/server";
 import { INTERNAL_ERROR, type McpServer, ProtocolError } from "@modelcontextprotocol/server";
 import type { McpOpenAPITool } from "mcp-from-openapi";
+import type { TaskAppTools } from "@/mcp-apps/tasks/model";
 
 export const mcpAppResourceUri = "ui://prelude/tasks.html";
 const configPlaceholder = "<!--PRELUDE_MCP_APP_CONFIG-->";
-
-export interface TaskAppTools {
-  listTasks: string;
-  createTask?: string;
-  setTaskCompleted?: string;
-  updateTaskTitle?: string;
-  deleteTask?: string;
-}
 
 export type McpAppHtmlLoader = () => string | Promise<string>;
 

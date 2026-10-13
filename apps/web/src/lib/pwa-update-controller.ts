@@ -1,204 +1,116 @@
-export interface PwaUpdateNotice {
-  status: "available" | "updating" | "ready" | "error";
-}
+export type PwaUpdateStatus = "available" | "updating" | "ready" | "error";
 
 interface PwaUpdateControllerOptions {
   serviceWorker: ServiceWorkerContainer;
-  register: () => Promise<ServiceWorkerRegistration | undefined>;
-  onChange: (notice: PwaUpdateNotice | null) => void;
+  /** The document's @serwist/window instance. */
+  serwist: {
+    register: () => Promise<ServiceWorkerRegistration | undefined>;
+    messageSkipWaiting: () => void;
+  };
   reload: () => void;
 }
 
+type PwaUpdateController = ReturnType<typeof createPwaUpdateController>;
+
+// Locale Activity subtrees share the document's service-worker container, so they share its updates.
+const controllers = new WeakMap<ServiceWorkerContainer, PwaUpdateController>();
+
+export function getPwaUpdateController(options: PwaUpdateControllerOptions) {
+  const existing = controllers.get(options.serviceWorker);
+  if (existing) return existing;
+  const controller = createPwaUpdateController(options);
+  controllers.set(options.serviceWorker, controller);
+  return controller;
+}
+
 /** Observe browser-discovered updates without polling or reloading unconsenting tabs. */
-export function createPwaUpdateController({
-  serviceWorker,
-  register,
-  onChange,
-  reload,
-}: PwaUpdateControllerOptions) {
-  let disposed = false;
-  let reloading = false;
-  let applying = false;
-  let attempt = 0;
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  let registration: ServiceWorkerRegistration | undefined;
-  let lastController = serviceWorker.controller;
+function createPwaUpdateController({ serviceWorker, serwist, reload }: PwaUpdateControllerOptions) {
+  let status: PwaUpdateStatus | null = null;
   let update: ServiceWorker | null = null;
-  let notice: PwaUpdateNotice | null = null;
+  let lastController = serviceWorker.controller;
+  let registration: ServiceWorkerRegistration | undefined;
+  let approved = false;
+  let reloading = false;
   const dismissed = new WeakSet<ServiceWorker>();
-  const workerListeners = new Map<ServiceWorker, () => void>();
+  const listeners = new Set<(status: PwaUpdateStatus | null) => void>();
 
-  function publish(status: PwaUpdateNotice["status"] | null) {
-    if (disposed || notice?.status === status || (notice === null && status === null)) return;
-    notice = status === null ? null : { status };
-    onChange(notice);
-  }
-
-  function clearActivationTimeout() {
-    if (timeout !== undefined) clearTimeout(timeout);
-    timeout = undefined;
+  function publish(next: PwaUpdateStatus | null) {
+    if (reloading || next === status) return;
+    status = next;
+    for (const listener of listeners) listener(next);
   }
 
   function reloadOnce() {
-    if (disposed || reloading) return;
-    reloading = true;
-    applying = false;
-    attempt += 1;
-    clearActivationTimeout();
+    if (reloading) return;
     publish(null);
+    reloading = true;
     reload();
   }
 
-  function fail(activeAttempt: number) {
-    if (disposed || !applying || activeAttempt !== attempt) return;
-    applying = false;
-    attempt += 1;
-    clearActivationTimeout();
-    publish(update && dismissed.has(update) ? null : "error");
+  function offer(worker: ServiceWorker, next: "available" | "ready") {
+    update = worker;
+    if (!approved) publish(dismissed.has(worker) ? null : next);
   }
 
-  function onControllerChange() {
-    if (disposed || reloading) return;
+  // @serwist/window stops reporting updates after the first external one, so watch natively.
+  function inspect() {
+    registration?.installing?.addEventListener("statechange", inspect);
+    const waiting = registration?.waiting;
+    // A waiting worker without an active one is the first installation.
+    if (waiting && registration?.active) offer(waiting, "available");
+  }
+
+  // Listen before register() awaits the load event: another tab can activate meanwhile.
+  serviceWorker.addEventListener("controllerchange", () => {
     const controller = serviceWorker.controller;
-    if (!controller || controller === lastController) return;
-
-    // The first claim is installation, unless we already observed a waiting replacement.
-    const replacement = lastController !== null || update === controller;
+    // The first claim is installation, unless this page already offered that worker.
+    const replacement = lastController !== null || controller === update;
     lastController = controller;
-    if (!replacement) return;
-
-    update = controller;
-    clearActivationTimeout();
-    if (applying) {
-      reloadOnce();
-      return;
-    }
-    publish(dismissed.has(controller) ? null : "ready");
-  }
-
-  function watch(worker: ServiceWorker | null) {
-    if (!worker || workerListeners.has(worker)) return;
-    const onStateChange = () => {
-      reconcile();
-      if (worker.state === "redundant" && update === worker) {
-        if (applying) fail(attempt);
-        else {
-          update = null;
-          publish(null);
-        }
-      }
-    };
-    workerListeners.set(worker, onStateChange);
-    worker.addEventListener("statechange", onStateChange);
-  }
-
-  function reconcile() {
-    if (disposed || reloading) return;
-    onControllerChange();
-    if (!registration || reloading) return;
-    watch(registration.installing);
-    watch(registration.waiting);
-    if (registration.active?.state === "activating") watch(registration.active);
-
-    const waiting = registration.waiting;
-    if (
-      waiting?.state === "installed" &&
-      waiting !== serviceWorker.controller &&
-      (registration.active || lastController)
-    ) {
-      update = waiting;
-      if (!applying) publish(dismissed.has(waiting) ? null : "available");
-    }
-  }
-
-  function attach(nextRegistration: ServiceWorkerRegistration | undefined) {
-    if (disposed || !nextRegistration) return;
-    if (registration !== nextRegistration) {
-      registration?.removeEventListener("updatefound", reconcile);
-      registration = nextRegistration;
-      registration.addEventListener("updatefound", reconcile);
-    }
-    // Subscribe before inspecting: an update can already be installing or waiting.
-    reconcile();
-  }
-
-  // Listen before registration awaits: another tab can activate during that await.
-  serviceWorker.addEventListener("controllerchange", onControllerChange);
-  void Promise.resolve()
-    .then(register)
-    .then(attach)
-    .catch(() => undefined);
-  void Promise.resolve()
-    .then(() => serviceWorker.getRegistration("/"))
-    .then(attach)
+    if (!controller || !replacement) return;
+    if (approved) reloadOnce();
+    else offer(controller, "ready");
+  });
+  serwist
+    .register()
+    .then((current) => {
+      registration = current;
+      current?.addEventListener("updatefound", inspect);
+      // Subscribe before inspecting: an update can already be installing or waiting.
+      inspect();
+    })
     .catch(() => undefined);
 
   function apply() {
-    if (disposed || reloading || applying || !notice) return;
-    if (notice.status === "ready") {
-      reloadOnce();
-      return;
-    }
-
-    applying = true;
-    const activeAttempt = ++attempt;
+    if (status === "ready") return reloadOnce();
+    if (status !== "available" && status !== "error") return;
+    approved = true;
     publish("updating");
-    timeout = setTimeout(() => fail(activeAttempt), 15_000);
-
-    void (async () => {
-      try {
-        const currentRegistration = await serviceWorker.getRegistration("/");
-        if (disposed || reloading || !applying || activeAttempt !== attempt) return;
-        attach(currentRegistration);
-        if (reloading || !applying) return;
-        if (!currentRegistration) {
-          fail(activeAttempt);
-          return;
-        }
-
-        const waiting = currentRegistration.waiting;
-        if (waiting?.state === "installed") {
-          update = waiting;
-          // No reply is expected; controllerchange is the activation confirmation.
-          waiting.postMessage({ type: "SKIP_WAITING" });
-        } else {
-          const active = currentRegistration.active;
-          if (
-            !active ||
-            active === serviceWorker.controller ||
-            (active.state !== "activating" && active.state !== "activated")
-          ) {
-            fail(activeAttempt);
-          }
-          // Another tab has started activation. Await its claim instead of reloading
-          // while the old worker still controls this page.
-        }
-      } catch {
-        fail(activeAttempt);
-      }
-    })();
+    // Targets the waiting worker of the registration inspected above. No reply is expected:
+    // controllerchange confirms activation, including one another tab started.
+    serwist.messageSkipWaiting();
+    setTimeout(() => {
+      approved = false;
+      publish(update && dismissed.has(update) ? null : "error");
+    }, 15_000);
   }
 
   function dismiss() {
-    if (disposed) return;
+    // Programmatic toast closes land here too, after the notice is already gone.
+    if (!status || !update) return;
     // Closing feedback does not revoke an update the user already approved.
-    if (update) dismissed.add(update);
+    dismissed.add(update);
     publish(null);
   }
 
-  function dispose() {
-    if (disposed) return;
-    disposed = true;
-    applying = false;
-    attempt += 1;
-    clearActivationTimeout();
-    serviceWorker.removeEventListener("controllerchange", onControllerChange);
-    registration?.removeEventListener("updatefound", reconcile);
-    for (const [worker, listener] of workerListeners) {
-      worker.removeEventListener("statechange", listener);
-    }
-    workerListeners.clear();
-  }
-
-  return { apply, dismiss, dispose };
+  return {
+    apply,
+    dismiss,
+    getStatus: () => status,
+    subscribe(listener: (status: PwaUpdateStatus | null) => void) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
 }

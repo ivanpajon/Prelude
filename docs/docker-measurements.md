@@ -2,6 +2,8 @@
 
 The first sections preserve the historical baseline **before the dedicated `/playground` page and MCP App resource/build pipeline were added**. The [Playground and MCP App run](#playground-and-mcp-app-run) records the subsequent widget-containing image separately.
 
+The Node slim baseline was a measurement-only Dockerfile target. It was removed after these runs; `pnpm test:stack` now builds and samples only the Distroless production image.
+
 Measured on **2026-09-29** with Docker Desktop **4.91.0**, Engine **29.8.0**, Compose **5.5.1**, and the Linux **amd64** engine on Windows/WSL2. The engine had 20 CPUs and 31.47 GiB available. Each production container was limited to **2 CPUs and 1 GiB**; development acceptance used 2 CPUs and 4 GiB. Both runtime images used Node **26.10.0**, ICU **78.3**, Sharp **0.35.4**, and UID **65532**.
 
 The successful `pnpm test:stack` run was `prelude-stack-39a77802`, from 23:50:56 UTC on September 28 to 00:00:42 UTC on September 29. It built both targets from the same source and verified matching application-artifact SHA-256 hashes: `f493bd6e35c43f44a322eefec047132fd032e9460519ef4e8885f16ef30b8c6b`. The measurements below describe this machine and demo workload, not a production capacity estimate.
@@ -67,7 +69,7 @@ The complete container run passed:
 
 Separately, a disposable checkout renamed the scope to `@stack-check`, refreshed its lockfile, and passed a frozen Docker build with homepage, OpenAPI, service worker, and MCP-to-REST mutation checks. The native workflow passed frozen installation and `pnpm verify`: 208 unit/component tests, 2 development browser scenarios, 43 production browser scenarios, production build, and service-worker restoration from Turborepo cache. The unpacked-size reporting correction then passed three additional unit tests and a real-image probe; the 29 launcher tests were rerun successfully alongside them.
 
-The full run and logs are generated locally in ignored `test-results/stack/`. Re-run `pnpm test:stack` to measure another machine. ARM64 was not exercised in this run. Scalar rendering tests require access to its pinned CDN bundle.
+The full run and logs are generated locally in ignored `test-results/stack/`. Re-run `pnpm test:stack` to measure the Distroless image on another machine. ARM64 was not exercised in this run. Scalar rendering tests require access to its pinned CDN bundle.
 
 ## Playground and MCP App run
 

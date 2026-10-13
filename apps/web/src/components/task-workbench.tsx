@@ -1,6 +1,7 @@
 "use client";
 
 import { createTaskInput, taskStatuses, updateTaskTitleInput } from "@repo/contracts";
+import { titleMaxLength } from "@repo/contracts/limits";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent } from "@repo/ui/components/card";
@@ -221,6 +222,8 @@ export function TaskWorkbench() {
     taskError(setCompleted.error, "completionFailed") ??
     taskError(deleteTask.error, "deleteFailed");
   const editingError = editError ?? taskError(updateTitle.error, "editFailed");
+  const errorMessage = (code: TaskErrorCode) =>
+    code === "invalidTitle" ? t(code, { min: 1, max: titleMaxLength }) : t(code);
 
   return (
     <Card className="overflow-hidden bg-card shadow-none">
@@ -248,7 +251,7 @@ export function TaskWorkbench() {
             name="title"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            maxLength={120}
+            maxLength={titleMaxLength}
             required
             placeholder={t("newTaskPlaceholder")}
             aria-describedby="task-feedback"
@@ -264,7 +267,7 @@ export function TaskWorkbench() {
           aria-live="polite"
           className="mt-2 min-h-5 text-sm text-destructive"
         >
-          {error && t(error)}
+          {error && errorMessage(error)}
         </div>
         <span role="status" className="sr-only">
           {updateTitle.isPending
@@ -343,7 +346,7 @@ export function TaskWorkbench() {
                   <TaskTitleEditor
                     title={editing.title}
                     pending={changing || updateTitle.isPending}
-                    error={editingError && t(editingError)}
+                    error={editingError && errorMessage(editingError)}
                     onChange={(title) => setEditing({ id: task.id, title })}
                     onSubmit={(event) => void saveEdit(event)}
                     onCancel={cancelEdit}

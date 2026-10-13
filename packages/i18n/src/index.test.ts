@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { browserLocale, isLocale, requestLocale, resolveLocale } from "./index";
+import { browserLocale, isLocale, locales, requestLocale, resolveLocale } from "./index";
 import { getMessages } from "./messages";
 import { getWidgetMessages } from "./widget";
 
@@ -14,8 +14,8 @@ function keys(value: object, prefix = ""): string[] {
 
 describe("locale selection", () => {
   it("validates saved locales and matches regional browser preferences", () => {
-    expect(isLocale("es")).toBe(true);
-    expect(isLocale("es-MX")).toBe(false);
+    for (const locale of locales) expect(isLocale(locale)).toBe(true);
+    for (const value of ["es-MX", "fr", "", "EN", undefined]) expect(isLocale(value)).toBe(false);
     expect(resolveLocale("fr", "es-MX", "en")).toBe("es");
     expect(resolveLocale("invalid_locale", "de")).toBe("en");
     expect(browserLocale("other=en; PRELUDE_LOCALE=es", ["en-US"])).toBe("es");

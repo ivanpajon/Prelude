@@ -24,12 +24,12 @@ const tools = {
 const result = (value: unknown) => ({ structuredContent: value });
 const sessions: TaskAppSession[] = [];
 
-function fixture(config: TaskAppTools = tools) {
+function fixture(config: TaskAppTools = tools, seeded = true) {
   const session = new TaskAppSession(config);
   const call = vi.fn<ToolCaller>();
   session.connect(call);
   session.hostInput({ status: "all" });
-  session.hostResult(result([task]));
+  if (seeded) session.hostResult(result([task]));
   sessions.push(session);
   const rendered = render(
     <WidgetIntlProvider locale="en">
@@ -273,6 +273,22 @@ it("announces invalid input without sending a mutation and permits correcting it
   expect(screen.getByRole("alert")).toHaveTextContent("Enter a task between 1 and 120 characters.");
   expect(call).not.toHaveBeenCalled();
   expect(screen.getByRole("textbox", { name: "New task" })).toHaveAttribute("maxlength", "120");
+});
+
+it("keeps an invalid create title local so the pending host result still lists tasks", async () => {
+  const user = userEvent.setup();
+  const { session, call } = fixture(tools, false);
+  await user.click(screen.getByRole("button", { name: "Add task" }));
+  act(() => session.hostResult(result([task])));
+  expect(within(screen.getByRole("list", { name: "Tasks" })).getByText(task.title)).toBeVisible();
+  expect(screen.getByRole("status")).toHaveTextContent("1 task in this view");
+  expect(screen.getByRole("alert")).toHaveTextContent("Enter a task between 1 and 120 characters.");
+  const input = screen.getByRole("textbox", { name: "New task" });
+  expect(input).toHaveAttribute("aria-invalid", "true");
+  expect(input).toHaveFocus();
+  await user.type(input, "x");
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(call).not.toHaveBeenCalled();
 });
 
 it("preserves a newer draft typed while a successful mutation's follow-up read is pending", async () => {

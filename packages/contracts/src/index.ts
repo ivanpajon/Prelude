@@ -1,12 +1,13 @@
 import { type ContractRouterClient, type OpenAPI, oc } from "@orpc/contract";
 import { type } from "arktype";
+import { titleMaxLength } from "./limits";
 
 export const taskStatuses = ["all", "active", "completed"] as const;
 export const taskStatusSchema = type.enumerated(...taskStatuses);
 export type TaskStatus = typeof taskStatusSchema.infer;
 
 // Normalize at the API boundary, then validate the title the application stores.
-export const titleSchema = type("string.trim").to("1 <= string <= 120");
+export const titleSchema = type("string.trim").to(`1 <= string <= ${titleMaxLength}`);
 
 export const taskSchema = type({
   id: "string > 0",
@@ -76,8 +77,7 @@ export const contract = {
         operationId: "createTask",
         tags: ["Tasks"],
         summary: "Create a task",
-        description:
-          "Add a task to the shared demo list. Titles are trimmed before validation; the normalized title must contain 1–120 characters.",
+        description: `Add a task to the shared demo list. Titles are trimmed before validation; the normalized title must contain 1–${titleMaxLength} characters.`,
         successStatus: 201,
         successDescription: "Task created",
         spec: (operation) => ({
@@ -125,8 +125,7 @@ export const contract = {
         operationId: "updateTaskTitle",
         tags: ["Tasks"],
         summary: "Edit a task title",
-        description:
-          "Edit a task title without changing its completion status. Titles are trimmed before validation; the normalized title must contain 1–120 characters. Returns NOT_FOUND if the task does not exist.",
+        description: `Edit a task title without changing its completion status. Titles are trimmed before validation; the normalized title must contain 1–${titleMaxLength} characters. Returns NOT_FOUND if the task does not exist.`,
         successStatus: 200,
         successDescription: "Task title updated",
         spec: (operation) => ({

@@ -4,7 +4,6 @@ import { createContext, type ReactNode, useContext, useState } from "react";
 import { useStore } from "zustand";
 import {
   getWorkbenchStore,
-  type WorkbenchState,
   type WorkbenchStore,
   type WorkbenchStoreApi,
 } from "@/stores/workbench-store";
@@ -13,14 +12,12 @@ const WorkbenchStoreContext = createContext<WorkbenchStoreApi | null>(null);
 
 export function WorkbenchStoreProvider({
   children,
-  initial,
   store: injectedStore,
 }: {
   children: ReactNode;
-  initial?: WorkbenchState;
   store?: WorkbenchStoreApi;
 }) {
-  const [store] = useState(() => injectedStore ?? getWorkbenchStore(initial));
+  const [store] = useState(() => injectedStore ?? getWorkbenchStore());
 
   return <WorkbenchStoreContext.Provider value={store}>{children}</WorkbenchStoreContext.Provider>;
 }
