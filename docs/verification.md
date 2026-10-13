@@ -231,14 +231,14 @@ The [create-next-app example workflow](https://nextjs.org/docs/app/api-reference
 For this monorepo, generate files first and install dependencies afterward:
 
 ```sh
-pnpm dlx create-next-app@16.3.6 my-app --example https://github.com/ivanpajon/Prelude --use-pnpm --skip-install --yes
+pnpm dlx create-next-app@16.4.0 my-app --example https://github.com/ivanpajon/Prelude --use-pnpm --skip-install --yes
 cd my-app
 pnpm install --frozen-lockfile
 pnpm exec playwright install chromium
 pnpm verify
 ```
 
-Without `--skip-install`, create-next-app 16.3.6 finishes successfully but attempts `next typegen` at the repository root, where the Next.js executable is not installed. It also runs the Husky install before creating `.git`. The two-step workflow avoids both warnings. The normal workspace type-check command generates the Next.js route types in `apps/web`.
+Without `--skip-install`, create-next-app (tested with 16.3.6) finishes successfully but attempts `next typegen` at the repository root, where the Next.js executable is not installed. It also runs the Husky install before creating `.git`. The two-step workflow avoids both warnings. The normal workspace type-check command generates the Next.js route types in `apps/web`.
 
 The generated copy has a new initial commit, no remote, the original workspace package names and Prelude branding, and an unchanged lockfile. After installation, `core.hooksPath` points to `.husky/_`. Rename the root package and application branding as part of customization; the folder name alone does not rename template content.
 

@@ -8,8 +8,8 @@ TypeScript remains pinned to the verified 6.0.3 baseline; compiler upgrades are 
 
 ## Stack
 
-- React 19.3.0, Next.js 16.3.6 App Router, Turbopack development/production builds, and Cache Components.
-- shadcn 4.21.0 with Base UI 1.8.0, Tailwind 4.3.3 CSS-first tokens, and `cn` 0.4.0 for class composition.
+- React 19.3.0, Next.js 16.4.0 App Router, Turbopack development/production builds, and Cache Components.
+- shadcn 4.21.4 with Base UI 1.8.0, Tailwind 4.3.3 CSS-first tokens, and `cn` 0.4.0 for class composition.
 - Contract-first oRPC 1.15.4 with ArkType 2.2.5 inputs, outputs, and inferred TypeScript types.
 - Public REST access through the same procedures, automatic OpenAPI 3.1.1 at `/api/openapi.json`, and Scalar at `/api/docs`. Scalar's standalone renderer is pinned to 1.72.1 on jsDelivr; it is not an installed application dependency.
 - Native stateless Streamable HTTP MCP at `/api/mcp`, generated from OpenAPI using `mcp-from-openapi` 2.8.0 and MCP SDK server/client 2.2.0. The public demo exposes its list/create/edit/complete/delete operations by default; `MCP_ENABLED=false` disables the endpoint.

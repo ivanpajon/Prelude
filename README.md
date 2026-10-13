@@ -26,7 +26,7 @@ The included task list connects the stack end to end. **It is public, shared, in
 Create a new project from the public template:
 
 ```sh
-pnpm dlx create-next-app@16.3.6 my-app --example https://github.com/ivanpajon/Prelude --use-pnpm --skip-install --yes
+pnpm dlx create-next-app@16.4.0 my-app --example https://github.com/ivanpajon/Prelude --use-pnpm --skip-install --yes
 cd my-app
 pnpm install --frozen-lockfile
 pnpm dev
