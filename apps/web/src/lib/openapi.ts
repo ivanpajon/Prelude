@@ -1,7 +1,7 @@
 import "server-only";
 
 import { experimental_ArkTypeToJsonSchemaConverter as ArkTypeToJsonSchemaConverter } from "@orpc/arktype";
-import type { AnySchema } from "@orpc/contract";
+import { type AnySchema, fallbackContractConfig } from "@orpc/contract";
 import {
   OpenAPIGenerator,
   type OpenAPIGeneratorGenerateOptions,
@@ -9,6 +9,7 @@ import {
 } from "@orpc/openapi";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
+import { StandardOpenAPIMatcher } from "@orpc/openapi/standard";
 import { type AnyRouter, type InferRouterInitialContext, ORPCError, onError } from "@orpc/server";
 import { BodyLimitPlugin } from "@orpc/server/fetch";
 import { router } from "@repo/api";
@@ -31,13 +32,42 @@ export class DirectionalArkTypeConverter extends ArkTypeToJsonSchemaConverter {
   }
 }
 
-/** Creates the REST adapter and OpenAPI document for a router. */
+/** Top-level input keys, as oRPC decodes them from a query string, form or JSON object. */
+function inputKeys(value: unknown): string[] {
+  if (value instanceof URLSearchParams || value instanceof FormData) {
+    // Bracket notation such as `id[0]` decodes to the top-level key `id`.
+    return [...value.keys()].map((key) => key.split("[", 1)[0] ?? key);
+  }
+  if (value === null || typeof value !== "object") return [];
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null ? Object.keys(value) : [];
+}
+
+async function readBody(read: () => Promise<unknown>) {
+  try {
+    return await read();
+  } catch (cause) {
+    // Keep oRPC's own errors, such as 413 from the body limit.
+    if (cause instanceof ORPCError) throw cause;
+    throw new ORPCError("BAD_REQUEST", { message: "Malformed request body.", cause });
+  }
+}
+
+/**
+ * Creates the REST adapter and OpenAPI document for a router.
+ *
+ * oRPC's compact inputs merge path parameters with the query (GET) or the body (other methods),
+ * so a repeated key would replace the value from the URL. Requests that repeat a path parameter
+ * in the query or body return 400, even when the values match.
+ */
 export function createOpenApi<TRouter extends AnyRouter>(
   apiRouter: TRouter,
   specOptions: OpenAPIGeneratorGenerateOptions,
 ) {
   const schemaConverters = [new DirectionalArkTypeConverter()];
   const generator = new OpenAPIGenerator({ schemaConverters });
+  const matcher = new StandardOpenAPIMatcher();
+  matcher.init(apiRouter);
   const handler = new OpenAPIHandler(apiRouter, {
     plugins: [
       new BodyLimitPlugin({ maxBodySize: 64 * 1024 }),
@@ -59,24 +89,25 @@ export function createOpenApi<TRouter extends AnyRouter>(
       }),
     ],
     interceptors: [
-      async ({ request, next }) => {
-        if (
-          (request.method === "PATCH" || request.method === "DELETE") &&
-          /^\/api\/v1\/tasks\/[^/]+(?:\/title)?\/?$/.test(request.url.pathname)
-        ) {
-          if (request.url.searchParams.has("id")) {
-            throw new ORPCError("BAD_REQUEST", { message: "Provide the task id only in the URL." });
-          }
-          let body: unknown;
-          try {
-            body = await request.body();
-          } catch (cause) {
-            if (cause instanceof ORPCError) throw cause;
-            throw new ORPCError("BAD_REQUEST", { message: "Malformed request body.", cause });
-          }
-          // oRPC compact inputs combine parameters and the body; IDs belong only in the URL path.
-          if (body !== null && typeof body === "object" && Object.hasOwn(body, "id")) {
-            throw new ORPCError("BAD_REQUEST", { message: "Provide the task id only in the URL." });
+      async ({ request, prefix, next }) => {
+        // Match the same way oRPC does, before it decodes the input.
+        const pathname = prefix ? request.url.pathname.replace(prefix, "") : request.url.pathname;
+        const match = await matcher.match(request.method, `/${pathname.replace(/^\/|\/$/g, "")}`);
+        const parameters = Object.keys(match?.params ?? {});
+        const structure = match
+          ? fallbackContractConfig(
+              "defaultInputStructure",
+              match.procedure["~orpc"].route.inputStructure,
+            )
+          : undefined;
+        if (parameters.length > 0 && structure === "compact") {
+          const keys = inputKeys(request.url.searchParams);
+          if (request.method !== "GET") keys.push(...inputKeys(await readBody(request.body)));
+          const repeated = parameters.find((parameter) => keys.includes(parameter));
+          if (repeated) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: `Provide "${repeated}" only in the URL path.`,
+            });
           }
         }
         return next();

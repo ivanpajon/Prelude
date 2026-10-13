@@ -130,11 +130,12 @@ describe("unexpected API error logging", () => {
       rest(store, "/notes?filter=unknown"),
       rest(store, "/notes/missing", { method: "DELETE" }),
       rest(store, "/notes", { method: "POST", headers: json, body: "{" }),
+      rest(store, "/notes/first", { method: "PATCH", headers: json, body: '{"id":"x"}' }),
       rpc({ store }, "notes/create", JSON.stringify({ json: { text: "" } })),
       rpc({ store }, "notes/create", "{"),
     ]);
 
-    expect(responses.map((response) => response.status)).toEqual([400, 404, 400, 400, 400]);
+    expect(responses.map((response) => response.status)).toEqual([400, 404, 400, 400, 400, 400]);
     expect(logged).not.toHaveBeenCalled();
   });
 

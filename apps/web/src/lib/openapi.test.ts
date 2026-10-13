@@ -3,6 +3,7 @@ import { RPCLink } from "@orpc/client/fetch";
 import type { ContractRouterClient } from "@orpc/contract";
 import { oc } from "@orpc/contract";
 import { OpenAPIGenerator } from "@orpc/openapi";
+import { implement } from "@orpc/server";
 import { type } from "arktype";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -349,6 +350,130 @@ describe("OpenAPI HTTP adapter", () => {
       logged.mockRestore();
     },
   );
+});
+
+describe("path parameter guard", () => {
+  it.each([
+    ["the same value", { id: "first", pinned: true }],
+    ["another record's id", { id: "second", pinned: true }],
+  ])("rejects a JSON body that repeats the path parameter with %s", async (_label, body) => {
+    const target = context();
+    const response = await request(target, "/notes/first", "PATCH", body);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      code: "BAD_REQUEST",
+      message: 'Provide "id" only in the URL path.',
+    });
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expectUnchanged(target);
+  });
+
+  it.each([
+    ["PATCH", "?id=second", { pinned: true }],
+    ["PATCH", "?id[0]=second", { pinned: true }],
+    ["DELETE", "?id=second", undefined],
+  ] as const)(
+    "rejects a query that repeats the path parameter: %s %s",
+    async (method, query, body) => {
+      const target = context();
+      const response = await request(target, `/notes/first${query}`, method, body);
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({ code: "BAD_REQUEST" });
+      expectUnchanged(target);
+    },
+  );
+
+  it.each([
+    ["form data", () => new FormData(), "id"],
+    ["form data in bracket notation", () => new FormData(), "id[0]"],
+    ["a URL-encoded body", () => new URLSearchParams(), "id"],
+  ] as const)("rejects %s that repeats the path parameter", async (_label, create, key) => {
+    const target = context();
+    const body = create();
+    body.append(key, "second");
+    body.append("pinned", "true");
+    const response = await openApi.handle(
+      new Request("http://localhost/api/notes/first", { method: "PATCH", body }),
+      target,
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: "BAD_REQUEST" });
+    expectUnchanged(target);
+  });
+
+  it("rejects a GET query that repeats a path parameter", async () => {
+    const lookup = oc
+      .route({ method: "GET", path: "/notes/{id}" })
+      .input(type({ id: "string > 0" }))
+      .output(type({ id: "string" }));
+    const api = implement({ lookup }).$context<FixtureContext>();
+    const lookupApi = createOpenApi(
+      api.router({ lookup: api.lookup.handler(({ input }) => ({ id: input.id })) }),
+      fixtureSpecOptions,
+    );
+    const url = (path: string) => new Request(`http://localhost/api${path}`);
+
+    const allowed = await lookupApi.handle(url("/notes/first"), context());
+    expect(await allowed.json()).toEqual({ id: "first" });
+    const repeated = await lookupApi.handle(url("/notes/first?id=second"), context());
+    expect(repeated.status).toBe(400);
+  });
+
+  it("leaves detailed inputs alone, where the path and body cannot collide", async () => {
+    const rename = oc
+      .route({ method: "PATCH", path: "/things/{id}", inputStructure: "detailed" })
+      .input(type({ params: { id: "string" }, body: { id: "string" } }))
+      .output(type({ path: "string", body: "string" }));
+    const api = implement({ rename }).$context<FixtureContext>();
+    const detailedApi = createOpenApi(
+      api.router({
+        rename: api.rename.handler(({ input }) => ({ path: input.params.id, body: input.body.id })),
+      }),
+      fixtureSpecOptions,
+    );
+    const response = await detailedApi.handle(
+      new Request("http://localhost/api/things/first", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: "second" }),
+      }),
+      context(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ path: "first", body: "second" });
+  });
+
+  it.each(["PATCH", "DELETE"])("rejects malformed %s JSON before mutation", async (method) => {
+    const target = context();
+    const response = await openApi.handle(
+      new Request("http://localhost/api/notes/first", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: '{"pinned":',
+      }),
+      target,
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      code: "BAD_REQUEST",
+      message: "Malformed request body.",
+    });
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expectUnchanged(target);
+  });
+
+  it("allows bodies without a repeated parameter", async () => {
+    const target = context();
+    const response = await request(target, "/notes/first", "PATCH", { text: "Edited" });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ id: "first", text: "Edited", pinned: false });
+  });
 });
 
 describe("body limits", () => {
