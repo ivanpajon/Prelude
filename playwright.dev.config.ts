@@ -10,6 +10,14 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 15_000 },
   reporter: "list",
+  // demo:start
+  // CI shards this list with --fully-parallel, so each shard takes a contiguous slice of it. The
+  // demo comes first, so its two slow MCP App tests in tests/dev/demo/ fall into different halves.
+  projects: [
+    { name: "demo", testDir: "./tests/dev/demo" },
+    { name: "development", testIgnore: "**/demo/**" },
+  ],
+  // demo:end
   use: {
     ...devices["Desktop Chrome"],
     baseURL: "http://127.0.0.1:3102",

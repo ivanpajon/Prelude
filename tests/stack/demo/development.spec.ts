@@ -8,8 +8,8 @@ import { exerciseTaskApp } from "../../demo/mcp-apps";
 import { waitForHydration } from "../../hydration";
 import { ownedContext } from "../owned-context";
 
-demoLocalizationAcceptance();
-
+// The development shards split the tests in this order; see playwright.stack.config.ts. Keep this
+// MCP App check first and the other one after the localization scenarios, so each half gets one.
 test("runs the Spanish MCP App through the container Inspector and sandbox", async ({
   browser,
 }) => {
@@ -30,6 +30,8 @@ test("runs the Spanish MCP App through the container Inspector and sandbox", asy
     await context.close();
   }
 });
+
+demoLocalizationAcceptance();
 
 test("serves the MCP App through the official Inspector and published sandbox port", async ({
   page,

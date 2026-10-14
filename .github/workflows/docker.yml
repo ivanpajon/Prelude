@@ -72,7 +72,8 @@ jobs:
           - name: runtime
             id: runtime
             args: --part runtime
-          # Split by single tests, not spec files, so neither half is empty.
+          # Split by single tests in list order (see playwright.stack.config.ts), so the halves take
+          # about the same time and neither is empty without the demo.
           - name: development 1/2
             id: development-1
             args: --part development --shard 1/2

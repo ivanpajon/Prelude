@@ -108,6 +108,8 @@ export const demo = {
     "packages/i18n/src/index.test.ts",
     "packages/i18n/src/messages.ts",
     "playwright.config.ts",
+    "playwright.dev.config.ts",
+    "playwright.stack.config.ts",
     "scripts/dev-web.mjs",
     "scripts/dev-web.test.mjs",
     "scripts/test-stack.mjs",
