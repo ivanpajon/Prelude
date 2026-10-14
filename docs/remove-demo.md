@@ -31,7 +31,7 @@ The command uses Node built-ins only and works on Windows and Linux. It never co
 - The task MCP App: `apps/web/src/mcp-apps`, its MCP resource, its build script `scripts/build-mcp-apps.mjs`, and the [MCP Apps guide](mcp-apps.md).
 - The task, MCP explorer, and widget message catalogs in English and Spanish.
 - The demo tests: `*.tasks.test.ts` files and the `tests/demo/`, `tests/e2e/demo/`, `tests/dev/demo/`, and `tests/stack/demo/` folders.
-- Its own tooling: `scripts/remove-demo.mjs` and its test, the `remove-demo` script in `package.json`, the **Demo removal (quick)** job in `.github/workflows/ci.yml`, the **Demo removal** job in `.github/workflows/docker.yml`, and this guide.
+- Its own tooling: `scripts/remove-demo.mjs` and its test, the `remove-demo` script in `package.json`, the **Demo removal (quick)** job in `.github/workflows/ci.yml`, the **Demo removal** jobs in `.github/workflows/docker.yml`, and this guide.
 
 ## What it edits
 
@@ -62,4 +62,4 @@ The guides and `docs/requirements.md` describe the remaining project: demo-only 
 
 To keep some of the demo, skip the command and follow the feature notes instead: [MCP Apps](mcp-apps.md#replace-or-remove-the-example) for the widget, [MCP](mcp.md#add-change-or-remove-tools) for the JSON explorer or MCP as a whole, and [OpenAPI](openapi.md#authentication-persistence-and-removal) for REST and the Scalar reference.
 
-A partial removal no longer matches the list in `scripts/remove-demo.mjs`, so its test fails and `pnpm test` goes red. Remove the command too: delete `scripts/remove-demo.mjs` and `scripts/remove-demo.test.mjs`, the `remove-demo` script in `package.json`, the **Demo removal (quick)** job (`demo-removal-quick`) in `.github/workflows/ci.yml`, and the **Demo removal** job (`demo-removal`) with the demo paths in `.github/workflows/docker.yml`.
+A partial removal no longer matches the list in `scripts/remove-demo.mjs`, so its test fails and `pnpm test` goes red. Remove the command too: delete `scripts/remove-demo.mjs` and `scripts/remove-demo.test.mjs`, the `remove-demo` script in `package.json`, the **Demo removal (quick)** job (`demo-removal-quick`) in `.github/workflows/ci.yml`, and the **Demo removal** jobs (`demo-removal`) with the demo paths in `.github/workflows/docker.yml`.

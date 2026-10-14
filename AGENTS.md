@@ -20,7 +20,7 @@ Run from the repository root with Node 26 (`.node-version`) and pnpm 12.6.0.
 - `pnpm check`: Biome and strict TypeScript. `pnpm fix` applies Biome's formatting and safe fixes.
 - `pnpm test`: Vitest unit and component tests.
 - `pnpm verify`: check, tests with coverage, development and production browser tests, and the build cache check (4-10 minutes). Run `pnpm exec playwright install chromium` once first.
-- `pnpm test:stack`: the Docker production and development stacks (5-15 minutes, needs Docker). `pnpm test:stack:quick` checks only the production stack (about 2 minutes).
+- `pnpm test:stack`: the Docker production and development stacks (5-15 minutes, needs Docker). `pnpm test:stack --part builds|runtime|development|rebuild` runs one part (2-3 minutes). `pnpm test:stack:quick` checks only the production stack (about 2 minutes).
 - `pnpm mcp:check`: list the tools of a running MCP endpoint.
 - `pnpm customize`: rename the root package and the workspace scope.
 <!-- demo:start -->
