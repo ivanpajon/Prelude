@@ -102,8 +102,9 @@ jobs:
 
   # demo:start
   # Proves that a project without the demo stays green, browsers and Docker included. Each job
-  # removes the demo, which also checks and unit-tests the result, and then runs one slice of
-  # pnpm verify and pnpm test:stack. pnpm remove-demo deletes this job together with the demo.
+  # removes the demo and then runs one slice of pnpm verify and pnpm test:stack. One job lets
+  # pnpm remove-demo also check and unit-test the result; the others skip that (--skip-checks).
+  # pnpm remove-demo deletes this job together with the demo.
   demo-removal:
     name: Demo removal (${{ matrix.name }})
     runs-on: ubuntu-latest
@@ -112,17 +113,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: e2e
-            id: e2e
-            run: pnpm test:e2e && pnpm test:cache
-          - name: dev
-            id: dev
-            run: pnpm test:dev
+          - name: browsers
+            id: browsers
+            run: pnpm test:dev && pnpm test:e2e && pnpm test:cache
           - name: stack builds
             id: stack-builds
             run: pnpm test:stack --part builds
+          # Its part is the shortest, so this job also checks and unit-tests the project.
           - name: stack runtime
             id: stack-runtime
+            checks: true
             run: pnpm test:stack --part runtime
           # Without the demo, the development browser checks are short enough for one job.
           - name: stack development
@@ -140,7 +140,10 @@ jobs:
           browsers: true
           compose: true
       # The command does not commit, so the job needs no Git identity.
-      - run: pnpm remove-demo
+      - if: matrix.checks
+        run: pnpm remove-demo
+      - if: ${{ !matrix.checks }}
+        run: pnpm remove-demo --skip-checks
       - run: ${{ matrix.run }}
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
