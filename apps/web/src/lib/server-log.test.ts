@@ -31,4 +31,37 @@ describe("server error log", () => {
     expect(odd.error).toEqual({ message: "plain value" });
     expect(known.error).toEqual({ name: "Error", message: "Known" });
   });
+
+  it("includes the cause and validation issues, but not the invalid value", () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const invalid = Object.assign(new Error("Validation failed"), {
+      name: "ValidationError",
+      issues: [{ message: "must be a string", path: [0, { key: "text" }] }],
+      data: { secret: "PRIVATE_VALUE" },
+    });
+    const output = new Error("Output validation failed", { cause: invalid });
+    logServerError("Bad output", output, {}, { stack: false });
+
+    const line = String(logged.mock.calls[0]?.[0]);
+    expect(line).not.toContain("PRIVATE_VALUE");
+    expect(JSON.parse(line).error).toEqual({
+      name: "Error",
+      message: "Output validation failed",
+      cause: {
+        name: "ValidationError",
+        message: "Validation failed",
+        issues: [{ message: "must be a string", path: ["0", "text"] }],
+      },
+    });
+  });
+
+  it("stops following causes after a few levels", () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const looped = new Error("Looped");
+    looped.cause = looped;
+    logServerError("Loop", looped, {}, { stack: false });
+
+    const error = JSON.parse(String(logged.mock.calls[0]?.[0])).error;
+    expect(error.cause.cause.cause).toEqual({ name: "Error", message: "Looped" });
+  });
 });

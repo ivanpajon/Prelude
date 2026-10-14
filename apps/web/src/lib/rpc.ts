@@ -2,13 +2,15 @@ import "server-only";
 
 import { type AnyRouter, type InferRouterInitialContext, onError } from "@orpc/server";
 import { BodyLimitPlugin, RPCHandler } from "@orpc/server/fetch";
-import { logUnexpectedApiError } from "./api-errors";
+import { logUnexpectedApiError, logUnexpectedHandlerErrors } from "./api-errors";
 import { plainRequest } from "./plain-request";
 
 /** Creates the `/api/rpc` adapter that the website's typed client calls. */
 export function createRpc<TRouter extends AnyRouter>(apiRouter: TRouter) {
+  const logging = logUnexpectedHandlerErrors<InferRouterInitialContext<TRouter>>("rpc");
   const handler = new RPCHandler(apiRouter, {
     plugins: [new BodyLimitPlugin({ maxBodySize: 64 * 1024 })],
+    ...logging,
     clientInterceptors: [onError(logUnexpectedApiError("rpc"))],
   });
 

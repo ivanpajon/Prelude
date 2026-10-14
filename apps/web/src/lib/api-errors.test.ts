@@ -118,7 +118,44 @@ describe("unexpected API error logging", () => {
       list: () => [{ id: "broken" }] as unknown as ReturnType<NoteStore["list"]>,
     };
     expect((await rest(store, "/notes?filter=all")).status).toBe(500);
-    expect(entries(logged)).toMatchObject([{ procedure: "notes.list" }]);
+    expect(entries(logged)).toMatchObject([
+      {
+        procedure: "notes.list",
+        error: {
+          message: "Output validation failed",
+          cause: {
+            issues: expect.arrayContaining([expect.objectContaining({ path: ["0", "text"] })]),
+          },
+        },
+      },
+    ]);
+  });
+
+  it("logs a 500 from outside a procedure call, such as generating the document", async () => {
+    const logged = captureLogs();
+    const broken = createOpenApi(fixtureRouter, {
+      ...fixtureSpecOptions,
+      filter: () => {
+        throw new Error(secret);
+      },
+    });
+    const response = await broken.handle(new Request("http://localhost/api/openapi.json"), {
+      store: createNoteStore(),
+    });
+
+    expect(response.status).toBe(500);
+    expect(await response.text()).not.toContain(secret);
+    expect(entries(logged)).toEqual([
+      {
+        level: "error",
+        time: expect.any(String),
+        message: "Unexpected API error",
+        transport: "rest",
+        method: "GET",
+        path: "/api/openapi.json",
+        error: { name: "Error", message: secret, stack: expect.stringContaining(secret) },
+      },
+    ]);
   });
 
   it("keeps expected client errors quiet", async () => {

@@ -15,7 +15,7 @@ import { BodyLimitPlugin } from "@orpc/server/fetch";
 import { router } from "@repo/api";
 import type { Type } from "arktype";
 import { site } from "@/site";
-import { logUnexpectedApiError } from "./api-errors";
+import { logUnexpectedApiError, logUnexpectedHandlerErrors } from "./api-errors";
 import { plainRequest } from "./plain-request";
 
 /** oRPC 1.15.4's converter does not select the input/output side of ArkType morphs. */
@@ -71,6 +71,7 @@ export function createOpenApi<TRouter extends AnyRouter>(
   const generator = new OpenAPIGenerator({ schemaConverters });
   const matcher = new StandardOpenAPIMatcher();
   matcher.init(apiRouter);
+  const logging = logUnexpectedHandlerErrors<InferRouterInitialContext<TRouter>>("rest");
   const handler = new OpenAPIHandler(apiRouter, {
     plugins: [
       new BodyLimitPlugin({ maxBodySize: 64 * 1024 }),
@@ -91,7 +92,9 @@ export function createOpenApi<TRouter extends AnyRouter>(
         },
       }),
     ],
+    rootInterceptors: logging.rootInterceptors,
     interceptors: [
+      ...logging.interceptors,
       async ({ request, prefix, next }) => {
         // Match the same way oRPC does, before it decodes the input.
         const pathname = prefix ? request.url.pathname.replace(prefix, "") : request.url.pathname;
@@ -117,7 +120,8 @@ export function createOpenApi<TRouter extends AnyRouter>(
       },
     ],
     // Wraps only the procedure call: malformed requests fail earlier and return 4xx quietly.
-    // MCP tools dispatch through this handler, so their failures are logged here once.
+    // MCP tools dispatch through this handler, so their failures are logged here once. A 5xx
+    // from outside the call, such as generating the OpenAPI document, is logged by `logging`.
     clientInterceptors: [onError(logUnexpectedApiError("rest"))],
   });
 

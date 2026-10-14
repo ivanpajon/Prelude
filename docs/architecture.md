@@ -100,7 +100,7 @@ For other client notifications, import `toast` from `@repo/ui/components/toast` 
 
 ## Errors, logs, and configuration
 
-`apps/web/src/lib/server-log.ts` writes one JSON line per server error to stderr, with the level, time, message, error name/message/stack, and context fields. Container runtimes and log drains collect it without extra setup. The RPC and REST handlers log procedure errors that become 5xx responses, including invalid procedure output; expected 4xx errors stay quiet. Responses never include the cause. MCP tools dispatch through the REST handler, so a failing tool is logged once.
+`apps/web/src/lib/server-log.ts` writes one JSON line per server error to stderr, with the level, time, message, error name/message/stack, and context fields. It follows the error's `cause`; for validation errors it keeps each issue's message and path but never the invalid value. Container runtimes and log drains collect it without extra setup. The RPC and REST handlers log procedure errors that become 5xx responses, including invalid procedure output, and other 5xx responses with the method and path, such as a failure to generate the OpenAPI document; expected 4xx errors stay quiet. Responses never include the cause. MCP tools dispatch through the REST handler, so a failing tool is logged once.
 
 `apps/web/src/instrumentation.ts` runs when the server starts. Its `register()` validates the runtime environment, and `onRequestError()` logs rendering, Route Handler, and Server Action failures with the error digest, method, path (without the query string), and route. Next.js prints the stack for these errors itself, so this line leaves it out. Connect Sentry, OpenTelemetry, or another reporting service in this file.
 
