@@ -31,8 +31,8 @@ Build and exercise disposable Docker stacks; write test-results/stack/report.jso
 Without --part, it runs every part in this order. Each part also runs on its own:
   builds       production builds on an empty builder (cold, unchanged, source change,
                restore) and the image sizes
-  runtime      one production build: runtime facts, samples, the production browser
-               checks, and the MCP toggle without a rebuild
+  runtime      one production build with the selected builder: runtime facts, samples,
+               the production browser checks, and the MCP toggle without a rebuild
   development  the development stack with Compose Watch and its browser checks;
                --shard 1/2 runs half of those checks
   rebuild      the development stack: a manifest rebuild through Compose Watch, then
@@ -96,7 +96,7 @@ const report = {
       ],
     },
     build:
-      "Production: dedicated empty Buildx builder. Development: the selected Buildx builder (developmentBuilder), which docker compose watch also rebuilds with; by default the Docker engine's own builder. Host Docker engine resource defaults.",
+      "Builds part: a dedicated empty Buildx builder, created for the cache measurements. Runtime part on its own, and development: the selected Buildx builder (selectedBuilder), which docker compose watch also rebuilds with; by default the Docker engine's own builder, whose cache may already be warm. A full run reuses the builds part's restored production image for the runtime part. Each build records its builder. Host Docker engine resource defaults.",
     size: "Unpacked bytes are SizeRootFs minus SizeRw from a never-started, network-disabled measurement container. Raw rootfs/writable values and image inspect Size (image-store bytes, potentially packed plus unpacked) are retained separately. Compressed bytes sum unique gzip OCI layers, excluding config/manifest metadata; not measured network transfer.",
     readiness:
       "First successful /api/health response after compose up, with container-start-relative and command-relative timing; first HTML request reported separately. The Compose healthcheck must then report healthy (commandToHealthyMs).",
@@ -244,13 +244,14 @@ async function sourceDigest(files) {
 
 // Development images build where `docker compose watch` builds and rebuilds them: in the selected
 // builder, by default the engine's own one, named after the Docker context. That one writes straight
-// into the engine's image store, while a docker-container builder exports and imports every image
-// as a tarball.
+// into the engine's image store, while a docker-container builder boots first and then exports and
+// imports every image as a tarball. The runtime part's production image builds there too; only the
+// builds part needs an empty builder for its cache measurements.
 async function selectedBuilder() {
   const inspected = (await docker(["buildx", "inspect"])).output;
   const name = inspected.match(/^Name:\s+(\S+)/m)?.[1];
   assert(name, "No Buildx builder is selected");
-  report.methodology.developmentBuilder = {
+  report.methodology.selectedBuilder = {
     name,
     driver: inspected.match(/^Driver:\s+(\S+)/m)?.[1],
   };
@@ -294,6 +295,7 @@ async function build(target, label, using = builder) {
   ownedImages.add(tag);
   ownedImageIds.add(JSON.parse((await docker(["image", "inspect", tag])).output)[0].Id);
   const metric = {
+    builder: using,
     ms: result.ms,
     dependencyCacheHit,
     compilationCacheHit,
@@ -693,11 +695,9 @@ try {
   assert.equal(report.docker.Server.Os, "linux", "Docker must run Linux containers");
   report.compose = (await docker(["compose", "version", "--short"])).output.trim();
   files = await copyContext();
-  if (runs("builds") || runs("runtime")) {
+  if (runs("builds")) {
     await docker(["buildx", "create", "--name", builder, "--driver", "docker-container"]);
     builderCreated = true;
-  }
-  if (runs("builds")) {
     await build("production", "production-cold");
     const cached = await build("production", "production-unchanged");
     assert(cached.dependencyCacheHit, "Unchanged build must reuse dependency installation");
@@ -713,8 +713,9 @@ try {
     await imageSize("production");
   }
   if (runs("runtime")) {
-    // A full run reuses the restored image from the builds part.
-    if (!runs("builds")) await build("production", "production-cold");
+    // A full run reuses the restored image from the builds part. On its own, this part builds
+    // with the selected builder, whose cache may be warm, so it makes no cache assertions.
+    if (!runs("builds")) await build("production", "production-runtime", await selectedBuilder());
     await runtimeFacts("production");
     const production = await composeConfig("production");
     for (let index = 0; index < samples; index++) {
