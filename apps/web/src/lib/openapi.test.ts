@@ -411,6 +411,18 @@ describe("path parameter guard", () => {
   );
 
   it.each([
+    ["an escaped bracket key", "?%5Cid[0]=second"],
+    ["an escape inside the key", "?i%5Cd[a]=second"],
+  ])("rejects %s that oRPC decodes to the path parameter", async (_label, query) => {
+    const target = context();
+    const response = await request(target, `/notes/first${query}`, "PATCH", { pinned: true });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ message: 'Provide "id" only in the URL path.' });
+    expectUnchanged(target);
+  });
+
+  it.each([
     ["form data", () => new FormData(), "id"],
     ["form data in bracket notation", () => new FormData(), "id[0]"],
     ["a URL-encoded body", () => new URLSearchParams(), "id"],

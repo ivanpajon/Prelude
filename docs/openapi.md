@@ -9,7 +9,7 @@ The same oRPC procedures serve the browser over RPC, direct Server Component cal
 | `GET /api/docs` | Public, interactive Scalar reference; linked from the shared header and homepage. |
 | `GET /api/openapi.json` | Generated specification, titled **Prelude API** (the site name from `apps/web/src/site.ts`), version **1.0.0**. |
 
-Each procedure adds its own endpoint under `/api`. Invalid inputs return 400; invalid procedure outputs return 500. REST and RPC request bodies larger than 64 KB are rejected with 413 before parsing. Path parameters belong only in the URL: on any route with a path parameter, such as `{id}`, repeating that key in the query or body returns 400, even when the values match. On those routes, a malformed body also returns 400 before any mutation. This guard in `createOpenApi` (`apps/web/src/lib/openapi.ts`) stops oRPC's compact input merge from replacing the path value.
+Each procedure adds its own endpoint under `/api`. Invalid inputs return 400; invalid procedure outputs return 500. REST and RPC request bodies larger than 64 KB are rejected with 413 before parsing. Path parameters belong only in the URL: on any route with a path parameter, such as `{id}`, and oRPC's default compact input, repeating that key in the query or body returns 400, even when the values match. This includes bracket keys such as `id[0]`. On those routes, a malformed body also returns 400 before any mutation. This guard in `createOpenApi` (`apps/web/src/lib/openapi.ts`) stops oRPC's compact input merge from replacing the path value. Routes with `inputStructure: "detailed"` keep path parameters and the query apart, so the guard skips them.
 
 <!-- demo:start -->
 The task demo adds these endpoints:

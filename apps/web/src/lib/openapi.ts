@@ -32,11 +32,30 @@ export class DirectionalArkTypeConverter extends ArkTypeToJsonSchemaConverter {
   }
 }
 
+/**
+ * The top-level key of a bracket-notation key, as oRPC 1.15.4 decodes it: `id[0]` and `\id[0]`
+ * both become `id`, because a backslash escapes the next character before the first bracket.
+ * A key without an unescaped `[` stays as written.
+ */
+function topLevelKey(key: string) {
+  let segment = "";
+  let backslashes = 0;
+  for (const character of key) {
+    if (character === "[" && backslashes % 2 === 0) return segment;
+    if (character === "\\") {
+      backslashes++;
+    } else {
+      segment += "\\".repeat(Math.floor(backslashes / 2)) + character;
+      backslashes = 0;
+    }
+  }
+  return key;
+}
+
 /** Top-level input keys, as oRPC decodes them from a query string, form or JSON object. */
 function inputKeys(value: unknown): string[] {
   if (value instanceof URLSearchParams || value instanceof FormData) {
-    // Bracket notation such as `id[0]` decodes to the top-level key `id`.
-    return [...value.keys()].map((key) => key.split("[", 1)[0] ?? key);
+    return [...value.keys()].map(topLevelKey);
   }
   if (value === null || typeof value !== "object") return [];
   const prototype = Object.getPrototypeOf(value);
