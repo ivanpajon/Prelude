@@ -167,6 +167,8 @@ pnpm exec playwright install chromium
 pnpm test:stack
 ```
 
+For a faster check of the production image alone, run `pnpm test:stack:quick`: one cold build, the runtime facts, one runtime sample with the production browser checks, and the MCP toggle, in about 2 minutes. CI runs it on every pull request as the **Docker smoke** job and runs the full command in its Docker workflow; see [continuous integration](verification.md#continuous-integration).
+
 The Docker acceptance workflow complements `pnpm verify`; it is separate so the ordinary native checks do not require Docker. It works in a temporary project copy with isolated Compose resources, leaving the checkout's source unchanged. Check `test-results/stack/report.json` for completed scenarios, platform information, image sizes, and timings. A completed native build alone does not verify the packaged container. It also starts each stack with `MCP_ENABLED=false`: production must keep serving the API and its documentation, and the development healthcheck must pass without the Inspector.
 
 Runtime samples of the Distroless image use two-CPU, 1-GiB limits, with three samples by default; `pnpm test:stack --samples 5` changes the sample count. Each sample records readiness (the first successful `/api/health` response), the time until the Compose healthcheck reports healthy, process RSS, and a small mixed workload with latency percentiles. The workload rotates through `/`, `/api/health`, and, while the demo is present, the task list API; the report lists the routes it used. These measurements describe this workload on the reported machine, not a general performance guarantee.

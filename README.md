@@ -69,6 +69,7 @@ With Docker running, `pnpm stack:prod` serves production at [localhost:3001](htt
 | `pnpm test:cache` | Verify generated build artifacts restore from Turbo cache. |
 | `pnpm verify` | Run the complete native verification sequence. |
 | `pnpm test:stack` | Verify the Docker stacks and report image, build, and runtime measurements. |
+| `pnpm test:stack:quick` | Build the production image once and check the running container. |
 | `pnpm customize` | Rename the root package and workspace scope, reinstall, and validate. |
 | `pnpm react-doctor` | Run optional React diagnostics with file locations. |
 | `pnpm --silent react-doctor:json` | Print a structured diagnostic report for agents. |
@@ -77,7 +78,7 @@ With Docker running, `pnpm stack:prod` serves production at [localhost:3001](htt
 `pnpm remove-demo` deletes the task demo and keeps the infrastructure; `--dry-run` previews the changes. It removes itself when it succeeds.
 <!-- demo:end -->
 
-Run `pnpm exec playwright install chromium` once before the browser checks. Husky runs Biome on staged files and Commitlint on commit messages (Conventional Commits, such as `feat: add profile settings`); hooks only see staged files, so run `pnpm check` and `pnpm test` too. GitHub Actions audits production dependencies and runs `pnpm verify` and `pnpm test:stack` on pushes to `main` or `develop` and on pull requests. See [verification](docs/verification.md) for what each check covers.
+Run `pnpm exec playwright install chromium` once before the browser checks. Husky runs Biome on staged files and Commitlint on commit messages (Conventional Commits, such as `feat: add profile settings`); hooks only see staged files, so run `pnpm check` and `pnpm test` too. On every pull request, GitHub Actions audits production dependencies and runs the same checks as `pnpm verify`, split into parallel jobs, plus a Docker smoke test, in about 2 minutes. The full `pnpm test:stack` runs on pushes to `main` or `develop`, weekly, and on pull requests that change Docker or development files. See [verification](docs/verification.md) for what each check covers.
 
 ## Make it yours
 

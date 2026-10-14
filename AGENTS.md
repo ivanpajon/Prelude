@@ -20,7 +20,7 @@ Run from the repository root with Node 26 (`.node-version`) and pnpm 12.6.0.
 - `pnpm check`: Biome and strict TypeScript. `pnpm fix` applies Biome's formatting and safe fixes.
 - `pnpm test`: Vitest unit and component tests.
 - `pnpm verify`: check, tests with coverage, development and production browser tests, and the build cache check (4-10 minutes). Run `pnpm exec playwright install chromium` once first.
-- `pnpm test:stack`: the Docker production and development stacks (5-15 minutes, needs Docker).
+- `pnpm test:stack`: the Docker production and development stacks (5-15 minutes, needs Docker). `pnpm test:stack:quick` checks only the production stack (about 2 minutes).
 - `pnpm mcp:check`: list the tools of a running MCP endpoint.
 - `pnpm customize`: rename the root package and the workspace scope.
 <!-- demo:start -->
@@ -28,6 +28,8 @@ Run from the repository root with Node 26 (`.node-version`) and pnpm 12.6.0.
 <!-- demo:end -->
 
 Before committing, run `pnpm check` and `pnpm test`. Also run `pnpm verify` when a change affects pages, routes, the build, or the service worker, and `pnpm test:stack` when it affects Docker files. Stop `pnpm dev` before `pnpm verify`: both use the development output and lock.
+
+CI has a fast lane (`.github/workflows/ci.yml`, parallel jobs of about 2 minutes on every pull request) and a full Docker lane (`.github/workflows/docker.yml`, on pushes, weekly, and on pull requests that change Docker or development files). See [continuous integration](docs/verification.md#continuous-integration).
 
 ## Conventions
 

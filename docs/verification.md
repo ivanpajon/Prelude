@@ -24,6 +24,7 @@ Times are rough figures from a Windows workstation; cold caches and CI runners t
 | `pnpm test:cache` | Build, remove only known generated artifacts such as the service worker, then confirm a Turbo cache hit restores identical bytes. | 30 s |
 | `pnpm verify` | `check`, `test:coverage`, `test:dev`, `test:e2e`, and `test:cache`, in that order. | 4–10 min |
 | `pnpm test:stack` | The Docker production and development stacks; see [Docker stacks](#docker-stacks). | 5–15 min |
+| `pnpm test:stack:quick` | Only the production stack: one cold build, one runtime sample, and its browser checks. | 2 min |
 
 `pnpm test:e2e` builds automatically and starts its own production server at `http://127.0.0.1:3100`; leave that port free. Desktop and mobile app scenarios block service workers to isolate UI behavior, while the PWA project allows them. The tests detect hydration errors. Reports, traces, and failure screenshots go to ignored test output directories.
 
@@ -75,6 +76,8 @@ Next.js pages, service-worker code, and shared UI components are included in tha
 
 Run `pnpm test:stack` with Docker's Linux engine running and host dependencies installed. This separate acceptance command verifies the packaged production runtime and development workflow; `pnpm verify` continues to run natively without requiring Docker. See [Docker verification and measurements](docker.md#verification-and-measurements) for scope and prerequisites.
 
+`pnpm test:stack:quick` (`pnpm test:stack --quick`) is the short version that CI runs on every pull request. It builds the production image once, checks its runtime facts, starts one sample with the production browser checks, and toggles MCP without a rebuild. It skips the rebuild timings, the image size measurements, the extra samples, and the development stack.
+
 The run report is written to ignored `test-results/stack/report.json`. Inspect its completed checks, image-size measurements, timings, and platform information before reporting Docker acceptance. Results from native tests or an image build alone do not establish that the standalone runtime, service worker, MCP transports, or Compose Watch work in a container.
 
 ## Reading the results
@@ -90,10 +93,28 @@ All of these are ignored by Git. A new run replaces the previous output.
 
 ## Continuous integration
 
-GitHub Actions runs `.github/workflows/ci.yml` on pushes to `main` or `develop`, pull requests, manual dispatch, and a weekly schedule (Monday 06:00 UTC). The **Audit** job runs `pnpm audit --prod --audit-level high`, which fails on high or critical advisories in production dependencies; run the same command locally. When it fails on an advisory with no fix and you have checked that it does not affect you, add the GHSA ID to `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml` with a comment saying why, and remove it when a fix ships. The braces entry there is an example. Do not use `pnpm audit --ignore-unfixable`: pnpm 12 writes every advisory without a fix into that list, without a reason. The **Verify** job runs `pnpm verify`; the **Docker stack** job runs `pnpm test:stack`. The scheduled run only audits. Verify and Docker stack use Ubuntu, the Node version in `.node-version`, the pinned pnpm from `packageManager`, Chromium with its OS dependencies, and `HUSKY=0`. The stack job also installs a pinned Docker Compose release and checks its SHA-256, because the runner's plugin is older than the minimum in [Docker workflows](docker.md); update the version and checksum together. Failed runs upload Playwright traces, screenshots, and the HTML report; the stack job always uploads its measurement report. Actions are pinned to commit SHAs with the release in a comment; update both together.
+GitHub Actions runs two workflows. Both use Ubuntu, the Node version in `.node-version`, the pinned pnpm from `packageManager`, and `HUSKY=0`, through the shared setup action in `.github/actions/setup`. A newer push to the same branch or pull request cancels the older run.
+
+**CI** (`.github/workflows/ci.yml`) is the fast lane. It runs on pull requests, pushes to `main` or `develop`, manual dispatch, and a weekly schedule (Monday 06:00 UTC). Its jobs run in parallel, and each takes about 2 minutes:
+
+| Job | What it runs |
+| --- | --- |
+| **Audit** | `pnpm audit --prod --audit-level high`. The weekly run only audits. |
+| **Check** | `pnpm check` and `pnpm test:coverage`. |
+| **E2E (1/4)** to **E2E (4/4)** | `pnpm build`, then a quarter of the production browser tests with `playwright test --shard`. The first shard also runs `pnpm test:cache`. |
+| **Dev (1/2)** and **Dev (2/2)** | Half of `pnpm test:dev` each. |
+| **Docker smoke** | `pnpm test:stack:quick`. |
+
+Together, Check, E2E, and Dev run everything in `pnpm verify`. Each shard starts its own server and runs its tests one at a time, like the local commands, because the tests of a suite share one server. Playwright splits shards by whole spec files, so a shard can end up slow or empty after you add or move many tests. To see the split, run `pnpm exec playwright test --list --shard=1/4` (add `--config playwright.dev.config.ts` for the development suite), and change the shard list in `ci.yml` if needed.
+
+The **Audit** job fails on high or critical advisories in production dependencies; run the same command locally. When it fails on an advisory with no fix and you have checked that it does not affect you, add the GHSA ID to `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml` with a comment saying why, and remove it when a fix ships. The braces entry there is an example. Do not use `pnpm audit --ignore-unfixable`: pnpm 12 writes every advisory without a fix into that list, without a reason.
+
+**Docker** (`.github/workflows/docker.yml`) is the full lane. Its **Docker stack** job runs `pnpm test:stack`, which takes 5–8 minutes: rebuild timings, image sizes, three runtime samples, and the development stack with Compose Watch. Nobody waits for it on an ordinary pull request. It runs on pushes to `main` or `develop`, the weekly schedule, manual dispatch, and pull requests that change how the images or the development stack are built: the Dockerfile, `.dockerignore`, the Compose files, `.node-version`, the lockfile, `pnpm-workspace.yaml`, any `package.json` or `tsconfig*.json`, the Next.js and PostCSS configuration, the development launcher, the stack test and its specs, the setup action, or the workflow itself. The full list is the `paths` filter in `docker.yml`; extend it when you add a file that changes the images.
+
+The setup action caches Playwright's browsers by runner system and Playwright version, and installs only Chromium's headless shell, which the headless tests use. It installs Chromium's system libraries only when the runner image lacks some. For the Docker jobs it also installs a pinned Docker Compose release and checks its SHA-256, because the runner's plugin is older than the minimum in [Docker workflows](docker.md); update the version and checksum together. Failed browser jobs upload Playwright traces, screenshots, and the HTML report, one artifact per shard; the Docker jobs always upload their stack report. Actions are pinned to commit SHAs with the release in a comment; update both together.
 
 <!-- demo:start -->
-The **Demo removal** job runs `pnpm remove-demo` in a fresh checkout, then `pnpm verify` and `pnpm test:stack`, so every push proves that a project without the demo stays green. It uses the same setup as the stack job, is skipped on the weekly schedule, and uploads test results when it fails. `pnpm remove-demo` deletes this job and this paragraph.
+Two jobs prove that a project without the demo stays green. **Demo removal (quick)** in CI runs `pnpm remove-demo` in a fresh checkout, which installs, formats, checks, and tests the result, and then `pnpm build`. **Demo removal** in the Docker workflow runs `pnpm remove-demo`, `pnpm verify`, and `pnpm test:stack` on the same triggers as the Docker stack job, and uploads test results when it fails. `pnpm remove-demo` deletes both jobs and this paragraph.
 <!-- demo:end -->
 
 ## Commit hooks
