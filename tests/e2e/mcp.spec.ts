@@ -170,6 +170,8 @@ test("disables MCP at production runtime without rebuilding or disabling REST", 
       /Less setup\.\s*More building\./,
     );
     // demo:start
+    // A REST procedure still runs while MCP is off.
+    expect((await fetch(`${origin}/api/v1/tasks?status=all`)).status).toBe(200);
     await page.goto(new URL("/playground", origin).href);
     const widget = page.getByRole("region", { name: "A little input. Real action.", exact: true });
     await widget.getByRole("button", { name: "Discover tools", exact: true }).click();

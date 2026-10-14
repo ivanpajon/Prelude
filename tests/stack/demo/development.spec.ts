@@ -5,6 +5,7 @@ import { expect, test } from "@playwright/test";
 import { site } from "../../../apps/web/src/site";
 import { demoLocalizationAcceptance } from "../../demo/i18n-scenarios";
 import { exerciseTaskApp } from "../../demo/mcp-apps";
+import { waitForHydration } from "../../hydration";
 import { ownedContext } from "../owned-context";
 
 demoLocalizationAcceptance();
@@ -106,6 +107,7 @@ test("syncs workbench and MCP App changes with HMR while preserving a browser dr
   };
   expect(originalComponent).toContain('{t("title")}');
   await page.goto("/playground");
+  await waitForHydration(page);
   // Confirm this streamed island handles events before entering the draft.
   const density = page.getByRole("button", { name: "Compact view", exact: true });
   await density.click();

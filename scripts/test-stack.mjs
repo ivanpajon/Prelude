@@ -667,6 +667,10 @@ try {
   assert.equal((await fetch(`${disabled.origin}/api/mcp`)).status, 404);
   assert.equal((await fetch(`${disabled.origin}/api/health`)).status, 200);
   assert.equal((await fetch(`${disabled.origin}/api/openapi.json`)).status, 200);
+  // demo:start
+  // A REST procedure still runs while MCP is off.
+  assert.equal((await fetch(`${disabled.origin}/api/v1/tasks?status=all`)).status, 200);
+  // demo:end
   disabled.env.MCP_ENABLED = "true";
   await launch(disabled);
   assert.equal((await fetch(`${disabled.origin}/api/mcp`)).status, 405);
@@ -750,6 +754,14 @@ try {
   );
   report.acceptance.hostSourceUnchanged = "passed";
   await stopStack(development);
+  // The development healthcheck drops the Inspector and sandbox probes when MCP is disabled.
+  const developmentWithoutMcp = await composeConfig("development", { MCP_ENABLED: "false" });
+  await launch(developmentWithoutMcp);
+  assert.equal((await fetch(`${developmentWithoutMcp.origin}/api/mcp`)).status, 404);
+  assert.equal((await fetch(`${developmentWithoutMcp.origin}/api/mcp/inspector`)).status, 404);
+  report.acceptance.developmentHealthyWithoutMcp = "passed";
+  await checkpoint();
+  await stopStack(developmentWithoutMcp);
   report.status = "passed";
 } catch (error) {
   report.status = "failed";

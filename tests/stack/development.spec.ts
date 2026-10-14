@@ -3,6 +3,7 @@ import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { site } from "../../apps/web/src/site";
 import { expectedToolNames } from "../../apps/web/src/testing/mcp-tool-names";
+import { waitForHydration } from "../hydration";
 import { localizationAcceptance } from "../i18n-scenarios";
 import { ownedContext } from "./owned-context";
 
@@ -29,6 +30,7 @@ test("does not attempt service-worker registration when the browser allows it", 
       };
     });
     await page.goto("/");
+    await waitForHydration(page);
     expect(await page.evaluate(() => "serviceWorker" in navigator)).toBe(true);
     await page.getByRole("button", { name: "Save idea", exact: true }).click();
     await expect(page.getByRole("button", { name: "Idea saved", exact: true })).toHaveAttribute(
@@ -100,6 +102,7 @@ test("syncs app and shared-package changes with HMR while preserving browser sta
   const marker = `Stack HMR ${crypto.randomUUID()}`;
   expect(originalComponent).toContain('{t("footer")}');
   await page.goto("/");
+  await waitForHydration(page);
   // Confirm the client island handles events before relying on its state.
   await page.getByRole("button", { name: "Save idea", exact: true }).click();
   const saved = page.getByRole("button", { name: "Idea saved", exact: true });
