@@ -19,7 +19,7 @@ concurrency:
 env:
   HUSKY: "0"
 
-# The full Docker suites run in docker.yml.
+# The fast lane: parallel jobs of about two minutes each. The full Docker suites run in docker.yml.
 jobs:
   audit:
     name: Audit
@@ -32,11 +32,29 @@ jobs:
       - uses: ./.github/actions/setup
       - run: pnpm audit --prod --audit-level high
 
-  verify:
-    name: Verify
+  check:
+    name: Check
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: pnpm check
+      - run: pnpm test:coverage
+
+  e2e:
+    name: E2E (${{ matrix.shard }}/${{ strategy.job-total }})
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # Playwright splits whole spec files per project; keep every shard non-empty.
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -44,14 +62,67 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           browsers: true
-      - run: pnpm verify
+      - run: pnpm build
+      # Each shard starts its own production server and runs its tests one at a time.
+      - run: pnpm exec playwright test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+      - if: matrix.shard == 1
+        run: pnpm test:cache
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: verify-results
+          name: e2e-${{ matrix.shard }}-results
           path: |
             test-results
             playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
+
+  dev:
+    name: Dev (${{ matrix.shard }}/${{ strategy.job-total }})
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # Playwright splits whole spec files; a smaller suite can leave a third shard empty.
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          browsers: true
+      # Each shard starts its own development server.
+      - run: pnpm test:dev --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dev-${{ matrix.shard }}-results
+          path: test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  docker-smoke:
+    name: Docker smoke
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          browsers: true
+          compose: true
+      - run: pnpm test:stack:quick
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: docker-smoke-results
+          path: test-results/stack
           if-no-files-found: ignore
           retention-days: 7
 
