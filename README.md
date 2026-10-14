@@ -1,7 +1,7 @@
 # Prelude
 
 <p align="center">
-  <img src="docs/assets/prelude-logo.png" alt="Prelude" width="640" />
+  <img src="docs/assets/prelude-logo.webp" alt="Prelude" width="640" />
 </p>
 
 **A next-generation, agentic-ready Next.js template.**
