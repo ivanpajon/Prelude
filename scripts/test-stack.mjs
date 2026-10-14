@@ -15,20 +15,45 @@ import { measureUnpackedImageSize } from "./stack-image-size.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const require = createRequire(import.meta.url);
+const partNames = ["builds", "runtime", "development", "rebuild"];
 const { values } = parseArgs({
   options: {
+    part: { type: "string" },
+    shard: { type: "string" },
     samples: { type: "string" },
     quick: { type: "boolean" },
     help: { type: "boolean" },
   },
 });
 if (values.help) {
-  console.log(
-    "pnpm test:stack [--samples 3] [--quick]\nBuild and exercise disposable Docker stacks; write test-results/stack/report.json.\n--quick checks only the production stack: one build and one sample (by default), without rebuild or size measurements.",
-  );
+  console.log(`pnpm test:stack [--part <name>] [--shard 1/2] [--samples 3] [--quick]
+Build and exercise disposable Docker stacks; write test-results/stack/report.json.
+Without --part, it runs every part in this order. Each part also runs on its own:
+  builds       production builds on an empty builder (cold, unchanged, source change,
+               restore) and the image sizes
+  runtime      one production build: runtime facts, samples, the production browser
+               checks, and the MCP toggle without a rebuild
+  development  the development stack with Compose Watch and its browser checks;
+               --shard 1/2 runs half of those checks
+  rebuild      the development stack: a manifest rebuild through Compose Watch, then
+               a restart without MCP
+--quick is --part runtime with one sample (by default).`);
   process.exit(0);
 }
 const quick = values.quick === true;
+assert(!quick || !values.part, "--quick already selects the runtime part");
+assert(
+  !values.part || partNames.includes(values.part),
+  `--part must be one of: ${partNames.join(", ")}`,
+);
+const parts = quick ? ["runtime"] : values.part ? [values.part] : partNames;
+const runs = (part) => parts.includes(part);
+const shard = values.shard;
+const [, current, total] = shard?.match(/^([1-9]\d*)\/([1-9]\d*)$/) ?? [];
+assert(
+  !shard || (values.part === "development" && Number(current) <= Number(total)),
+  "--shard i/n needs --part development and 1 <= i <= n",
+);
 const samples = Number(values.samples ?? (quick ? 1 : 3));
 assert(Number.isInteger(samples) && samples >= 1 && samples <= 10, "--samples must be 1–10");
 const project = `prelude-stack-${randomUUID().slice(0, 8)}`;
@@ -48,7 +73,9 @@ process.once("SIGINT", stop);
 process.once("SIGTERM", stop);
 const report = {
   project,
-  mode: quick ? "quick" : "full",
+  mode: quick ? "quick" : values.part ? "part" : "full",
+  parts,
+  ...(shard && { shard }),
   startedAt: new Date().toISOString(),
   status: "running",
   methodology: {
@@ -364,32 +391,9 @@ const probe=path.join(cache,'stack-permission-probe'); fs.writeFileSync(probe,'o
 console.log(JSON.stringify({uid:process.getuid(),node:process.version,icu:process.versions.icu,sharp:sharp.versions.sharp,nativeTemporal:true,${runtimeChecks.map(([name]) => `${name}:true,`).join("")}buildToolsAbsent:true}));
 `;
 
-async function imageMetrics(target) {
-  const tag = `${project}:${target}`;
-  const image = JSON.parse((await docker(["image", "inspect", tag])).output)[0];
-  // Quick runs keep the runtime facts and skip the size measurements and the OCI export.
-  const filesystem = quick
-    ? {}
-    : await measureUnpackedImageSize(image.Id, { docker, owner: project });
-  const runtime = JSON.parse(
-    (
-      await docker([
-        "run",
-        "--rm",
-        "--network=none",
-        "--entrypoint",
-        nodeBin(target),
-        tag,
-        "-e",
-        inspectRuntimeSource,
-      ])
-    ).output,
-  );
-  if (quick) {
-    report.images[target] = { id: image.Id, runtime, samples: [] };
-    await checkpoint();
-    return;
-  }
+async function imageSize(target) {
+  const image = JSON.parse((await docker(["image", "inspect", `${project}:${target}`])).output)[0];
+  const filesystem = await measureUnpackedImageSize(image.Id, { docker, owner: project });
   const archive = path.join(temporary, `${target}.oci.tar`);
   const exported = await docker(
     [
@@ -413,9 +417,28 @@ async function imageMetrics(target) {
     ...filesystem,
     ...(await ociSize(archive)),
     exportMs: exported.ms,
-    runtime,
-    samples: [],
   };
+  await checkpoint();
+}
+
+async function runtimeFacts(target) {
+  const tag = `${project}:${target}`;
+  const image = JSON.parse((await docker(["image", "inspect", tag])).output)[0];
+  const runtime = JSON.parse(
+    (
+      await docker([
+        "run",
+        "--rm",
+        "--network=none",
+        "--entrypoint",
+        nodeBin(target),
+        tag,
+        "-e",
+        inspectRuntimeSource,
+      ])
+    ).output,
+  );
+  report.images[target] = { ...report.images[target], id: image.Id, runtime, samples: [] };
   await checkpoint();
 }
 
@@ -589,9 +612,16 @@ async function stopStack(config) {
 }
 
 async function browserChecks(config, target, id) {
-  await command(
+  const { output } = await command(
     process.execPath,
-    [require.resolve("@playwright/test/cli"), "test", "--config", "playwright.stack.config.ts"],
+    [
+      require.resolve("@playwright/test/cli"),
+      "test",
+      "--config",
+      "playwright.stack.config.ts",
+      // Shard single tests, not spec files, so neither half is empty.
+      ...(shard ? ["--fully-parallel", `--shard=${shard}`] : []),
+    ],
     {
       env: {
         PRELUDE_STACK_MODE: target,
@@ -606,6 +636,8 @@ async function browserChecks(config, target, id) {
       log: `browser-${target}.log`,
     },
   );
+  // Playwright reports success for an empty shard.
+  assert.match(output, /Running [1-9]\d* tests? using/, `No ${target} stack browser tests ran`);
 }
 
 let watch;
@@ -655,10 +687,12 @@ try {
   assert.equal(report.docker.Server.Os, "linux", "Docker must run Linux containers");
   report.compose = (await docker(["compose", "version", "--short"])).output.trim();
   files = await copyContext();
-  await docker(["buildx", "create", "--name", builder, "--driver", "docker-container"]);
-  builderCreated = true;
-  await build("production", "production-cold");
-  if (!quick) {
+  if (runs("builds") || runs("runtime")) {
+    await docker(["buildx", "create", "--name", builder, "--driver", "docker-container"]);
+    builderCreated = true;
+  }
+  if (runs("builds")) {
+    await build("production", "production-cold");
     const cached = await build("production", "production-unchanged");
     assert(cached.dependencyCacheHit, "Unchanged build must reuse dependency installation");
     assert(cached.compilationCacheHit, "Unchanged build must reuse Next.js compilation");
@@ -670,45 +704,49 @@ try {
     assert(!changed.compilationCacheHit, "A source change must recompile the application build");
     await writeFile(changedSource, original);
     await build("production", "production-restore");
+    await imageSize("production");
   }
-  await imageMetrics("production");
-  const production = await composeConfig("production");
-  for (let index = 0; index < samples; index++) {
-    console.log(`Stack: production runtime sample ${index + 1}/${samples}`);
-    const ready = await launch(production);
-    const idleRssBytes = await rss(ready.id, "production");
-    const latency = await load(production.origin);
-    report.images.production.samples.push({
-      ...ready,
-      idleRssBytes,
-      loadedRssBytes: await rss(ready.id, "production"),
-      latency,
-    });
-    await checkpoint();
-    if (index === 0) {
-      await browserChecks(production, "production", ready.id);
-      report.acceptance.production = "passed";
+  if (runs("runtime")) {
+    // A full run reuses the restored image from the builds part.
+    if (!runs("builds")) await build("production", "production-cold");
+    await runtimeFacts("production");
+    const production = await composeConfig("production");
+    for (let index = 0; index < samples; index++) {
+      console.log(`Stack: production runtime sample ${index + 1}/${samples}`);
+      const ready = await launch(production);
+      const idleRssBytes = await rss(ready.id, "production");
+      const latency = await load(production.origin);
+      report.images.production.samples.push({
+        ...ready,
+        idleRssBytes,
+        loadedRssBytes: await rss(ready.id, "production"),
+        latency,
+      });
       await checkpoint();
+      if (index === 0) {
+        await browserChecks(production, "production", ready.id);
+        report.acceptance.production = "passed";
+        await checkpoint();
+      }
+      await stopStack(production);
     }
-    await stopStack(production);
+    const disabled = await composeConfig("production", { MCP_ENABLED: "false" });
+    await launch(disabled);
+    assert.equal((await fetch(`${disabled.origin}/api/mcp`)).status, 404);
+    assert.equal((await fetch(`${disabled.origin}/api/health`)).status, 200);
+    assert.equal((await fetch(`${disabled.origin}/api/openapi.json`)).status, 200);
+    // demo:start
+    // A REST procedure still runs while MCP is off.
+    assert.equal((await fetch(`${disabled.origin}/api/v1/tasks?status=all`)).status, 200);
+    // demo:end
+    disabled.env.MCP_ENABLED = "true";
+    await launch(disabled);
+    assert.equal((await fetch(`${disabled.origin}/api/mcp`)).status, 405);
+    report.acceptance.runtimeMcpToggleWithoutBuild = "passed";
+    await checkpoint();
+    await stopStack(disabled);
   }
-  const disabled = await composeConfig("production", { MCP_ENABLED: "false" });
-  await launch(disabled);
-  assert.equal((await fetch(`${disabled.origin}/api/mcp`)).status, 404);
-  assert.equal((await fetch(`${disabled.origin}/api/health`)).status, 200);
-  assert.equal((await fetch(`${disabled.origin}/api/openapi.json`)).status, 200);
-  // demo:start
-  // A REST procedure still runs while MCP is off.
-  assert.equal((await fetch(`${disabled.origin}/api/v1/tasks?status=all`)).status, 200);
-  // demo:end
-  disabled.env.MCP_ENABLED = "true";
-  await launch(disabled);
-  assert.equal((await fetch(`${disabled.origin}/api/mcp`)).status, 405);
-  report.acceptance.runtimeMcpToggleWithoutBuild = "passed";
-  await checkpoint();
-  await stopStack(disabled);
-  // Quick runs stop after the production stack.
-  if (!quick) {
+  if (runs("development") || runs("rebuild")) {
     await build("development", "development", await engineBuilder());
     const development = await composeConfig("development");
     const ready = await launch(development);
@@ -739,55 +777,65 @@ try {
     await delay(2000);
     if (watchError) throw watchError;
     assert.equal(watch.exitCode, null, "Compose watch failed to start");
-    await browserChecks(development, "development", ready.id);
-    report.acceptance.developmentInspectorAndHmr = "passed";
-    // demo:start
-    report.acceptance.developmentMcpAppSandbox = {
-      status: "passed",
-      appPort: development.port,
-      inspectorPort: development.inspectorPort,
-      sandboxPort: development.sandboxPort,
-    };
-    // demo:end
-    await checkpoint();
-    const manifestPath = path.join(context, "package.json");
-    const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
-    await writeFile(
-      manifestPath,
-      `${JSON.stringify({ ...manifest, description: `Isolated manifest rebuild ${project}` }, null, 2)}\n`,
-    );
-    const rebuildStarted = performance.now();
-    let replacement;
-    while (performance.now() - rebuildStarted < 180_000) {
-      controller.signal.throwIfAborted();
-      assert.equal(watch.exitCode, null, "Compose watch stopped during rebuild");
-      try {
-        replacement = await containerId(development);
-      } catch {
-        /* Recreate briefly removes the old container. */
-      }
-      if (replacement && replacement !== ready.id) break;
-      await delay(1000);
+    if (runs("development")) {
+      await browserChecks(development, "development", ready.id);
+      report.acceptance.developmentInspectorAndHmr = "passed";
+      // demo:start
+      report.acceptance.developmentMcpAppSandbox = {
+        status: "passed",
+        appPort: development.port,
+        inspectorPort: development.inspectorPort,
+        sandboxPort: development.sandboxPort,
+      };
+      // demo:end
+      await checkpoint();
     }
-    assert(
-      replacement && replacement !== ready.id,
-      "Manifest change did not rebuild the development container",
-    );
-    await waitReady(development.origin);
-    ownedImageIds.add(JSON.parse((await docker(["inspect", replacement])).output)[0].Image);
-    report.acceptance.manifestWatchRebuild = {
-      status: "passed",
-      ms: performance.now() - rebuildStarted,
-    };
-    await checkpoint();
+    if (runs("rebuild")) {
+      const manifestPath = path.join(context, "package.json");
+      const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+      await writeFile(
+        manifestPath,
+        `${JSON.stringify({ ...manifest, description: `Isolated manifest rebuild ${project}` }, null, 2)}\n`,
+      );
+      const rebuildStarted = performance.now();
+      let replacement;
+      while (performance.now() - rebuildStarted < 180_000) {
+        controller.signal.throwIfAborted();
+        assert.equal(watch.exitCode, null, "Compose watch stopped during rebuild");
+        try {
+          replacement = await containerId(development);
+        } catch {
+          /* Recreate briefly removes the old container. */
+        }
+        if (replacement && replacement !== ready.id) break;
+        await delay(1000);
+      }
+      assert(
+        replacement && replacement !== ready.id,
+        "Manifest change did not rebuild the development container",
+      );
+      await waitReady(development.origin);
+      ownedImageIds.add(JSON.parse((await docker(["inspect", replacement])).output)[0].Image);
+      report.acceptance.manifestWatchRebuild = {
+        status: "passed",
+        ms: performance.now() - rebuildStarted,
+      };
+      await checkpoint();
+    }
     await stopWatch();
+    await stopStack(development);
+  }
+  // The builds, the development browser checks, and the manifest rebuild edit only the copy.
+  if (!parts.every((part) => part === "runtime")) {
     assert.equal(
       await sourceDigest(files),
       report.source.sha256,
       "Stack checks changed host source files",
     );
     report.acceptance.hostSourceUnchanged = "passed";
-    await stopStack(development);
+    await checkpoint();
+  }
+  if (runs("rebuild")) {
     // The development healthcheck drops the Inspector and sandbox probes when MCP is disabled.
     const developmentWithoutMcp = await composeConfig("development", { MCP_ENABLED: "false" });
     await launch(developmentWithoutMcp);
