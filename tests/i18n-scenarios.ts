@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { waitForHydration } from "./hydration";
 
 /** Localization scenarios that need only the home page and the shared layout. */
 export function localizationAcceptance() {
@@ -77,6 +78,7 @@ export function localizationAcceptance() {
     page,
   }) => {
     await page.goto("/en?probe=1#main-content");
+    await waitForHydration(page);
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
     await page.getByRole("button", { name: "Save idea", exact: true }).click();
     await expect(page.getByRole("button", { name: "Idea saved", exact: true })).toHaveAttribute(
@@ -95,6 +97,7 @@ export function localizationAcceptance() {
       true,
     );
     await page.reload();
+    await waitForHydration(page);
     await expect(page.locator("html")).toHaveAttribute("lang", "es");
     await page.getByRole("link", { name: "Inicio de Prelude", exact: true }).click();
     await expect(page).toHaveURL((url) => url.pathname === "/es");

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { waitForHydration } from "../../hydration";
 
 test("embedded Inspector discovers generated tools and performs real CRUD against the shared API", async ({
   baseURL,
@@ -99,6 +100,7 @@ test("embedded Inspector discovers generated tools and performs real CRUD agains
     expect.arrayContaining([expect.objectContaining({ id: created.id })]),
   );
   await page.goto("/playground");
+  await waitForHydration(page);
   await expect(
     page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
   ).toHaveCount(0);

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { waitForHydration } from "../hydration";
 
 /** Task demo localization scenarios. The shared scenarios are in ../i18n-scenarios.ts. */
 export function demoLocalizationAcceptance() {
@@ -6,6 +7,7 @@ export function demoLocalizationAcceptance() {
     page,
   }) => {
     await page.goto("/en/playground");
+    await waitForHydration(page);
     const draft = `Keep this draft ${crypto.randomUUID()}`;
     await page.getByRole("button", { name: "Compact view", exact: true }).click();
     await page.getByRole("textbox", { name: "New task", exact: true }).fill(draft);
@@ -99,6 +101,7 @@ export function demoLocalizationAcceptance() {
     page,
   }) => {
     await page.goto("/playground");
+    await waitForHydration(page);
     await page.getByRole("button", { name: "Active", exact: true }).click();
     await page.getByRole("button", { name: "Completed", exact: true }).click();
     const draft = "   ";
@@ -157,6 +160,7 @@ export function demoLocalizationAcceptance() {
       true,
     );
     await page.reload();
+    await waitForHydration(page);
     await expect(page.locator("html")).toHaveAttribute("lang", "es");
     await page.getByRole("link", { name: "Inicio de Prelude", exact: true }).click();
     await expect(page).toHaveURL((url) => url.pathname === "/es");

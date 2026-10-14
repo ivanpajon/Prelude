@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { waitForHydration } from "../../hydration";
 
 test("development playground rendering and reloads have no framework errors", async ({ page }) => {
   const errors: string[] = [];
@@ -8,6 +9,7 @@ test("development playground rendering and reloads have no framework errors", as
   });
 
   await page.goto("/");
+  await waitForHydration(page);
   await page.getByRole("button", { name: "Move to end", exact: true }).click();
   await expect(page.getByText("Tile at the end.", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Save idea", exact: true }).click();
@@ -19,6 +21,7 @@ test("development playground rendering and reloads have no framework errors", as
   await page.getByRole("link", { name: "Open playground", exact: true }).click();
   await expect(page).toHaveURL(/\/playground$/);
   await page.reload();
+  await waitForHydration(page);
   await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
   await page.getByRole("button", { name: "Compact view", exact: true }).click();
   await expect(page.getByRole("button", { name: "Compact view", exact: true })).toHaveAttribute(
