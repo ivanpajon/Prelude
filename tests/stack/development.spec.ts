@@ -2,8 +2,8 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { site } from "../../apps/web/src/site";
+import { expectedToolNames } from "../../apps/web/src/testing/mcp-tool-names";
 import { localizationAcceptance } from "../i18n-scenarios";
-import { expectedToolNames } from "../openapi-operations";
 import { ownedContext } from "./owned-context";
 
 localizationAcceptance();
@@ -80,7 +80,7 @@ test("keeps Inspector authenticated and connects through the embedded developmen
   const connection = inspector.getByRole("switch", { name: /Connect or disconnect/ });
   await connection.press("Space");
   await expect(connection).toBeChecked();
-  const names = expectedToolNames(await (await request.get("/api/openapi.json")).json());
+  const names = await expectedToolNames(await (await request.get("/api/openapi.json")).json());
   // The Tools screen also opens for an API without operations; it then lists none.
   await inspector.getByText("Tools", { exact: true }).click();
   const tools = inspector.getByTestId("tools-screen");

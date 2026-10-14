@@ -5,7 +5,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { expect, test } from "@playwright/test";
-import { expectedToolNames } from "../openapi-operations";
+import { expectedToolNames } from "../../apps/web/src/testing/mcp-tool-names";
 
 for (const mode of ["modern", "legacy"] as const) {
   test(`connects a real ${mode} MCP client statelessly and lists every generated tool`, async ({
@@ -38,7 +38,7 @@ for (const mode of ["modern", "legacy"] as const) {
     try {
       await client.connect(transport);
       const specification = await (await request.get("/api/openapi.json")).json();
-      const expected = expectedToolNames(specification);
+      const expected = await expectedToolNames(specification);
       // Tools are advertised even before the API has operations; the list is then empty.
       expect(client.getServerCapabilities()?.tools).toBeDefined();
       const { tools } = await client.listTools();

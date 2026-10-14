@@ -1,8 +1,8 @@
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { expect, test } from "@playwright/test";
 import { site } from "../../apps/web/src/site";
+import { expectedToolNames } from "../../apps/web/src/testing/mcp-tool-names";
 import { localizationAcceptance } from "../i18n-scenarios";
-import { expectedToolNames } from "../openapi-operations";
 import { containerNode } from "./owned-context";
 
 localizationAcceptance();
@@ -56,7 +56,7 @@ test("serves the standalone app, health, docs, MCP, and optimized images", async
   const client = new Client({ name: "prelude-docker-acceptance", version: "1.0.0" });
   try {
     await client.connect(new StreamableHTTPClientTransport(new URL("/api/mcp", baseURL)));
-    expect(await listToolNames(client)).toEqual(expectedToolNames(specification));
+    expect(await listToolNames(client)).toEqual(await expectedToolNames(specification));
   } finally {
     await client.close();
   }
@@ -82,7 +82,7 @@ test("negotiates legacy MCP in the standalone runtime", async ({ baseURL, reques
   try {
     await client.connect(transport);
     const specification = await (await request.get("/api/openapi.json")).json();
-    expect(await listToolNames(client)).toEqual(expectedToolNames(specification));
+    expect(await listToolNames(client)).toEqual(await expectedToolNames(specification));
     expect(methods).toContain("initialize");
   } finally {
     await client.close();

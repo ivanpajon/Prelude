@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { site } from "../../apps/web/src/site";
-import { expectedToolNames } from "../openapi-operations";
+import { expectedToolNames } from "../../apps/web/src/testing/mcp-tool-names";
 
 test("embedded Inspector stays authenticated and discovers every generated tool", async ({
   baseURL,
@@ -37,13 +37,18 @@ test("embedded Inspector stays authenticated and discovers every generated tool"
   await connection.press("Space");
   await expect(connection).toBeChecked();
 
-  const names = expectedToolNames(await (await request.get("/api/openapi.json")).json());
+  const names = await expectedToolNames(await (await request.get("/api/openapi.json")).json());
   // The Tools screen also opens for an API without operations; it then lists none.
   await inspector.getByText("Tools", { exact: true }).click();
   const tools = inspector.getByTestId("tools-screen");
   await expect(tools).toHaveAttribute("data-tool-count", String(names.length));
   for (const name of names) {
-    await expect(tools.getByRole("button", { name: new RegExp(name) })).toBeVisible();
+    // Match the exact name, so `listNotes` does not also match `listNotesByTag`.
+    const tool = tools
+      .getByRole("button")
+      .filter({ has: inspector.getByText(name, { exact: true }) });
+    await expect(tool).toHaveCount(1);
+    await expect(tool).toBeVisible();
   }
   await page.screenshot({ path: test.info().outputPath("mcp-inspector.png") });
 });

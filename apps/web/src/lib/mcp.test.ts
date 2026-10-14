@@ -11,6 +11,7 @@ import {
   type Note,
   type NoteStore,
 } from "@/testing/fixture-api";
+import { expectedToolNames } from "@/testing/mcp-tool-names";
 import { createMcpEndpoint, generateMcpCatalog, type McpEndpointOptions } from "./mcp";
 import { createOpenApi } from "./openapi";
 
@@ -126,6 +127,38 @@ describe("generated MCP catalog", () => {
     });
     const tools = await generateMcpCatalog({ ...spec, "x-mcp": false });
     expect(tools.map((tool) => tool.name)).toEqual(["enabled", "operationOverride"]);
+  });
+
+  it("matches the tool names the browser suites expect, with renames and opt-outs", async () => {
+    const spec = {
+      ...fixtureSpec({
+        "/renamed": { get: { ...operation("original"), "x-mcp": { name: "renamed" } } },
+        "/hidden": { get: { ...operation("hidden"), "x-mcp": { enabled: false } } },
+        // Operation objects without `enabled` inherit the path, then the root setting.
+        "/enabled": {
+          "x-mcp": true,
+          get: { ...operation("deprecated"), deprecated: true },
+          post: { ...operation("inherited"), "x-mcp": { annotations: { idempotentHint: true } } },
+        },
+        "/root": {
+          get: { ...operation("annotated"), "x-mcp": { annotations: { readOnlyHint: true } } },
+        },
+      }),
+      "x-mcp": false,
+    };
+    const catalog = await generateMcpCatalog({ ...spec, "x-mcp": true });
+    expect(await expectedToolNames({ ...spec, "x-mcp": true })).toEqual(
+      catalog.map((tool) => tool.name).sort(),
+    );
+    expect(catalog.map((tool) => tool.name).sort()).toEqual([
+      "annotated",
+      "deprecated",
+      "inherited",
+      "renamed",
+    ]);
+    const optedOut = (await generateMcpCatalog(spec)).map((tool) => tool.name).sort();
+    expect(await expectedToolNames(spec)).toEqual(optedOut);
+    expect(optedOut).toEqual(["deprecated", "inherited"]);
   });
 
   it("retains explicit operation annotation overrides and client-visible metadata", async () => {
