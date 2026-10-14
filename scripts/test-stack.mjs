@@ -68,7 +68,8 @@ const report = {
         // demo:end
       ],
     },
-    build: "Dedicated empty Buildx builder; host Docker engine resource defaults.",
+    build:
+      "Production: dedicated empty Buildx builder. Development: the Docker engine's own builder, as docker compose watch uses by default. Host Docker engine resource defaults.",
     size: "Unpacked bytes are SizeRootFs minus SizeRw from a never-started, network-disabled measurement container. Raw rootfs/writable values and image inspect Size (image-store bytes, potentially packed plus unpacked) are retained separately. Compressed bytes sum unique gzip OCI layers, excluding config/manifest metadata; not measured network transfer.",
     readiness:
       "First successful /api/health response after compose up, with container-start-relative and command-relative timing; first HTML request reported separately. The Compose healthcheck must then report healthy (commandToHealthyMs).",
@@ -214,7 +215,21 @@ async function sourceDigest(files) {
   return hash.digest("hex");
 }
 
-async function build(target, label, extra = []) {
+// Development images build where `docker compose watch` builds them by default: in the engine's
+// own builder, named after the Docker context. It writes straight into the engine's image store,
+// while a docker-container builder exports and imports every image as a tarball.
+async function engineBuilder() {
+  const name = (await docker(["context", "show"])).output.trim();
+  const inspected = (await docker(["buildx", "inspect", name])).output;
+  assert.equal(
+    inspected.match(/^Driver:\s+(\S+)/m)?.[1],
+    "docker",
+    `${name} is not the engine builder`,
+  );
+  return name;
+}
+
+async function build(target, label, using = builder) {
   const tag = `${project}:${target}`;
   console.log(`Stack: building ${label}`);
   const result = await docker(
@@ -222,7 +237,7 @@ async function build(target, label, extra = []) {
       "buildx",
       "build",
       "--builder",
-      builder,
+      using,
       "--progress=plain",
       "--provenance=false",
       "--target",
@@ -232,7 +247,6 @@ async function build(target, label, extra = []) {
       "--label",
       imageLabel,
       "--load",
-      ...extra,
       context,
     ],
     { log: `build-${label}.log` },
@@ -695,11 +709,13 @@ try {
   await stopStack(disabled);
   // Quick runs stop after the production stack.
   if (!quick) {
-    await build("development", "development");
+    await build("development", "development", await engineBuilder());
     const development = await composeConfig("development");
     const ready = await launch(development);
+    // Compose rejects a context's builder in BUILDX_BUILDER, so Compose Watch rebuilds with the
+    // selected builder, as for developers: the engine's, unless `docker buildx use` chose another.
     watch = spawn("docker", [...development.args, "watch", "--no-up", "web"], {
-      env: { ...process.env, ...development.env, BUILDX_BUILDER: builder },
+      env: { ...process.env, ...development.env },
       // Absolute -f paths keep Compose rooted in the copy without a Windows cwd lock.
       cwd: root,
       windowsHide: true,
