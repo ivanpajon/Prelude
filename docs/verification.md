@@ -10,20 +10,20 @@ pnpm verify
 
 ## Checks and scenarios
 
-Times are rough figures from a recent Windows workstation; CI runners are slower.
+Times are rough figures from a Windows workstation; cold caches and CI runners take longer.
 
 | Command | Coverage | Time |
 | --- | --- | --- |
-| `pnpm check` | Biome, strict TypeScript, and compile-only negative contract checks. | 1 min |
-| `pnpm test` | RPC/REST validation and procedure behavior, generated OpenAPI schemas and MCP tools, request isolation, Temporal behavior, Testing Library component scenarios, and the `customize`/`remove-demo` scripts. | 30 s |
-| `pnpm test:coverage` | The same suite with V8 coverage reports in `coverage/`. | 30 s |
+| `pnpm check` | Biome, strict TypeScript, and compile-only negative contract checks. | under 1 min |
+| `pnpm test` | RPC/REST validation and procedure behavior, generated OpenAPI schemas and MCP tools, request isolation, Temporal behavior, Testing Library component scenarios, and the `customize`/`remove-demo` scripts. | 15–30 s |
+| `pnpm test:coverage` | The same suite with V8 coverage reports in `coverage/`. | 15–30 s |
 | `pnpm test:ui` | Local Vitest watch UI on `127.0.0.1`; exit with Ctrl+C. | |
-| `pnpm test:dev` | Fresh Turbopack development server, initial rendering, interactions, the embedded MCP Inspector, and reloads without console/overlay errors. | 2–3 min |
+| `pnpm test:dev` | Fresh Turbopack development server, initial rendering, interactions, the embedded MCP Inspector, and reloads without console/overlay errors. | 1–3 min |
 | `pnpm build` | Production Turbopack compilation, Cache Components rendering, and Serwist generation. | 1 min |
-| `pnpm test:e2e` | Build, then check production hydration, security headers, Scalar docs and requests, MCP protocol access, offline fallback, and worker updates. | 3–4 min |
+| `pnpm test:e2e` | Build, then check production hydration, security headers, Scalar docs and requests, MCP protocol access, offline fallback, and worker updates. | 2–4 min |
 | `pnpm test:cache` | Build, remove only known generated artifacts such as the service worker, then confirm a Turbo cache hit restores identical bytes. | 30 s |
-| `pnpm verify` | `check`, `test:coverage`, `test:dev`, `test:e2e`, and `test:cache`, in that order. | 6–10 min |
-| `pnpm test:stack` | The Docker production and development stacks; see [Docker stacks](#docker-stacks). | 10–15 min |
+| `pnpm verify` | `check`, `test:coverage`, `test:dev`, `test:e2e`, and `test:cache`, in that order. | 4–10 min |
+| `pnpm test:stack` | The Docker production and development stacks; see [Docker stacks](#docker-stacks). | 5–15 min |
 
 `pnpm test:e2e` builds automatically and starts its own production server at `http://127.0.0.1:3100`; leave that port free. Desktop and mobile app scenarios block service workers to isolate UI behavior, while the PWA project allows them. The tests detect hydration errors. Reports, traces, and failure screenshots go to ignored test output directories.
 

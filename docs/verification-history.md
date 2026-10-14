@@ -2,6 +2,16 @@
 
 Dated results of the template's own verification runs, newest first; [verification](verification.md) describes the checks themselves. Each record describes the source, tests, and routes at the time it was written. Runs that mention a Node slim runtime predate the removal of that measurement-only target.
 
+## Starter readiness
+
+Verified on 2026-10-14 with Node 26.10.0 and pnpm 12.6.0 on Windows. This round updated Next.js to 16.4.0 and added Renovate, the CI audit, environment validation, server error logging, `/api/health`, a global error page, `pnpm dev:app`, `pnpm remove-demo` with its CI job, and this documentation split. Infrastructure tests no longer depend on the task demo.
+
+- On the final source, the complete `pnpm verify` workflow passed: Biome, strict TypeScript, 516 unit/component/script tests in 48 files with coverage, 16 development browser scenarios, 124 production browser scenarios, and byte-for-byte restoration of the service worker and MCP App HTML.
+- During the round, `pnpm test:dev` failed now and then on the first click after a cold page load, before hydration. The browser tests now wait for hydration first; the development suite then passed in a separate run and again within `pnpm verify`.
+- `pnpm remove-demo` ran in a fresh copy of the source before this documentation pass: it changed 82 paths and passed its own install, fix, check, and 295 tests in 31 files. A frozen installation and `pnpm verify` then passed with 6 development and 52 production browser scenarios. `pnpm dev:app` started without the Inspector, `pnpm mcp:check` listed zero tools, and `pnpm test:stack` passed with three runtime samples.
+- `pnpm test:stack` passed on the template with the demo after the browser suites were split from the demo, before `pnpm remove-demo` was added. It was not rerun on the final template with the demo.
+- `pnpm customize` was covered only by its unit tests and a dry run. This record does not cover GitHub Actions, a Linux CI rehearsal, React Doctor, or the create-next-app workflow, and no new container measurements were recorded.
+
 ## Security headers and CI
 
 Verified on 2026-10-13 with Node 26.10.0 and pnpm 12.6.0:

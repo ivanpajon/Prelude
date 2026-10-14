@@ -19,8 +19,8 @@ Run from the repository root with Node 26 (`.node-version`) and pnpm 12.6.0.
 - `pnpm dev`: Next.js on port 3000 with the MCP Inspector on 6274 and 6275. `pnpm dev:app` skips the Inspector.
 - `pnpm check`: Biome and strict TypeScript. `pnpm fix` applies Biome's formatting and safe fixes.
 - `pnpm test`: Vitest unit and component tests.
-- `pnpm verify`: check, tests with coverage, development and production browser tests, and the build cache check (6-10 minutes). Run `pnpm exec playwright install chromium` once first.
-- `pnpm test:stack`: the Docker production and development stacks (10-15 minutes, needs Docker).
+- `pnpm verify`: check, tests with coverage, development and production browser tests, and the build cache check (4-10 minutes). Run `pnpm exec playwright install chromium` once first.
+- `pnpm test:stack`: the Docker production and development stacks (5-15 minutes, needs Docker).
 - `pnpm mcp:check`: list the tools of a running MCP endpoint.
 - `pnpm customize`: rename the root package and the workspace scope.
 <!-- demo:start -->
