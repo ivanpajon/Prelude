@@ -128,7 +128,7 @@ jobs:
 
   # demo:start
   # Proves on every pull request that a project without the demo still checks, tests and builds.
-  # The Docker workflow repeats it with the browser and Docker suites.
+  # It skips the browser suites to stay fast; the Docker workflow repeats it with those and Docker.
   # pnpm remove-demo deletes this job together with the demo.
   demo-removal-quick:
     name: Demo removal (quick)

@@ -23,9 +23,22 @@ on:
       - scripts/test-stack.mjs
       - playwright.stack.config.ts
       - "tests/stack/**"
+      # The stack test edits these files to check rebuild caching and live reload.
+      - apps/web/src/components/animation-examples.tsx
+      - apps/web/src/components/site-footer.tsx
+      - packages/ui/src/styles/globals.css
       # demo:start
+      - apps/web/src/components/task-workbench.tsx
+      - packages/ui/src/styles/theme.css
+      - packages/i18n/src/messages/en/widget.json
       - scripts/build-mcp-apps.mjs
       - scripts/remove-demo.mjs
+      # Demo removal runs the browser suites, which the quick job in ci.yml skips.
+      - "tests/e2e/**"
+      - "tests/dev/**"
+      - "tests/*.ts"
+      - playwright.config.ts
+      - playwright.dev.config.ts
       # demo:end
       - ".github/actions/**"
       - .github/workflows/docker.yml
