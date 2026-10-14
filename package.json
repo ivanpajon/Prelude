@@ -10,6 +10,7 @@
   },
   "scripts": {
     "customize": "node scripts/customize.mjs",
+    "remove-demo": "node scripts/remove-demo.mjs",
     "dev": "turbo run dev",
     "dev:app": "turbo run dev -- --no-inspector",
     "mcp:check": "node scripts/mcp-check.mjs",
