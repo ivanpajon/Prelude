@@ -10,7 +10,7 @@ import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
-import { parseArgs } from "node:util";
+import { parseArgs, stripVTControlCharacters } from "node:util";
 import { measureUnpackedImageSize } from "./stack-image-size.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -96,7 +96,7 @@ const report = {
       ],
     },
     build:
-      "Production: dedicated empty Buildx builder. Development: the Docker engine's own builder, as docker compose watch uses by default. Host Docker engine resource defaults.",
+      "Production: dedicated empty Buildx builder. Development: the selected Buildx builder (developmentBuilder), which docker compose watch also rebuilds with; by default the Docker engine's own builder. Host Docker engine resource defaults.",
     size: "Unpacked bytes are SizeRootFs minus SizeRw from a never-started, network-disabled measurement container. Raw rootfs/writable values and image inspect Size (image-store bytes, potentially packed plus unpacked) are retained separately. Compressed bytes sum unique gzip OCI layers, excluding config/manifest metadata; not measured network transfer.",
     readiness:
       "First successful /api/health response after compose up, with container-start-relative and command-relative timing; first HTML request reported separately. The Compose healthcheck must then report healthy (commandToHealthyMs).",
@@ -242,17 +242,18 @@ async function sourceDigest(files) {
   return hash.digest("hex");
 }
 
-// Development images build where `docker compose watch` builds them by default: in the engine's
-// own builder, named after the Docker context. It writes straight into the engine's image store,
-// while a docker-container builder exports and imports every image as a tarball.
-async function engineBuilder() {
-  const name = (await docker(["context", "show"])).output.trim();
-  const inspected = (await docker(["buildx", "inspect", name])).output;
-  assert.equal(
-    inspected.match(/^Driver:\s+(\S+)/m)?.[1],
-    "docker",
-    `${name} is not the engine builder`,
-  );
+// Development images build where `docker compose watch` builds and rebuilds them: in the selected
+// builder, by default the engine's own one, named after the Docker context. That one writes straight
+// into the engine's image store, while a docker-container builder exports and imports every image
+// as a tarball.
+async function selectedBuilder() {
+  const inspected = (await docker(["buildx", "inspect"])).output;
+  const name = inspected.match(/^Name:\s+(\S+)/m)?.[1];
+  assert(name, "No Buildx builder is selected");
+  report.methodology.developmentBuilder = {
+    name,
+    driver: inspected.match(/^Driver:\s+(\S+)/m)?.[1],
+  };
   return name;
 }
 
@@ -636,8 +637,13 @@ async function browserChecks(config, target, id) {
       log: `browser-${target}.log`,
     },
   );
-  // Playwright reports success for an empty shard.
-  assert.match(output, /Running [1-9]\d* tests? using/, `No ${target} stack browser tests ran`);
+  // Playwright reports success for an empty shard. FORCE_COLOR adds color codes to its summary.
+  if (shard)
+    assert.match(
+      stripVTControlCharacters(output),
+      /Running [1-9]\d* tests? using/,
+      `No ${target} stack browser tests ran`,
+    );
 }
 
 let watch;
@@ -747,11 +753,9 @@ try {
     await stopStack(disabled);
   }
   if (runs("development") || runs("rebuild")) {
-    await build("development", "development", await engineBuilder());
+    await build("development", "development", await selectedBuilder());
     const development = await composeConfig("development");
     const ready = await launch(development);
-    // Compose rejects a context's builder in BUILDX_BUILDER, so Compose Watch rebuilds with the
-    // selected builder, as for developers: the engine's, unless `docker buildx use` chose another.
     watch = spawn("docker", [...development.args, "watch", "--no-up", "web"], {
       env: { ...process.env, ...development.env },
       // Absolute -f paths keep Compose rooted in the copy without a Windows cwd lock.
@@ -774,20 +778,31 @@ try {
     watch.stderr.on("data", (chunk) => {
       watchOutput += chunk;
     });
-    await delay(2000);
-    if (watchError) throw watchError;
-    assert.equal(watch.exitCode, null, "Compose watch failed to start");
+    // Compose Watch reacts to file changes only after its initial sync, when it prints this.
+    const watchStarted = performance.now();
+    while (!watchOutput.includes("Watch enabled")) {
+      controller.signal.throwIfAborted();
+      if (watchError) throw watchError;
+      assert.equal(watch.exitCode, null, `Compose watch failed to start:\n${watchOutput}`);
+      assert(performance.now() - watchStarted < 120_000, "Compose watch did not start in 120 s");
+      await delay(250);
+    }
     if (runs("development")) {
       await browserChecks(development, "development", ready.id);
-      report.acceptance.developmentInspectorAndHmr = "passed";
-      // demo:start
-      report.acceptance.developmentMcpAppSandbox = {
-        status: "passed",
-        appPort: development.port,
-        inspectorPort: development.inspectorPort,
-        sandboxPort: development.sandboxPort,
-      };
-      // demo:end
+      if (shard) {
+        // Each shard runs only some of the checks below.
+        report.acceptance.developmentBrowserShard = { shard, status: "passed" };
+      } else {
+        report.acceptance.developmentInspectorAndHmr = "passed";
+        // demo:start
+        report.acceptance.developmentMcpAppSandbox = {
+          status: "passed",
+          appPort: development.port,
+          inspectorPort: development.inspectorPort,
+          sandboxPort: development.sandboxPort,
+        };
+        // demo:end
+      }
       await checkpoint();
     }
     if (runs("rebuild")) {

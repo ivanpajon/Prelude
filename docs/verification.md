@@ -83,10 +83,10 @@ Run `pnpm test:stack` with Docker's Linux engine running and host dependencies i
 | --- | --- |
 | `builds` | Cold, unchanged, source-change, and restore builds of the production image on an empty builder, with the cache hits each one must show, and the image sizes. |
 | `runtime` | One production build, its runtime facts (non-root user, Intl, Temporal, sharp, no build tools, writable cache), three runtime samples (`--samples` changes the count), the production browser checks in the first sample, and the MCP toggle without a rebuild. |
-| `development` | The development image, Compose Watch, and the development browser checks in `tests/stack`. `--shard 1/2` and `--shard 2/2` each run half of those checks; the report names the shard. |
+| `development` | The development image, Compose Watch, and the development browser checks in `tests/stack`. `--shard 1/2` and `--shard 2/2` each run half of those checks; their report records the shard as `developmentBrowserShard` instead of each development check. |
 | `rebuild` | The development image and Compose Watch, then a `package.json` change that must rebuild and replace the container, and a restart with `MCP_ENABLED=false`. |
 
-The parts that edit the disposable copy (`builds`, `development`, and `rebuild`) also check that the checkout's source files did not change. The development image builds in the Docker engine's own builder, like `docker compose watch`; see [Docker verification and measurements](docker.md#verification-and-measurements).
+The parts that edit the disposable copy (`builds`, `development`, and `rebuild`) also check that the checkout's source files did not change. The development image builds in the selected Buildx builder, by default the Docker engine's own one, which `docker compose watch` also uses; see [Docker verification and measurements](docker.md#verification-and-measurements).
 
 `pnpm test:stack:quick` (`pnpm test:stack --quick`) is the `runtime` part with one sample, the short version that CI runs on every pull request. It builds the production image once, checks its runtime facts, starts one sample with the production browser checks, and toggles MCP without a rebuild.
 
