@@ -244,7 +244,9 @@ describe("OpenAPI HTTP adapter", () => {
       info: fixtureSpecOptions.info,
       servers: fixtureSpecOptions.servers,
     });
-    expect(document.paths ?? {}).toEqual({});
+    // OpenAPI 3.1 requires paths, components, or webhooks; an empty `paths` keeps it valid.
+    expect(document.paths).toEqual({});
+    expect(await empty.generateSpec()).toMatchObject({ paths: {} });
     const docs = await empty.handle(new Request("http://localhost/api/docs"), context());
     expect(docs.status).toBe(200);
     expect(await docs.text()).toContain("<title>Prelude API Reference</title>");

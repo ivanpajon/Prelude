@@ -45,7 +45,7 @@ All of this comes from one list at the top of `scripts/remove-demo.mjs`. Its uni
 ## What you get
 
 - An empty contract and router, with a comment that shows where each feature goes: `packages/contracts/src/index.ts` and `packages/api/src/router.ts`. The API context in `packages/api/src/router.ts` and `apps/web/src/lib/request-context.ts` has no fields yet.
-- `/api/openapi.json` is a valid OpenAPI 3.1.1 document with no paths, and the Scalar reference at `/api/docs` loads.
+- `/api/openapi.json` is a valid OpenAPI 3.1.1 document with an empty `paths` object, and the Scalar reference at `/api/docs` loads.
 - `/api/mcp` advertises tools and lists none. `pnpm mcp:check` and the MCP Inspector still connect. Tools appear as soon as you add procedures.
 - The home page, header, footer, language selector, English and Spanish catalogs, PWA and offline page, health endpoint, security headers, Docker workflows, CI, and all infrastructure tests stay.
 - TanStack Query and nuqs stay wired in `apps/web/src/components/providers.tsx`. Zustand stays installed for your own stores.

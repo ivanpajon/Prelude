@@ -64,6 +64,9 @@ export function createOpenApi<TRouter extends AnyRouter>(
   apiRouter: TRouter,
   specOptions: OpenAPIGeneratorGenerateOptions,
 ) {
+  // OpenAPI 3.1 requires paths, components, or webhooks. oRPC adds paths only for a procedure, so
+  // start from an empty object to keep a contract without procedures valid.
+  const generateOptions = { paths: {}, ...specOptions };
   const schemaConverters = [new DirectionalArkTypeConverter()];
   const generator = new OpenAPIGenerator({ schemaConverters });
   const matcher = new StandardOpenAPIMatcher();
@@ -73,7 +76,7 @@ export function createOpenApi<TRouter extends AnyRouter>(
       new BodyLimitPlugin({ maxBodySize: 64 * 1024 }),
       new OpenAPIReferencePlugin({
         schemaConverters,
-        specGenerateOptions: specOptions,
+        specGenerateOptions: generateOptions,
         docsPath: "/docs",
         specPath: "/openapi.json",
         docsProvider: "scalar",
@@ -120,7 +123,7 @@ export function createOpenApi<TRouter extends AnyRouter>(
 
   return {
     generateSpec() {
-      return generator.generate(apiRouter, specOptions);
+      return generator.generate(apiRouter, generateOptions);
     },
     async handle(request: Request, context: InferRouterInitialContext<TRouter>): Promise<Response> {
       const { response } = await handler.handle(plainRequest(request), { prefix: "/api", context });
