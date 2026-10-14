@@ -3,9 +3,9 @@ import { implement } from "@orpc/server";
 import { type } from "arktype";
 
 /**
- * A tiny test-only API. Infrastructure tests use it so they never depend on the task demo.
- * It covers a query input, a JSON body, a path parameter, a custom success status, and a
- * typed error.
+ * A tiny test-only API. Infrastructure tests use it so they do not depend on the project's own
+ * procedures. It covers a query input, a JSON body, a path parameter, a custom success status,
+ * and a typed error.
  */
 export const noteTextMaxLength = 20;
 

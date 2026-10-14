@@ -10,7 +10,7 @@ This repository is a Next.js 16 starter in a pnpm and Turborepo workspace. One o
 - `packages/i18n` (`@repo/i18n`): English and Spanish message catalogs in `src/messages/{en,es}`.
 - `packages/ui` (`@repo/ui`): shadcn components on Base UI, Tailwind 4 styles, and `cn`.
 - `packages/temporal` (`@repo/temporal`): Temporal dates and times with a browser fallback.
-- `scripts/` holds the development launcher and the repository commands; `tests/` holds the Playwright suites. Vitest tests sit next to the code they test.
+- `scripts/` holds the development launcher and the repository commands; `tests/` holds the Playwright suites. Vitest tests sit next to the code they test. A spec in `tests/e2e` with a new file name runs only after you add it to `playwright.config.ts`; see [verification](docs/verification.md#test-environments-and-coverage).
 
 ## Commands
 

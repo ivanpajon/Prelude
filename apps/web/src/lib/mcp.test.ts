@@ -354,7 +354,7 @@ describe.each(["modern", "legacy"] as const)("MCP %s HTTP compatibility", (era) 
 });
 
 describe.each(["modern", "legacy"] as const)("MCP %s endpoint without operations", (era) => {
-  // This is the state `pnpm remove-demo` leaves before the first procedure is added.
+  // An API without procedures, as in a new project before its first feature.
   const empty = createOpenApi(
     implement({}).$context<FixtureContext>().router({}),
     fixtureSpecOptions,

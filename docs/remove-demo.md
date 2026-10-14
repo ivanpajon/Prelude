@@ -50,7 +50,7 @@ All of this comes from one list at the top of `scripts/remove-demo.mjs`. Its uni
 - The home page, header, footer, language selector, English and Spanish catalogs, PWA and offline page, health endpoint, security headers, Docker workflows, CI, and all infrastructure tests stay.
 - TanStack Query and nuqs stay wired in `apps/web/src/components/providers.tsx`. Zustand stays installed for your own stores.
 
-The guides describe the remaining project: demo-only paragraphs sit between markers and go with the demo. The dated records in `docs/verification-history.md`, `docs/docker-measurements.md`, `docs/diagnostics.md`, and `docs/requirements.md` stay as they are. They describe the template as it was built and tested, demo included.
+The guides and `docs/requirements.md` describe the remaining project: demo-only paragraphs sit between markers and go with the demo. The records in `docs/verification-history.md`, `docs/docker-measurements.md`, and `docs/diagnostics.md` stay as they are. They describe the template as it was built and tested, demo included.
 
 ## If it stops
 
@@ -61,3 +61,5 @@ The guides describe the remaining project: demo-only paragraphs sit between mark
 ## Remove only part of the demo
 
 To keep some of the demo, skip the command and follow the feature notes instead: [MCP Apps](mcp-apps.md#replace-or-remove-the-example) for the widget, [MCP](mcp.md#add-change-or-remove-tools) for the JSON explorer or MCP as a whole, and [OpenAPI](openapi.md#authentication-persistence-and-removal) for REST and the Scalar reference.
+
+A partial removal no longer matches the list in `scripts/remove-demo.mjs`, so its test fails and `pnpm test` goes red. Remove the command too: delete `scripts/remove-demo.mjs` and `scripts/remove-demo.test.mjs`, the `remove-demo` script in `package.json`, and the **Demo removal** job (`demo-removal`) in `.github/workflows/ci.yml`.

@@ -232,7 +232,7 @@ describe("OpenAPI HTTP adapter", () => {
   });
 
   it("serves a valid document and Scalar for a contract without procedures", async () => {
-    // This is the state `pnpm remove-demo` leaves before the first procedure is added.
+    // An API without procedures, as in a new project before its first feature.
     const empty = createOpenApi(
       implement({}).$context<FixtureContext>().router({}),
       fixtureSpecOptions,

@@ -98,6 +98,7 @@ export const demo = {
     "docs/mcp.md",
     "docs/motion.md",
     "docs/openapi.md",
+    "docs/requirements.md",
     "docs/verification.md",
     "packages/api/src/index.ts",
     "packages/api/src/router.ts",

@@ -15,7 +15,7 @@ Times are rough figures from a Windows workstation; cold caches and CI runners t
 | Command | Coverage | Time |
 | --- | --- | --- |
 | `pnpm check` | Biome, strict TypeScript, and compile-only negative contract checks. | under 1 min |
-| `pnpm test` | RPC/REST validation and procedure behavior, generated OpenAPI schemas and MCP tools, request isolation, Temporal behavior, Testing Library component scenarios, and the `customize`/`remove-demo` scripts. | 15–30 s |
+| `pnpm test` | RPC/REST validation and procedure behavior, generated OpenAPI schemas and MCP tools, request isolation, Temporal behavior, Testing Library component scenarios, and the repository scripts. | 15–30 s |
 | `pnpm test:coverage` | The same suite with V8 coverage reports in `coverage/`. | 15–30 s |
 | `pnpm test:ui` | Local Vitest watch UI on `127.0.0.1`; exit with Ctrl+C. | |
 | `pnpm test:dev` | Fresh Turbopack development server, initial rendering, interactions, the embedded MCP Inspector, and reloads without console/overlay errors. | 1–3 min |
@@ -57,7 +57,7 @@ The real preview requires Inspector's **Apps** interface: connect, select **List
 
 ## Test environments and coverage
 
-Infrastructure tests use only shared pages and endpoints, plus the test-only notes API in `apps/web/src/testing/fixture-api.ts`. Playwright projects match spec file names in any folder, so a new spec joins the project of the infrastructure spec with the same name.
+Infrastructure tests use only shared pages and endpoints, plus the test-only notes API in `apps/web/src/testing/fixture-api.ts`. Playwright projects match spec file names in any folder, so a new spec joins the project of the infrastructure spec with the same name. A spec in `tests/e2e` with a new file name runs only once it is registered: add it to `browserSpecs` (or a project's `testMatch`) in `playwright.config.ts`. `tests/dev` runs every spec in it, and the stack suite runs only `production.spec.ts` and `development.spec.ts` (`playwright.stack.config.ts`).
 
 <!-- demo:start -->
 Task demo tests live in `*.tasks.test.ts` files and in `tests/e2e/demo/`, `tests/dev/demo/`, and `tests/stack/demo/`, with their helpers in `tests/demo/`. Removing the demo removes those files, and the infrastructure suites still run.

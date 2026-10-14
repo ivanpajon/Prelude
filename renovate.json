@@ -30,7 +30,7 @@
       "managerFilePatterns": [
         "/^apps/web/src/lib/openapi[^/]*\\.ts$/",
         "/^tests/.+\\.spec\\.ts$/",
-        "/^docs/openapi\\.md$/"
+        "/^docs/(openapi|requirements)\\.md$/"
       ],
       "matchStrings": ["@scalar/api-reference@(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
       "depNameTemplate": "@scalar/api-reference",

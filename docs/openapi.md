@@ -62,7 +62,7 @@ RPC, REST, documentation, and specification responses use `Cache-Control: no-sto
 ## Authentication, persistence, and removal
 
 <!-- demo:start -->
-To remove the task demo, run `pnpm remove-demo`. It leaves an empty contract, an OpenAPI document with no paths, and a working Scalar reference. See [Remove the demo](remove-demo.md).
+To remove the task demo, run `pnpm remove-demo`. It leaves an empty contract, an OpenAPI document with no paths, and a working Scalar reference. See [Remove the demo](remove-demo.md). If you instead remove REST by hand while the demo is present, also remove that command; see [Remove only part of the demo](remove-demo.md#remove-only-part-of-the-demo).
 
 <!-- demo:end -->
 - When adding authentication or persistence, initialize the authorized context in the RPC, REST, and MCP Route Handlers and the direct server client. Keep authorization in the shared procedures/repository so every transport enforces it. Supply cache invalidation consistently across these entry points if server data becomes cached, and choose which contracts to expose in public docs and MCP discovery.
