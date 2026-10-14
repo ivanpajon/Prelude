@@ -12,10 +12,12 @@ export default defineConfig({
   reporter: "list",
   // demo:start
   // CI shards this list with --fully-parallel, so each shard takes a contiguous slice of it. The
-  // demo comes first, so its two slow MCP App tests in tests/dev/demo/ fall into different halves.
+  // demo comes first and its Spanish MCP App test last, so the two slow MCP App tests in
+  // tests/dev/demo/ stay in different halves when tests are added to the shared ones.
   projects: [
-    { name: "demo", testDir: "./tests/dev/demo" },
+    { name: "demo", testDir: "./tests/dev/demo", testIgnore: "**/mcp-apps-es.spec.ts" },
     { name: "development", testIgnore: "**/demo/**" },
+    { name: "demo-es", testDir: "./tests/dev/demo", testMatch: "**/mcp-apps-es.spec.ts" },
   ],
   // demo:end
   use: {
