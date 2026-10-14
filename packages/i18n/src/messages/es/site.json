@@ -13,7 +13,7 @@
     "newTab": "(se abre en una pestaña nueva)",
     "skip": "Saltar al contenido",
     "footer": "Hecho con ❤️ por Ivan Pajon",
-    "github": "Prelude en GitHub (se abre en una pestaña nueva)",
+    "repository": "Código fuente de {name} (se abre en una pestaña nueva)",
     "loading": "Cargando…"
   },
   "Home": {

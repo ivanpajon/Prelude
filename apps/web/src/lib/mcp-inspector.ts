@@ -1,6 +1,6 @@
 import "server-only";
 
-import { parseServerEnvironment, type RuntimeEnvironment } from "@/env";
+import { parseServerEnvironment, type RuntimeEnvironment, type ServerEnvironment } from "@/env";
 import { site } from "@/site";
 import { rejectNonLocalRequest, withoutMcpCache } from "./mcp-access";
 import { logServerError } from "./server-log";
@@ -19,16 +19,18 @@ export function handleInspectorRequest(
       new Response("Method not allowed", { status: 405, headers: { Allow: "GET, HEAD" } }),
     );
   }
-  let port: number;
+  let config: ServerEnvironment;
   try {
-    port = parseServerEnvironment(environment).mcpInspectorPort;
+    config = parseServerEnvironment(environment);
   } catch (error) {
     logServerError("MCP Inspector request failed", error, { method: request.method });
     return withoutMcpCache(
       new Response("Invalid configuration. Check the server logs.", { status: 500 }),
     );
   }
-  const inspectorOrigin = `http://127.0.0.1:${port}`;
+  // The launcher does not start the Inspector when MCP is disabled; match the endpoint's 404.
+  if (!config.mcpEnabled) return withoutMcpCache(new Response("Not found", { status: 404 }));
+  const inspectorOrigin = `http://127.0.0.1:${config.mcpInspectorPort}`;
   const html = `<!doctype html>
 <html lang="en">
 <head>

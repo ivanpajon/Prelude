@@ -6,7 +6,8 @@ import { SiteFooter } from "./site-footer";
 const site = vi.hoisted((): SiteIdentity => ({ name: "Acme", slug: "acme" }));
 vi.mock("@/site", () => ({ site }));
 vi.mock("next-intl/server", () => ({
-  getTranslations: async () => (key: string) => (key === "github" ? "Source code" : key),
+  getTranslations: async () => (key: string, values?: { name: string }) =>
+    key === "repository" ? `${values?.name} source code` : key,
 }));
 
 describe("site footer", () => {
@@ -20,7 +21,7 @@ describe("site footer", () => {
   it("links to the configured repository in a new tab", async () => {
     site.repositoryUrl = "https://example.com/acme/app";
     render(await SiteFooter());
-    const link = screen.getByRole("link", { name: "Source code" });
+    const link = screen.getByRole("link", { name: "Acme source code" });
     expect(link).toHaveAttribute("href", "https://example.com/acme/app");
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noreferrer");

@@ -182,6 +182,17 @@ describe("local Inspector wrapper", () => {
     },
   );
 
+  it("returns 404 in development when MCP is disabled, because no Inspector runs", () => {
+    for (const method of ["GET", "HEAD"]) {
+      const response = handleInspectorRequest(request({}, method), {
+        NODE_ENV: "development",
+        MCP_ENABLED: "false",
+      });
+      expect(response.status).toBe(404);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+    }
+  });
+
   it("blocks nonlocal headers even if development was exposed through a proxy", () => {
     expect(
       handleInspectorRequest(request({ Host: "evil.example" }, "GET"), { NODE_ENV: "development" })

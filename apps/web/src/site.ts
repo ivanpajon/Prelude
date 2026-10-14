@@ -7,7 +7,10 @@ export interface SiteIdentity {
   name: string;
   /** Lowercase identifier, such as the MCP server name reported to clients. */
   slug: string;
-  /** Source repository linked from the footer; leave it undefined to hide the link. */
+  /**
+   * Source repository linked from the footer, with GitHub's mark; change the icon in
+   * `components/site-footer.tsx` for another host. Leave it undefined to hide the link.
+   */
   repositoryUrl?: string | undefined;
 }
 

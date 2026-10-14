@@ -13,7 +13,7 @@
     "newTab": "(opens in a new tab)",
     "skip": "Skip to content",
     "footer": "Made with ❤️ by Ivan Pajon",
-    "github": "Prelude on GitHub (opens in a new tab)",
+    "repository": "{name} source code (opens in a new tab)",
     "loading": "Loading…"
   },
   "Home": {

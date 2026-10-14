@@ -11,7 +11,7 @@ export async function SiteFooter() {
           href={site.repositoryUrl}
           target="_blank"
           rel="noreferrer"
-          aria-label={t("github")}
+          aria-label={t("repository", { name: site.name })}
           className="inline-flex size-10 items-center justify-center rounded-full transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
         >
           {/* GitHub's Octicons mark; license in docs/licenses/octicons.txt. */}
