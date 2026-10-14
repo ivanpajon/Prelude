@@ -81,6 +81,7 @@ export const demo = {
   // Shared files with demo-only blocks.
   marked: [
     ".github/workflows/ci.yml",
+    ".github/workflows/docker.yml",
     "AGENTS.md",
     "README.md",
     "apps/web/next.config.ts",
