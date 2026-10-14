@@ -6,7 +6,7 @@ Prelude ships with a task demo: a shared in-memory task list, the `/playground` 
 
 1. Finish the first installation (`pnpm install --frozen-lockfile`) and stop any running development server.
 2. Commit or stash your work. The command refuses to start with uncommitted changes, so that `git diff` afterwards shows only what it changed.
-3. Preview the changes. Nothing is written:
+3. Preview the changes and the commands that follow them. Nothing is written or run:
 
    ```sh
    pnpm remove-demo --dry-run

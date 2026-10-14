@@ -73,7 +73,8 @@ try {
       `Cache restoration changed ${path.basename(file)}.`,
     );
   }
-  console.log(`Verified byte-for-byte restoration of ${saved.length} generated artifacts.`);
+  const count = `${saved.length} generated ${saved.length === 1 ? "artifact" : "artifacts"}`;
+  console.log(`Verified byte-for-byte restoration of ${count}.`);
 } finally {
   // Never overwrite a fresh build's output with the older saved bytes.
   for (const { file, bytes } of saved) if (!existsSync(file)) writeFileSync(file, bytes);

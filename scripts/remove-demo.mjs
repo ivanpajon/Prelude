@@ -137,6 +137,9 @@ export const demo = {
   ],
 };
 
+/** The pnpm commands that run after the demo changes, in order. Install updates pnpm-lock.yaml. */
+export const commands = [["install", "--no-frozen-lockfile"], ["fix"], ["check"], ["test"]];
+
 /** This command itself. It is removed last, after the checks pass, so a failed run can be repeated. */
 export const tooling = {
   delete: ["scripts/remove-demo.mjs"],
@@ -307,11 +310,15 @@ function pnpmRunner(root) {
   };
 }
 
-export function removeDemo(directory, options = {}, run, lists = { demo, tooling }) {
-  const plan = planRemoval(directory, lists.demo);
-  for (const { file, action, details } of plan.changes) {
+function printChanges(changes) {
+  for (const { file, action, details } of changes) {
     console.log(`  ${action} ${file}${details ? `: ${details.join(", ")}` : ""}`);
   }
+}
+
+export function removeDemo(directory, options = {}, run, lists = { demo, tooling }) {
+  const plan = planRemoval(directory, lists.demo);
+  printChanges(plan.changes);
   if (plan.changes.length === 0) {
     console.log("Nothing to remove: the demo is already gone.");
   } else {
@@ -319,7 +326,13 @@ export function removeDemo(directory, options = {}, run, lists = { demo, tooling
       `${plan.changes.length} path(s) ${options["dry-run"] ? "would change" : "to change"}.`,
     );
   }
-  if (options["dry-run"]) return plan;
+  if (options["dry-run"]) {
+    console.log("Then it would run these commands (install updates pnpm-lock.yaml):");
+    for (const args of commands) console.log(`  pnpm ${args.join(" ")}`);
+    console.log("When they pass, it would remove itself:");
+    printChanges(planFiles(plan.root, lists.tooling));
+    return plan;
+  }
   if (plan.changes.length > 0) {
     // A clean start keeps the review simple: git diff then shows only this command's changes.
     const pending = git(plan.root, ["status", "--porcelain", "--untracked-files=all"]);
@@ -333,10 +346,7 @@ export function removeDemo(directory, options = {}, run, lists = { demo, tooling
   applyChanges(plan.root, plan.changes);
   try {
     // Reinstall even on a rerun: a previous attempt may have stopped during installation.
-    execute(["install", "--no-frozen-lockfile"]);
-    execute(["fix"]);
-    execute(["check"]);
-    execute(["test"]);
+    for (const args of commands) execute(args);
   } catch (error) {
     throw new Error(
       `${error.message}\nThe demo changes remain for review. Fix the reported error and run pnpm remove-demo again to finish.`,

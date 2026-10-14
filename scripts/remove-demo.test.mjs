@@ -246,6 +246,18 @@ describe("demo removal", () => {
     ]);
     expect(snapshot(root)).toEqual(before);
     expect(run).not.toHaveBeenCalled();
+    // The preview ends with what the real run does next, from the same lists.
+    expect(console.log.mock.calls.map(([line]) => line).slice(-9)).toEqual([
+      "7 path(s) would change.",
+      "Then it would run these commands (install updates pnpm-lock.yaml):",
+      "  pnpm install --no-frozen-lockfile",
+      "  pnpm fix",
+      "  pnpm check",
+      "  pnpm test",
+      "When they pass, it would remove itself:",
+      "  delete scripts/remove-demo.mjs",
+      '  edit package.json: remove "remove-demo" from scripts',
+    ]);
   });
 
   it("removes the demo, validates in order, removes itself, and then has nothing to do", () => {
