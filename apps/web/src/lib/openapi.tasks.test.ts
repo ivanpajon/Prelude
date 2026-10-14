@@ -10,6 +10,7 @@ import {
 } from "@repo/api";
 import type { ApiClient, Task } from "@repo/contracts";
 import { describe, expect, it, vi } from "vitest";
+import { site } from "@/site";
 import { POST as rpcPost } from "../app/api/rpc/[[...rest]]/route";
 import { generateOpenApiSpec, handleOpenApiRequest } from "./openapi";
 
@@ -38,7 +39,7 @@ describe("task demo OpenAPI specification", () => {
 
     expect(spec).toMatchObject({
       openapi: "3.1.1",
-      info: { title: "Prelude API", version: "1.0.0" },
+      info: { title: `${site.name} API`, version: "1.0.0" },
       servers: [{ url: "/api" }],
       paths: {
         "/v1/tasks": {
@@ -212,7 +213,7 @@ describe("task demo HTTP adapter", () => {
     expect(response.headers.get("Content-Type")).toContain("text/html");
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     const html = await response.text();
-    expect(html).toContain("<title>Prelude API Reference</title>");
+    expect(html).toContain(`<title>${site.name} API Reference</title>`);
     expect(html).toContain(
       'src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.72.1/dist/browser/standalone.js"',
     );

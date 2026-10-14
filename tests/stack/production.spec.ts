@@ -1,5 +1,6 @@
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { expect, test } from "@playwright/test";
+import { site } from "../../apps/web/src/site";
 import { localizationAcceptance } from "../i18n-scenarios";
 import { expectedToolNames } from "../openapi-operations";
 import { containerNode } from "./owned-context";
@@ -94,7 +95,7 @@ test("renders the pinned Scalar reference", async ({ page }) => {
   const renderer = page.waitForResponse(script);
   await page.goto("/api/docs");
   expect((await renderer).ok()).toBe(true);
-  await expect(page.getByRole("heading", { name: "Prelude API", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: `${site.name} API`, exact: true })).toBeVisible();
   await expect(page.locator(`script[src="${script}"]`)).toHaveCount(1);
 });
 

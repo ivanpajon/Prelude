@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RuntimeEnvironment } from "@/env";
+import { site } from "@/site";
 import { handleMcpRequest } from "./mcp-access";
 import { handleInspectorRequest } from "./mcp-inspector";
 
@@ -162,7 +163,7 @@ describe("local Inspector wrapper", () => {
     expect(response.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
     const html = await response.text();
     expect(html).toContain('src="http://127.0.0.1:6284/"');
-    expect(html).toContain('title="Prelude MCP Inspector"');
+    expect(html).toContain(`title="${site.name} MCP Inspector"`);
     expect(html).not.toMatch(/token|autoConnect/i);
   });
 

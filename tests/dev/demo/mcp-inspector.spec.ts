@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { site } from "../../../apps/web/src/site";
 import { waitForHydration } from "../../hydration";
 
 test("embedded Inspector discovers generated tools and performs real CRUD against the shared API", async ({
@@ -21,8 +22,8 @@ test("embedded Inspector discovers generated tools and performs real CRUD agains
   const response = await page.goto("/api/mcp/inspector");
   expect(response?.status()).toBe(200);
   expect(response?.headers()["cache-control"]).toBe("no-store");
-  await expect(page).toHaveTitle("Prelude MCP Inspector");
-  const iframe = page.locator('iframe[title="Prelude MCP Inspector"]');
+  await expect(page).toHaveTitle(`${site.name} MCP Inspector`);
+  const iframe = page.locator(`iframe[title="${site.name} MCP Inspector"]`);
   await expect(iframe).toHaveAttribute("src", "http://127.0.0.1:6284/");
   expect(await iframe.boundingBox()).toEqual({ x: 0, y: 0, ...page.viewportSize() });
 

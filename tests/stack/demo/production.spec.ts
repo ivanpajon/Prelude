@@ -4,6 +4,7 @@ import {
   StreamableHTTPClientTransport,
 } from "@modelcontextprotocol/client";
 import { expect, test } from "@playwright/test";
+import { site } from "../../../apps/web/src/site";
 import { demoLocalizationAcceptance } from "../../demo/i18n-scenarios";
 import { expectTaskAppResource } from "../../demo/mcp-apps";
 import { containerNode } from "../owned-context";
@@ -204,7 +205,7 @@ test("executes a same-origin task read in the pinned Scalar reference", async ({
   const renderer = page.waitForResponse(script);
   await page.goto("/api/docs");
   expect((await renderer).ok()).toBe(true);
-  await expect(page.getByRole("heading", { name: "Prelude API", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: `${site.name} API`, exact: true })).toBeVisible();
   await expect(page.locator(`script[src="${script}"]`)).toHaveCount(1);
   await page.getByRole("button", { name: "Test Request (get /v1/tasks)", exact: true }).click();
   const client = page.getByRole("dialog", { name: "API Client", exact: true });

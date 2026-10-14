@@ -81,7 +81,7 @@ Run `pnpm exec playwright install chromium` once before the browser checks. Husk
 
 ## Make it yours
 
-1. **Site identity.** Set the display name, slug, and repository URL in `apps/web/src/site.ts`. They feed the metadata, manifest, API reference, offline page, MCP server name, and footer link (leave the URL unset to hide it). Change translated branding in `packages/i18n/src/messages/{en,es}`, other metadata in `apps/web/src/app/[routingMode]/[locale]/layout.tsx`, and the manifest colors in `apps/web/src/app/manifest.ts`.
+1. **Site identity.** Set the display name, slug, and repository URL in `apps/web/src/site.ts`. They feed the metadata, manifest, API reference, offline page, MCP server name, and footer link (leave the URL unset to hide it). Tests read these values from `site.ts`. Change translated branding in `packages/i18n/src/messages/{en,es}`, and update the tests that check that text, such as the `Prelude home` link; search `tests` and the `*.test.ts(x)` files for the old name. Change other metadata in `apps/web/src/app/[routingMode]/[locale]/layout.tsx` and the manifest colors in `apps/web/src/app/manifest.ts`.
 2. **Package names.** Keep the private `@repo` scope, or rename it and the root package; preview with `--dry-run` first. See [customization](docs/customization.md).
 
    ```sh

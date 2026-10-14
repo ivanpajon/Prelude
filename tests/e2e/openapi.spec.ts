@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { site } from "../../apps/web/src/site";
 
 const scalarScript =
   "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.72.1/dist/browser/standalone.js";
@@ -33,8 +34,8 @@ test("opens the pinned Scalar reference from a narrow homepage", async ({ page }
   await docs.click();
   expect((await renderer).ok()).toBe(true);
   await expect(page).toHaveURL((url) => url.origin === origin && url.pathname === "/api/docs");
-  await expect(page).toHaveTitle("Prelude API Reference");
-  await expect(page.getByRole("heading", { name: "Prelude API", exact: true })).toBeVisible();
+  await expect(page).toHaveTitle(`${site.name} API Reference`);
+  await expect(page.getByRole("heading", { name: `${site.name} API`, exact: true })).toBeVisible();
   await expect(page.locator(`script[src="${scalarScript}"]`)).toHaveCount(1);
   expect(errors).toEqual([]);
   expect(unexpectedExternalRequests).toEqual([]);
@@ -48,7 +49,7 @@ test("serves the generated OpenAPI document without caching", async ({ request }
   expect(response.headers()["cache-control"]).toBe("no-store");
   expect(await response.json()).toMatchObject({
     openapi: expect.stringMatching(/^3\./),
-    info: { title: "Prelude API", version: "1.0.0" },
+    info: { title: `${site.name} API`, version: "1.0.0" },
     servers: [{ url: "/api" }],
   });
 });

@@ -2,6 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { expect, test } from "@playwright/test";
+import { site } from "../../../apps/web/src/site";
 import { demoLocalizationAcceptance } from "../../demo/i18n-scenarios";
 import { exerciseTaskApp } from "../../demo/mcp-apps";
 import { ownedContext } from "../owned-context";
@@ -56,8 +57,8 @@ test("creates a task through the embedded development Inspector", async ({
     ).status(),
   ).toBe(403);
   await page.goto("/api/mcp/inspector");
-  await expect(page).toHaveTitle("Prelude MCP Inspector");
-  const iframe = page.locator('iframe[title="Prelude MCP Inspector"]');
+  await expect(page).toHaveTitle(`${site.name} MCP Inspector`);
+  const iframe = page.locator(`iframe[title="${site.name} MCP Inspector"]`);
   await expect(iframe).toHaveAttribute("src", `${inspectorUrl}/`);
   const inspector = iframe.contentFrame();
   await expect(
