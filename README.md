@@ -6,14 +6,14 @@
 
 **A next-generation, agentic-ready Next.js template.**
 
-Prelude gives developers and AI agents a shared foundation: a modern web application, typed APIs, discoverable tools, and interactive MCP Apps. Less setup. More building.
+Prelude gives developers and AI agents a shared foundation: a modern web application, typed APIs, and discoverable tools. Less setup. More building.
 
 - **One contract across interfaces.** Define schemas and operations once with oRPC and ArkType. Reuse them through RPC, REST, automatically generated OpenAPI documentation with Scalar, and native MCP tools.
-- **Inspect as you build.** The managed local MCP Inspector lets you discover tools, inspect schemas, execute calls, and preview the MCP App. Check connectivity from the terminal with `pnpm mcp:check`.
+- **Inspect as you build.** The managed local MCP Inspector lets you discover tools, inspect schemas, execute calls, and preview MCP Apps. Check connectivity from the terminal with `pnpm mcp:check`.
 - **Feedback for humans and agents.** Strict TypeScript, Biome, Vitest, Testing Library, Playwright, and React Doctor provide checks and diagnostics, including structured React reports for agents.
-- **Two languages from the start.** English and Spanish cover the website, PWA feedback, and MCP App, with browser detection and a saved language choice on stable public URLs.
+- **Two languages from the start.** English and Spanish cover the website and PWA feedback, with browser detection and a saved language choice on stable public URLs.
 <!-- demo:start -->
-- **Interactive examples included.** Explore the task workspace and live MCP tool runner at `/playground`, or use the task-list MCP App inside a compatible host. Remove them in one step with `pnpm remove-demo` when you start your own project.
+- **Interactive examples included.** Explore the task workspace and live MCP tool runner at `/playground`, or use the task-list MCP App, translated into both languages, inside a compatible host. Remove them in one step with `pnpm remove-demo` when you start your own project.
 <!-- demo:end -->
 
 The pnpm + Turborepo workspace brings together React 19, Next.js 16 with Turbopack and Cache Components, Base UI shadcn components, Tailwind 4, TanStack Query, nuqs, Zustand, and Serwist. Keep your choice of database, authentication, AI provider, and deployment platform; no provider account or model API key is required to run the examples. Connect your preferred agent explicitly through MCP.
@@ -53,7 +53,7 @@ Open [localhost:3000](http://localhost:3000), then follow **API docs** to [the S
 Choose **Open playground** for [the task workspace and MCP explorer](http://localhost:3000/playground). Create tasks, try URL filters and compact view, then discover the generated MCP tools, edit JSON arguments, and execute real calls that refresh the same list. Motion and Morphicons previews stay on the homepage.
 <!-- demo:end -->
 
-Choose **English / Español** in the header to change language. Explicit routes such as `/en` and `/es` are the default; unprefixed entry URLs negotiate your saved/browser preference. Try the stack card's **Language in URL** switch to browse without a prefix, preserving the selected language. Consumers can disable this visitor-specific demo and select either fixed policy. Both policies use prerendered localized documents. The MCP App follows its host's language; task titles, protocol output, and Scalar/Inspector retain their original content. See [localization](docs/i18n.md) for routing configuration, catalogs, cache boundaries, and offline behavior.
+Choose **English / Español** in the header to change language. Explicit routes such as `/en` and `/es` are the default; unprefixed entry URLs negotiate your saved/browser preference. Try the stack card's **Language in URL** switch to browse without a prefix, preserving the selected language. Consumers can disable this visitor-specific demo and select either fixed policy. Both policies use prerendered localized documents. User data, protocol output, and Scalar/Inspector keep their original content. See [localization](docs/i18n.md) for routing configuration, catalogs, cache boundaries, and offline behavior.
 
 <!-- demo:start -->
 The task example supports listing, creating, editing titles, completing, and deleting through the workbench, REST, and MCP. Use a row's pencil button to edit its title; **Enter** saves and **Escape** cancels. Titles are trimmed before validating their 1–120-character length, completion is preserved, and failed saves retain the edit and new-task drafts. Deletion returns the removed task; missing IDs return `NOT_FOUND`.
@@ -62,7 +62,7 @@ The task example supports listing, creating, editing titles, completing, and del
 The same contracts provide native MCP tools at `/api/mcp`. `pnpm dev` starts an authenticated local MCP Inspector at [localhost:3000/api/mcp/inspector](http://localhost:3000/api/mcp/inspector). Run `pnpm mcp:check` from another terminal for a CLI connectivity check. MCP is public and enabled by default; `MCP_ENABLED=false` turns it off. See [MCP usage](docs/mcp.md) for connections and configuration.
 
 <!-- demo:start -->
-A compatible host can render the task widget associated with `listTasks`, using the official MCP Apps SDK. `pnpm dev` builds the widget, and **Open Inspector** on the playground opens the Inspector. Use Inspector's **Apps** interface to preview it; the website itself is not an MCP Apps host. See [the MCP App guide](docs/mcp-apps.md) for sandbox ports and builds.
+A compatible host can render the task widget associated with `listTasks`, using the official MCP Apps SDK. The widget follows its host's language. `pnpm dev` and `pnpm dev:app` build and watch it, `pnpm build` builds it first, and **Open Inspector** on the playground opens the Inspector. Use Inspector's **Apps** interface to preview it; the website itself is not an MCP Apps host. See [the MCP App guide](docs/mcp-apps.md) for sandbox ports and builds.
 <!-- demo:end -->
 
 To run the production build and PWA on a separate origin:
@@ -95,10 +95,10 @@ Development uses [localhost:3000](http://localhost:3000). Both workflows build t
 | Command | Purpose |
 | --- | --- |
 | `pnpm customize --name my-app --scope "@acme"` | Rename the root package and workspace scope, reinstall, and validate. |
-| `pnpm dev` | Build/watch the MCP App, then start Next.js with Turbopack and the managed local MCP Inspector. |
+| `pnpm dev` | Start Next.js with Turbopack and the managed local MCP Inspector. |
 | `pnpm dev:app` | Same as `pnpm dev` without the MCP Inspector and its sandbox: lighter, and only the Next.js port must be free. |
 | `pnpm mcp:check` | Check the running MCP endpoint with the pinned Inspector CLI; supports `--url`. |
-| `pnpm build` | Build the MCP App, build Next.js, then generate the Serwist worker. |
+| `pnpm build` | Build Next.js, then generate the Serwist worker. |
 | `pnpm start` | Serve an existing production build. |
 | `pnpm stack:prod` | Build and start the production Docker Compose stack. |
 | `pnpm stack:dev` | Start the development Docker Compose stack with Watch and MCP Inspector. |
@@ -110,7 +110,7 @@ Development uses [localhost:3000](http://localhost:3000). Both workflows build t
 | `pnpm test:ui` | Open Vitest's local test explorer in watch mode. |
 | `pnpm test:dev` | Check development rendering and the embedded MCP Inspector. |
 | `pnpm test:e2e` | Build, then run production browser and MCP protocol scenarios with Playwright. |
-| `pnpm test:cache` | Verify generated MCP App and worker artifacts restore from Turbo cache. |
+| `pnpm test:cache` | Verify generated build artifacts, such as the service worker, restore from Turbo cache. |
 | `pnpm verify` | Run the complete verification sequence. |
 | `pnpm react-doctor` | Run optional React diagnostics with file locations. |
 | `pnpm --silent react-doctor:json` | Print a structured diagnostic report for agents. |
@@ -163,11 +163,11 @@ The command updates package names, workspace dependencies, imports, shadcn alias
 - Add components with the pinned CLI from the workspace root: `pnpm --filter @repo/ui exec shadcn add dialog`. The UI package's `base-nova` configuration selects Base UI and writes shared components there.
 - Import components from `@repo/ui/components/*` and `cn` from `@repo/ui/lib/utils`; the latter re-exports the `cn` package.
 - Import dates and times from `@repo/temporal`; it selects native Temporal or a browser-compatible fallback. See [Temporal usage](docs/temporal.md) for serialization and hydration guidance.
-- Use the shared Motion provider and Morphicons wrapper for animations that honor reduced motion. The compact-view toggle demonstrates both; see [animation guidance](docs/motion.md).
+- Use the shared Motion provider and Morphicons wrapper for animations that honor reduced motion. The homepage animation previews demonstrate both; see [animation guidance](docs/motion.md).
 - Add an origin to the Content Security Policy in `apps/web/next.config.ts` before pages load scripts, images, or APIs from another host. See [security headers](docs/architecture.md#security-headers).
 - Update the API version, tags, and descriptions in `apps/web/src/lib/openapi.ts` (its title follows the site name); keep route metadata with the contracts. See [OpenAPI customization](docs/openapi.md).
 - MCP tools follow the same OpenAPI operations automatically. Configure exposure and request authorization with the rest of the API; see [MCP customization](docs/mcp.md).
-- Add or adapt translations in `@repo/i18n`; use typed next-intl hooks in the website and use-intl in standalone widgets. See [localization](docs/i18n.md) for routing, cache privacy, and supported-locale changes.
+- Add or adapt translations in `@repo/i18n`; use typed next-intl hooks in the website. See [localization](docs/i18n.md) for routing, cache privacy, and supported-locale changes.
 
 See [architecture](docs/architecture.md) for data access, state, and caching; [requirements](docs/requirements.md) records the stack and deferred choices. [React diagnostics](docs/diagnostics.md) explains scanner results and scoped exceptions. [Candidate skills](docs/skills.md) lists reviewed project-local agent skills and installation commands; none are installed by default.
 

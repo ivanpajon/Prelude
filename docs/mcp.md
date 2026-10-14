@@ -4,6 +4,11 @@ Prelude exposes a Model Context Protocol server at **`/api/mcp`**. It derives to
 
 ## Tools and data
 
+Each procedure in the router becomes one tool, named after its `operationId`. `mcp-from-openapi` **2.8.0** generates tool definitions and request mappings from `generateOpenApiSpec()`. The bridge dispatches mapped requests directly to the existing REST adapter with request-scoped context. It does not make an HTTP request back to itself or bypass ArkType validation, typed errors, the path-parameter guard, or awaited mutation callbacks. The MCP SDK server and client are pinned to **2.2.0**. Zod is infrastructure for the SDK/tooling; ArkType remains the application schema source.
+
+<!-- demo:start -->
+The task demo exposes five tools:
+
 | Tool | Input | Behavior |
 | --- | --- | --- |
 | `listTasks` | `{ "status": "all" }` | Read all tasks, or filter with `active` or `completed`. |
@@ -13,8 +18,6 @@ Prelude exposes a Model Context Protocol server at **`/api/mcp`**. It derives to
 | `deleteTask` | `{ "id": "task-id" }` | Remove a task and return its previous data; missing or already-deleted IDs return `NOT_FOUND`. |
 
 The tools execute real operations against the **public, shared, process-local demo repository**. All visitors and transports see the same data in one server process. Data resets on restart and is not synchronized across instances. The list keeps at most 100 tasks; each create beyond that evicts the oldest task. MCP mutations become visible through REST, RPC, and server rendering; an already-open workbench needs a refetch or reload.
-
-`mcp-from-openapi` **2.8.0** generates tool definitions and request mappings from `generateOpenApiSpec()`. The bridge dispatches mapped requests directly to the existing REST adapter with request-scoped context. It does not make an HTTP request back to itself or bypass ArkType validation, typed errors, the task mutation path-ID guards, or awaited mutation callbacks. The MCP SDK server and client are pinned to **2.2.0**. Zod is infrastructure for the SDK/tooling; ArkType remains the application schema source.
 
 ### Tool annotations
 
@@ -32,7 +35,6 @@ Creation only adds data, but repeating it creates another task. Completion and t
 
 These hints help clients describe operations; they do not authorize calls or enforce permissions. Revisit the matrix when replacing the repository or adding side effects, including mutation callbacks that send notifications or invoke external services.
 
-<!-- demo:start -->
 ## Website playground
 
 Open `/playground#mcp` for the live JSON tool explorer; `/playground#tasks` contains the browser workbench above it. Choose **Discover tools**, select a generated tool, edit its JSON arguments, and choose **Run tool**. Nothing is executed automatically. Tool descriptions, schemas, and read-only hints come from MCP discovery rather than a second hard-coded catalog. Starter arguments use schema defaults, examples, enums, and required fields; they are suggestions and may need editing. The homepage retains its separate Motion and Morphicons previews.
@@ -52,11 +54,17 @@ The separate `listTasks` MCP App is published at `ui://prelude/tasks.html` for c
 pnpm dev
 ```
 
-The managed development command first builds the widget, then starts Next.js and the pinned **MCP Inspector 2.8.0** together while watching widget sources. Open [the local Inspector page](http://localhost:3000/api/mcp/inspector) directly or use **Open Inspector** on `/playground`. The page embeds the full Inspector interface from `http://127.0.0.1:6274`; set `MCP_INSPECTOR_PORT` to choose another UI port. Its browser-reachable App sandbox defaults to port `6275`, configurable through `MCP_SANDBOX_PORT`; the additional internal app-origin helper remains dynamically allocated. The Inspector has one predefined application target using the actual Next.js port rather than assuming port 3000.
+The managed development command starts Next.js and the pinned **MCP Inspector 2.8.0** together. Open [the local Inspector page](http://localhost:3000/api/mcp/inspector). The page embeds the full Inspector interface from `http://127.0.0.1:6274`; set `MCP_INSPECTOR_PORT` to choose another UI port. Its browser-reachable App sandbox defaults to port `6275`, configurable through `MCP_SANDBOX_PORT`; the additional internal app-origin helper remains dynamically allocated. The Inspector has one predefined application target using the actual Next.js port rather than assuming port 3000.
 
-Enable the connection switch, open **Tools**, and execute a query or mutation. For `listTasks`, the pinned Inspector renders `status` as a JSON editor: enter `"all"`, `"active"`, or `"completed"`, including the quotes. To preview the widget, open **Apps**, select **List tasks** (`listTasks`), fill `status`, and choose **Open App**. Reopen the preview after a widget rebuild to load its new HTML. Inspector authentication remains enabled and its credentials stay inside the Inspector; the iframe URL contains no token and does not automatically connect. These local credentials do not add authentication to the application's public MCP endpoint. Stop the managed processes with Ctrl+C. All three development ports must be free and distinct; select different values before restarting if another process is using one.
+Enable the connection switch, open **Tools**, and execute a query or mutation.
 
-For a lighter setup, run `pnpm dev:app` (the launcher's `--no-inspector` option). It builds and watches the widget and starts Next.js, but no Inspector or sandbox, so only the Next.js port must be free; it prints `Next.js: http://127.0.0.1:3000 (MCP Inspector skipped: --no-inspector)` when ready. The `/api/mcp` endpoint, `pnpm mcp:check`, and the playground's JSON explorer still work; the **Open Inspector** page has nothing to show. `MCP_ENABLED=false` skips the Inspector and its sandbox automatically, because the endpoint they connect to returns 404.
+<!-- demo:start -->
+With the demo, the command also builds the task widget first and watches its sources, and **Open Inspector** on `/playground` opens the same page. For `listTasks`, the pinned Inspector renders `status` as a JSON editor: enter `"all"`, `"active"`, or `"completed"`, including the quotes. To preview the widget, open **Apps**, select **List tasks** (`listTasks`), fill `status`, and choose **Open App**. Reopen the preview after a widget rebuild to load its new HTML.
+<!-- demo:end -->
+
+Inspector authentication remains enabled and its credentials stay inside the Inspector; the iframe URL contains no token and does not automatically connect. These local credentials do not add authentication to the application's public MCP endpoint. Stop the managed processes with Ctrl+C. All three development ports must be free and distinct; select different values before restarting if another process is using one.
+
+For a lighter setup, run `pnpm dev:app` (the launcher's `--no-inspector` option). It starts Next.js, but no Inspector or sandbox, so only the Next.js port must be free; it prints `Next.js: http://127.0.0.1:3000 (MCP Inspector skipped: --no-inspector)` when ready. The `/api/mcp` endpoint and `pnpm mcp:check` still work; the Inspector page has nothing to show. `MCP_ENABLED=false` skips the Inspector and its sandbox automatically, because the endpoint they connect to returns 404.
 
 The Inspector wrapper is **development-only** and returns 404 in production. Its embedded loopback URL is intended for a browser on the development machine. Both root `pnpm dev` and the web package's development command use the managed launcher. The latter accepts Next.js `--port`/`-p` or `PORT`; loopback hostnames are required.
 
@@ -71,7 +79,7 @@ This invokes the pinned Inspector CLI to list tools without mutating application
 
 ## Exposure and configuration
 
-The endpoint is **enabled by default**, including in production, to match the public demonstration API. No token, OAuth provider, user identity, or authorization policy is supplied. All mutation tools are available. Origin checks are transport protections, not authentication.
+The endpoint is **enabled by default**, including in production. No token, OAuth provider, user identity, or authorization policy is supplied. Every procedure not excluded with `x-mcp`, including mutations, is available as a tool. Origin checks are transport protections, not authentication.
 
 | Variable | Behavior |
 | --- | --- |
@@ -86,9 +94,13 @@ Set these values in the web application's environment, for example `apps/web/.en
 
 MCP responses use `Cache-Control: no-store`. The service worker bypasses `/api/`, including MCP, and the Inspector is not precached. There is no offline MCP support, persistent MCP session store, resource subscription service, or background polling process.
 
-The task widget is the only supplied MCP resource. Stdio serving, other resources/prompts, filesystem tools, authentication, and persistence remain deferred. When customizing the application, update the MCP server name/version in `apps/web/src/lib/mcp.ts` alongside the OpenAPI metadata, widget identity, and application branding.
+Stdio serving, prompts, a general resource framework, filesystem tools, authentication, and persistence remain deferred. The MCP server name comes from the site slug in `apps/web/src/site.ts`; update its version in `apps/web/src/lib/mcp.ts` alongside the OpenAPI metadata and application branding.
 
-Modern clients negotiate protocol `2026-07-28`; legacy clients can use the earlier initialize handshake. The SDK preserves natural JSON output for modern clients. For a list result, legacy clients receive structured content as `{ "result": [...] }` with a matching output schema; the text content still contains the original JSON array. Object task results retain their natural shape. Application errors set the MCP tool result's `isError` flag, while malformed protocol requests and unknown tools use protocol errors. Unexpected server failures return a generic error without repository details or stack traces.
+<!-- demo:start -->
+The task widget is the only supplied MCP resource. Update its identity together with the server metadata when customizing the demo.
+<!-- demo:end -->
+
+Modern clients negotiate protocol `2026-07-28`; legacy clients can use the earlier initialize handshake. The SDK preserves natural JSON output for modern clients. For a list result, legacy clients receive structured content as `{ "result": [...] }` with a matching output schema; the text content still contains the original JSON array. Object results retain their natural shape. Application errors set the MCP tool result's `isError` flag, while malformed protocol requests and unknown tools use protocol errors. Unexpected server failures return a generic error without repository details or stack traces.
 
 ## Add, change, or remove tools
 
@@ -119,7 +131,7 @@ The server always advertises the tools capability. An API without operations, su
 
 Reusing the existing adapter means its supported methods and input mapping still apply. Unsupported or truncated schemas fail catalog generation rather than silently dropping a tool or weakening its schema. Tool generation caches only the complete immutable catalog; failed generation can be retried. External schema references are disabled. Test new operations through both REST and MCP, including unsuccessful input and output validation.
 
-Keep credentials and repository ownership in request context. When replacing the demo repository, update the MCP context factory alongside RPC, REST, and direct server calls. If adding cached server data, supply `onTasksChanged` consistently; MCP waits for it just as the other transports do. Tool discovery is not a substitute for procedure-level authorization.
+Keep credentials and repository ownership in request context. MCP uses the same `createRequestContext()` in `apps/web/src/lib/request-context.ts` as RPC, REST, and direct server calls, so a repository or session added there reaches every transport. If adding cached server data, put the invalidation callback in that context; MCP waits for mutation callbacks just as the other transports do. Tool discovery is not a substitute for procedure-level authorization.
 
 <!-- demo:start -->
 To remove the whole task demo, including the JSON explorer and the task widget, run `pnpm remove-demo`; see [Remove the demo](remove-demo.md).
@@ -131,8 +143,16 @@ To remove MCP entirely, first remove the website code that calls it and any MCP 
 
 ## Verification
 
-Unit tests exercise tool generation, request mapping, validation, response conversion, context isolation, transport guards, and mutation callbacks. Production acceptance connects a real SDK client, checks protocol compatibility and tool discovery, executes all five tools, and confirms MCP writes through REST/RPC and the page. Development browser acceptance uses the embedded Inspector to discover and execute the same tools. Production checks confirm the Inspector wrapper is absent and MCP responses are not cacheable.
+Unit tests exercise tool generation, request mapping, validation, response conversion, context isolation, transport guards, and mutation callbacks, using a test-only notes API. Production acceptance connects a real SDK client and checks protocol compatibility and tool discovery. Development browser acceptance connects the embedded Inspector and opens its **Tools** screen. Production checks confirm the Inspector wrapper is absent and MCP responses are not cacheable.
+
+<!-- demo:start -->
+The demo suites also execute all five task tools, confirm MCP writes through REST, RPC, and the page, and run the same tools in the embedded Inspector.
+<!-- demo:end -->
 
 Run `pnpm check`, `pnpm test`, and `pnpm verify` after changing the contract, SDK, converter, or Inspector. Do not run managed development acceptance alongside an ordinary development server: they share the Next.js development output. Package upgrades must keep the SDK server/client versions aligned and verify that the generator's parameter mapping and output representation still match the bridge.
 
-Pin upgrades explicitly in the web manifest for `mcp-from-openapi`, the aligned MCP SDK packages, and `ext-apps`, and in the root development manifest for the MCP client SDK and Inspector. Regenerate and commit the lockfile, then verify a frozen installation. SDK changes must pass both modern and legacy client scenarios; generator changes must preserve tool names, complete schemas, opt-outs, annotations, and errors; Inspector changes must pass its actual Apps/Tools UI and CLI checks. Inspector brings its own SDK dependency, so upgrading the application SDK alone does not upgrade Inspector's client. Keep widget build and CSP acceptance in the upgrade checks too.
+Pin upgrades explicitly in the web manifest for `mcp-from-openapi` and the aligned MCP SDK packages, and in the root development manifest for the MCP client SDK and Inspector. Regenerate and commit the lockfile, then verify a frozen installation. SDK changes must pass both modern and legacy client scenarios; generator changes must preserve tool names, complete schemas, opt-outs, annotations, and errors; Inspector changes must pass its actual Tools UI and CLI checks. Inspector brings its own SDK dependency, so upgrading the application SDK alone does not upgrade Inspector's client.
+
+<!-- demo:start -->
+The demo also pins `ext-apps` in the web manifest. Keep the widget build, its CSP, and the Inspector's **Apps** preview in the upgrade checks too.
+<!-- demo:end -->

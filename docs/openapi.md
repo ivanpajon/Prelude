@@ -1,40 +1,47 @@
 # OpenAPI and Scalar
 
-The same oRPC procedures serve the workbench over RPC, direct Server Component calls, and a public REST API. `OpenAPIReferencePlugin` generates the OpenAPI 3.1.1 document and Scalar page on request from the implemented contract. The native MCP endpoint derives its tools from the same document and dispatches calls through the REST adapter. No specification file, generation command, separate backend, or database is required. See [MCP usage](mcp.md) for agent connections and the development Inspector.
+The same oRPC procedures serve the browser over RPC, direct Server Component calls, and a public REST API. `OpenAPIReferencePlugin` generates the OpenAPI 3.1.1 document and Scalar page on request from the implemented contract. The native MCP endpoint derives its tools from the same document and dispatches calls through the REST adapter. No specification file, generation command, separate backend, or database is required. See [MCP usage](mcp.md) for agent connections and the development Inspector.
 
 ## Endpoints
 
 | Endpoint | Input and behavior |
 | --- | --- |
-| `GET /api/docs` | Public, interactive Scalar reference; linked from the shared homepage/playground navigation. |
+| `GET /api/docs` | Public, interactive Scalar reference; linked from the shared header and homepage. |
 | `GET /api/openapi.json` | Generated specification, titled **Prelude API** (the site name from `apps/web/src/site.ts`), version **1.0.0**. |
+
+Each procedure adds its own endpoint under `/api`. Invalid inputs return 400; invalid procedure outputs return 500. REST and RPC request bodies larger than 64 KB are rejected with 413 before parsing. Path parameters belong only in the URL: on any route with a path parameter, such as `{id}`, repeating that key in the query or body returns 400, even when the values match. On those routes, a malformed body also returns 400 before any mutation. This guard in `createOpenApi` (`apps/web/src/lib/openapi.ts`) stops oRPC's compact input merge from replacing the path value.
+
+<!-- demo:start -->
+The task demo adds these endpoints:
+
+| Endpoint | Input and behavior |
+| --- | --- |
 | `GET /api/v1/tasks?status=all` | Required status: `all`, `active`, or `completed`; returns 200. |
 | `POST /api/v1/tasks` | JSON `{ "title": "Build a feature" }`; returns the new task with 201. |
 | `PATCH /api/v1/tasks/{id}` | JSON `{ "completed": true }`; returns the updated task with 200, or `NOT_FOUND` with 404. |
 | `PATCH /api/v1/tasks/{id}/title` | JSON `{ "title": "Refine the feature" }`; returns the updated task with 200, preserving ID and completion, or `NOT_FOUND` with 404. |
 | `DELETE /api/v1/tasks/{id}` | No body; returns the deleted task with 200, or `NOT_FOUND` with 404 if it no longer exists. |
 
-Invalid inputs return 400; invalid procedure outputs return 500. Creation and title-editing inputs are trimmed before the normalized 1–120-character constraint is checked. Path parameters belong only in the URL: on any route with a path parameter, such as `{id}`, repeating that key in the query or body returns 400, even when the values match. On those routes, a malformed body also returns 400 before any mutation. This guard in `createOpenApi` (`apps/web/src/lib/openapi.ts`) stops oRPC's compact input merge from replacing the path value.
+Creation and title-editing inputs are trimmed before the normalized 1–120-character constraint is checked.
 
-**The demo is public and shared.** Scalar's request client executes real reads and writes against the same process-local repository as the workbench. Data resets when the server process restarts and differs between server instances. The list keeps at most 100 tasks; each create beyond that evicts the oldest task. REST and RPC request bodies larger than 64 KB are rejected with 413 before parsing. Scalar mutations do not invalidate another page's TanStack Query client; reload or refetch an open workbench to see them.
+**The demo is public and shared.** Scalar's request client executes real reads and writes against the same process-local repository as the workbench. Data resets when the server process restarts and differs between server instances. The list keeps at most 100 tasks; each create beyond that evicts the oldest task. Scalar mutations do not invalidate another page's TanStack Query client; reload or refetch an open workbench to see them.
 
 Title editing uses RPC `tasks.updateTitle` and MCP `updateTaskTitle`, with the same REST procedure and validation. The workbench's pencil opens an inline editor: Enter or **Save** submits, while Escape or **Cancel** discards the edit. Successful edits invalidate every task filter; failed edits retain the title draft and the separate new-task draft. Editing changes only the title, preserving ID and completion. The last successful title write wins; the demo has no revision-based conflict detection.
 
 Deletion uses the same procedure through RPC (`tasks.delete`), REST, and MCP (`deleteTask`). A repeated delete returns `NOT_FOUND`. The workbench removes the row after success and invalidates every task filter. A failed deletion keeps the row and any unsaved draft for retry. If another client already removed the task, cancel any open edit and refresh or reload the stale view.
 
-<!-- demo:start -->
 The browser workbench now lives at `/playground#tasks`. The separate [MCP App](mcp-apps.md) uses the same generated tools and contracts through its host's connection. Its HTML resource and UI metadata do not change REST inputs, response bodies, or OpenAPI schemas.
 <!-- demo:end -->
 
 ## Add or change a procedure
 
-1. Define browser-safe ArkType schemas and an `oc` contract in `@repo/contracts`. Add `.route({ method, path, operationId, tags, summary, description })`, stable unique operation IDs, declared errors, and the appropriate success status. Paths are relative to `/api`, such as `/v1/tasks`; the generated document uses `/api` as its server URL.
-2. Add examples with a `.route({ spec: operation => ... })` callback that preserves generated schemas. The task contract demonstrates query and JSON-body examples. Do not replace the operation with a hand-written schema that can drift from runtime validation.
+1. Define browser-safe ArkType schemas and an `oc` contract in `@repo/contracts`. Add `.route({ method, path, operationId, tags, summary, description })`, stable unique operation IDs, declared errors, and the appropriate success status. Paths are relative to `/api`, such as `/v1/projects`; the generated document uses `/api` as its server URL.
+2. Add examples with a `.route({ spec: operation => ... })` callback that preserves generated schemas. Do not replace the operation with a hand-written schema that can drift from runtime validation.
 3. Implement the contract in `@repo/api`, using request context for data access and shared mutation invalidation. Adding the implementation to the router exposes it through RPC, REST, and generated MCP tools; no separate business logic is needed for each transport.
 4. Export any newly needed HTTP verb from `apps/web/src/app/api/[...rest]/route.ts` (currently GET, POST, PATCH, and DELETE). The REST adapter already rejects a query or body key that repeats a path parameter, so new routes need no guard of their own.
 5. Test specification mapping and real HTTP validation alongside the procedure. Review `/api/openapi.json` and exercise the endpoint in Scalar. Its operation ID also becomes the generated MCP tool name; check its arguments and behavior in the development Inspector. Update the API title, version, description, and shared tags in `apps/web/src/lib/openapi.ts` when customizing the template.
 
-The converter in the web package adapts oRPC 1.15.4's ArkType integration: input schemas use `.in`, and response schemas use `.out`. For trimmed titles, the input JSON Schema describes a string while the output describes the normalized length bounds; endpoint descriptions explain the additional normalization rules. Arbitrary refinements that ArkType cannot represent, and defined non-ArkType schemas, fail generation instead of silently producing an empty schema. Procedures with no input or output schema remain supported.
+The converter in the web package adapts oRPC 1.15.4's ArkType integration: input schemas use `.in`, and response schemas use `.out`. For a trimmed string, the input JSON Schema describes a string while the output describes the normalized length bounds; endpoint descriptions explain the additional normalization rules. Arbitrary refinements that ArkType cannot represent, and defined non-ArkType schemas, fail generation instead of silently producing an empty schema. Procedures with no input or output schema remain supported.
 
 All oRPC packages are pinned to **1.15.4**. Use the matching [stable OpenAPI guide](https://v1.orpc.dev/docs/openapi/openapi-specification) and [reference-plugin documentation](https://v1.orpc.dev/docs/openapi/plugins/openapi-reference) when extending or upgrading the integration.
 

@@ -354,6 +354,40 @@ describe("the template's demo list", () => {
     }
   });
 
+  it("leaves no Markdown link to a removed file or heading", () => {
+    const isDeleted = (file) => demo.delete.some((entry) => `${file}/`.startsWith(`${entry}/`));
+    const exists = (file) => existsSync(path.join(repository, file)) && !isDeleted(file);
+    const withoutDemo = (file) => stripDemoBlocks(read(repository, file), file).text;
+    // GitHub's heading anchors: lowercase, punctuation dropped, spaces become hyphens.
+    const anchors = (file) =>
+      [...withoutDemo(file).matchAll(/^#+ (.+)$/gm)].map(([, heading]) =>
+        heading
+          .trim()
+          .toLowerCase()
+          .replace(/[^\p{L}\p{N} _-]/gu, "")
+          .replaceAll(" ", "-"),
+      );
+    const broken = [];
+    const documents = git(repository, "ls-files", "-z", "*.md")
+      .split("\0")
+      .filter((file) => file && !file.startsWith("docs/licenses/") && exists(file));
+    for (const file of documents) {
+      const text = withoutDemo(file).replace(/```[\s\S]*?```/g, "");
+      for (const [, target] of text.matchAll(/\]\(([^)\s]+)\)/g)) {
+        if (/^[a-z]+:/.test(target)) continue;
+        const [relative, anchor] = target.split("#");
+        const resolved = relative
+          ? path.posix.normalize(path.posix.join(path.posix.dirname(file), relative))
+          : file;
+        if (!exists(resolved)) broken.push(`${file} -> ${target}`);
+        else if (anchor && resolved.endsWith(".md") && !anchors(resolved).includes(anchor)) {
+          broken.push(`${file} -> ${target}`);
+        }
+      }
+    }
+    expect(broken).toEqual([]);
+  });
+
   it("has no demo marker outside the listed files", () => {
     const files = git(repository, "ls-files", "-z", "--cached", "--others", "--exclude-standard")
       .split("\0")

@@ -50,7 +50,7 @@ All of this comes from one list at the top of `scripts/remove-demo.mjs`. Its uni
 - The home page, header, footer, language selector, English and Spanish catalogs, PWA and offline page, health endpoint, security headers, Docker workflows, CI, and all infrastructure tests stay.
 - TanStack Query and nuqs stay wired in `apps/web/src/components/providers.tsx`. Zustand stays installed for your own stores.
 
-Some guides still use the task demo to explain a pattern, such as the procedure recipe in [OpenAPI](openapi.md). Read those parts as examples.
+The guides describe the remaining project: demo-only paragraphs sit between markers and go with the demo. The dated records in `docs/verification.md`, `docs/docker-measurements.md`, `docs/diagnostics.md`, and `docs/requirements.md` stay as they are. They describe the template as it was built and tested, demo included.
 
 ## If it stops
 

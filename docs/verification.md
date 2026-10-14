@@ -152,25 +152,33 @@ The **Demo removal** job runs `pnpm remove-demo` in a fresh checkout, then `pnpm
 | Command | Coverage |
 | --- | --- |
 | `pnpm check` | Biome, strict TypeScript, and compile-only negative contract checks. |
-| `pnpm test` | RPC/REST validation and procedure behavior, generated OpenAPI schemas, request/query/store isolation, URL parsing, Temporal behavior, and Testing Library component scenarios. |
+| `pnpm test` | RPC/REST validation and procedure behavior, generated OpenAPI schemas and MCP tools, request isolation, Temporal behavior, and Testing Library component scenarios. |
 | `pnpm test:coverage` | The same suite with V8 coverage reports in `coverage/`. |
 | `pnpm test:ui` | Local Vitest watch UI on `127.0.0.1`; exit with Ctrl+C. |
 | `pnpm test:dev` | Fresh Turbopack development server, initial rendering, interactions, and reloads without console/overlay errors. |
-| `pnpm build` | Self-contained MCP App compilation, production Turbopack compilation, Cache Components rendering, and Serwist generation. |
-| `pnpm test:e2e` | Build, then check production hydration, mutations, Scalar docs and requests, URL navigation, local state, offline fallback, and worker updates. |
-| `pnpm test:cache` | Build, remove only known generated widget/worker artifacts, then confirm a Turbo cache hit restores identical bytes. |
+| `pnpm build` | Production Turbopack compilation, Cache Components rendering, and Serwist generation. |
+| `pnpm test:e2e` | Build, then check production hydration, security headers, Scalar docs and requests, MCP protocol access, offline fallback, and worker updates. |
+| `pnpm test:cache` | Build, remove only known generated artifacts such as the service worker, then confirm a Turbo cache hit restores identical bytes. |
 
-`pnpm test:e2e` builds automatically and starts its own production server at `http://127.0.0.1:3100`; leave that port free. Desktop and mobile app scenarios block service workers to isolate UI behavior, while the PWA project allows them. The tests detect hydration errors, verify initial data without an immediate duplicate RPC fetch, create/edit/complete/delete tasks, navigate filters with history, check failed-request recovery, and verify compact view stays local to its browser context. Reports, traces, and failure screenshots go to ignored test output directories.
+`pnpm test:e2e` builds automatically and starts its own production server at `http://127.0.0.1:3100`; leave that port free. Desktop and mobile app scenarios block service workers to isolate UI behavior, while the PWA project allows them. The tests detect hydration errors. Reports, traces, and failure screenshots go to ignored test output directories.
+
+<!-- demo:start -->
+The demo also builds its MCP App before Next.js. Its browser scenarios verify initial data without an immediate duplicate RPC fetch, create/edit/complete/delete tasks, navigate filters with history, check failed-request recovery, and verify compact view stays local to its browser context.
+<!-- demo:end -->
 
 `pnpm test:dev` starts its own development server at `http://127.0.0.1:3102`. Stop ordinary `pnpm dev` first because both use the application's development output directory and lock. The smoke test captures all console errors and uncaught exceptions, exercises both animation previews, reloads, and checks Next.js's issues overlay. `pnpm verify` runs this check before building production; development-only validation errors can pass a production build.
 
-Scalar scenarios verify the homepage link at 320px, the exact pinned CDN renderer, search and hash navigation, and real same-origin GET/POST/PATCH/DELETE requests. A task created in Scalar must appear in the server-rendered workbench and subsequent RPC queries. The rendering/search test rejects unexpected external requests; the pinned jsDelivr bundle is the only allowed external resource. These browser checks require access to that CDN. HTTP and schema tests run locally without it.
+Scalar scenarios verify the homepage link at 320px and the exact pinned CDN renderer. The rendering test rejects unexpected external requests; the pinned jsDelivr bundle is the only allowed external resource. These browser checks require access to that CDN. HTTP and schema tests run locally without it.
+
+<!-- demo:start -->
+The demo's Scalar scenarios also cover search and hash navigation, and send real same-origin GET, POST, PATCH, and DELETE requests; a task created in Scalar must appear in the server-rendered workbench and subsequent RPC queries.
+<!-- demo:end -->
 
 PWA scenarios inspect the manifest/icons, wait for a controlling worker, test a new navigation offline, and confirm RPC, REST, docs, specification, and RSC responses are absent from Cache Storage. Docs/spec/REST fetches must fail offline instead of returning cached responses.
 
-Update scenarios change only the generated worker and explicitly call `registration.update()` to trigger a deterministic browser check; production code uses the browser's default timing without polling. They cover a quiet first installation, a waiting worker that stays inactive before approval, keyboard activation at desktop and 320px widths, reduced motion at 320px, one reload per approval, and pointer-swipe dismissal followed by notification for a newer worker. Both width checks save an `update-toast.png` screenshot in their test output directories. Two-tab scenarios leave unsaved state in the second tab (a saved animation idea, and a task draft in the demo suite): approval in the first tab activates the worker, while the second tab keeps its state until its own **Reload now** action. Each test restores the original worker in cleanup. These scenarios share one production worker file and run serially; do not run another build or worker-update suite concurrently. If a run is forcibly interrupted, regenerate artifacts with `pnpm build --force` before retrying.
+Update scenarios change only the generated worker and explicitly call `registration.update()` to trigger a deterministic browser check; production code uses the browser's default timing without polling. They cover a quiet first installation, a waiting worker that stays inactive before approval, keyboard activation at desktop and 320px widths, reduced motion at 320px, one reload per approval, and pointer-swipe dismissal followed by notification for a newer worker. Both width checks save an `update-toast.png` screenshot in their test output directories. Two-tab scenarios leave unsaved state in the second tab (such as a saved animation idea): approval in the first tab activates the worker, while the second tab keeps its state until its own **Reload now** action. Each test restores the original worker in cleanup. These scenarios share one production worker file and run serially; do not run another build or worker-update suite concurrently. If a run is forcibly interrupted, regenerate artifacts with `pnpm build --force` before retrying.
 
-The cache check saves `apps/web/public/sw.js`, its map when present, and `apps/web/.generated/mcp-apps/tasks.html`, removes only those explicit generated files, checks the restored hashes after a Turbo cache hit, and in `finally` writes the saved bytes back only for files that are still missing. Do not run it alongside a development/production server or another build. Source files, the lockfile, and directories are not its cleanup targets.
+The cache check saves the generated files listed in `scripts/verify-build-cache.mjs`, such as `apps/web/public/sw.js` and its map when present, removes only those explicit generated files, checks the restored hashes after a Turbo cache hit, and in `finally` writes the saved bytes back only for files that are still missing. Do not run it alongside a development/production server or another build. Source files, the lockfile, and directories are not its cleanup targets.
 
 ## Commit hook regression
 
@@ -193,7 +201,11 @@ The subsequent Biome-only tooling change passed `pnpm check`, all 18 Vitest test
 
 ## Test environments and coverage
 
-Infrastructure tests use only shared pages and endpoints, plus the test-only notes API in `apps/web/src/testing/fixture-api.ts`. Task demo tests live in `*.tasks.test.ts` files and in `tests/e2e/demo/`, `tests/dev/demo/`, and `tests/stack/demo/`, with their helpers in `tests/demo/`. Removing the demo removes those files, and the infrastructure suites still run. Playwright projects match spec file names in any folder, so a demo spec joins the project of the infrastructure spec with the same name.
+Infrastructure tests use only shared pages and endpoints, plus the test-only notes API in `apps/web/src/testing/fixture-api.ts`. Playwright projects match spec file names in any folder, so a new spec joins the project of the infrastructure spec with the same name.
+
+<!-- demo:start -->
+Task demo tests live in `*.tasks.test.ts` files and in `tests/e2e/demo/`, `tests/dev/demo/`, and `tests/stack/demo/`, with their helpers in `tests/demo/`. Removing the demo removes those files, and the infrastructure suites still run.
+<!-- demo:end -->
 
 Vitest's `node` project discovers `.test.ts` files under applications and packages. Its `dom` project discovers `.test.tsx` files and supplies jsdom, Testing Library cleanup, and jest-dom matchers. The DOM setup stubs `matchMedia`; use Playwright for real layout, hydration, service workers, and browser preferences. Keep asynchronous Server Component tests in Playwright.
 

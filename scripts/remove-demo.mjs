@@ -95,6 +95,7 @@ export const demo = {
     "docs/docker.md",
     "docs/i18n.md",
     "docs/mcp.md",
+    "docs/motion.md",
     "docs/openapi.md",
     "docs/verification.md",
     "packages/api/src/index.ts",
