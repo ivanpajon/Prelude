@@ -119,7 +119,9 @@ export const demo = {
     { file: esSite, delete: ["Playground"] },
     { file: "packages/i18n/package.json", delete: ["exports", "./widget"] },
     { file: "packages/contracts/package.json", delete: ["exports", "./limits"] },
+    { file: "apps/web/package.json", delete: ["dependencies", "@modelcontextprotocol/core"] },
     { file: "apps/web/package.json", delete: ["dependencies", "@modelcontextprotocol/ext-apps"] },
+    { file: "apps/web/package.json", delete: ["dependencies", "use-intl"] },
     { file: "apps/web/package.json", delete: ["devDependencies", "@tailwindcss/cli"] },
     { file: "apps/web/package.json", delete: ["devDependencies", "tsdown"] },
     {
