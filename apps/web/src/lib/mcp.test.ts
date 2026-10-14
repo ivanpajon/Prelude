@@ -1,4 +1,5 @@
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
+import { implement } from "@orpc/server";
 import { OpenAPIToolGenerator } from "mcp-from-openapi";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { site } from "@/site";
@@ -316,6 +317,36 @@ describe.each(["modern", "legacy"] as const)("MCP %s HTTP compatibility", (era) 
     );
     expect(malformed.status).toBe(400);
     expect(dispatch).not.toHaveBeenCalled();
+  });
+});
+
+describe.each(["modern", "legacy"] as const)("MCP %s endpoint without operations", (era) => {
+  // This is the state `pnpm remove-demo` leaves before the first procedure is added.
+  const empty = createOpenApi(
+    implement({}).$context<FixtureContext>().router({}),
+    fixtureSpecOptions,
+  );
+
+  it("advertises tools and lists none, so clients and Inspector can connect", async () => {
+    const client = await connect(
+      endpoint({ getSpec: empty.generateSpec, dispatch: empty.handle }),
+      era,
+    );
+    expect(client.getServerCapabilities()?.tools).toBeDefined();
+    await expect(client.listTools()).resolves.toMatchObject({ tools: [] });
+    await expect(client.callTool({ name: "listNotes", arguments: {} })).rejects.toThrow();
+  });
+
+  it("does not advertise resources, so resources/list is an unknown method", async () => {
+    const client = await connect(
+      endpoint({ getSpec: empty.generateSpec, dispatch: empty.handle }),
+      era,
+    );
+    expect(client.getServerCapabilities()?.resources).toBeUndefined();
+    const listed = client.request({ method: "resources/list", params: {} });
+    // Modern HTTP answers an unknown method with 404 and the JSON-RPC error as the body.
+    if (era === "modern") await expect(listed).rejects.toThrow(/"code":-32601/);
+    else await expect(listed).rejects.toMatchObject({ code: -32601 });
   });
 });
 

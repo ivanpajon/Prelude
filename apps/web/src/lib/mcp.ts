@@ -188,7 +188,12 @@ export function createMcpEndpoint<TContext>({
     if (!requestInfo) throw new Error("MCP requires an HTTP request.");
     const tools = await getCatalog();
     const context = await getContext(requestInfo);
-    const server = new McpServer({ name: site.slug, version: "1.0.0" });
+    // Declare tools up front: the SDK adds the capability only when a tool is registered, so an
+    // API without operations would answer tools/list with "Method not found".
+    const server = new McpServer(
+      { name: site.slug, version: "1.0.0" },
+      { capabilities: { tools: {} } },
+    );
     // demo:start
     const registerAppTool = registerTaskApp(server, tools, getAppHtml);
     // demo:end

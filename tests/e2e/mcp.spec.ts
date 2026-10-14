@@ -39,15 +39,13 @@ for (const mode of ["modern", "legacy"] as const) {
       await client.connect(transport);
       const specification = await (await request.get("/api/openapi.json")).json();
       const expected = expectedToolNames(specification);
-      // A server without tools does not advertise the tools capability.
-      expect(Boolean(client.getServerCapabilities()?.tools)).toBe(expected.length > 0);
-      if (expected.length > 0) {
-        const { tools } = await client.listTools();
-        expect(tools.map((tool) => tool.name).sort()).toEqual(expected);
-        for (const tool of tools) {
-          expect(tool.inputSchema).toMatchObject({ type: "object" });
-          expect(tool.description ?? tool.title).toBeTruthy();
-        }
+      // Tools are advertised even before the API has operations; the list is then empty.
+      expect(client.getServerCapabilities()?.tools).toBeDefined();
+      const { tools } = await client.listTools();
+      expect(tools.map((tool) => tool.name).sort()).toEqual(expected);
+      for (const tool of tools) {
+        expect(tool.inputSchema).toMatchObject({ type: "object" });
+        expect(tool.description ?? tool.title).toBeTruthy();
       }
 
       expect(exchanges.map((exchange) => exchange.method)).toContain(

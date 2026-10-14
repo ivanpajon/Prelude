@@ -113,6 +113,8 @@ This extension overrides an operation's inferred hints when those statements acc
 
 Keep these extensions with the contract's OpenAPI metadata, using the existing `.route({ spec: operation => ... })` customization point and preserving the generated operation and schemas. The [generator's annotation documentation](https://github.com/agentfront/mcp-from-openapi/blob/main/docs/annotations.md) describes its extension family; consult the source matching the pinned release when upgrading.
 
+The server always advertises the tools capability. An API without operations, such as a new project before its first procedure, answers `tools/list` with an empty list, so clients, Inspector, and `pnpm mcp:check` still connect. Resources are advertised only when one is registered; without one, `resources/list` returns the standard "Method not found" error.
+
 Reusing the existing adapter means its supported methods and input mapping still apply. Unsupported or truncated schemas fail catalog generation rather than silently dropping a tool or weakening its schema. Tool generation caches only the complete immutable catalog; failed generation can be retried. External schema references are disabled. Test new operations through both REST and MCP, including unsuccessful input and output validation.
 
 Keep credentials and repository ownership in request context. When replacing the demo repository, update the MCP context factory alongside RPC, REST, and direct server calls. If adding cached server data, supply `onTasksChanged` consistently; MCP waits for it just as the other transports do. Tool discovery is not a substitute for procedure-level authorization.

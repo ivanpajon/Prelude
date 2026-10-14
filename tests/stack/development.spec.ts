@@ -80,12 +80,10 @@ test("keeps Inspector authenticated and connects through the embedded developmen
   await connection.press("Space");
   await expect(connection).toBeChecked();
   const names = expectedToolNames(await (await request.get("/api/openapi.json")).json());
-  // An API without operations has no tools for the Inspector to list.
-  if (names.length > 0) {
-    await inspector.getByText("Tools", { exact: true }).click();
-    const tools = inspector.getByTestId("tools-screen");
-    await expect(tools).toHaveAttribute("data-tool-count", String(names.length));
-  }
+  // The Tools screen also opens for an API without operations; it then lists none.
+  await inspector.getByText("Tools", { exact: true }).click();
+  const tools = inspector.getByTestId("tools-screen");
+  await expect(tools).toHaveAttribute("data-tool-count", String(names.length));
 });
 
 test("syncs app and shared-package changes with HMR while preserving browser state", async ({

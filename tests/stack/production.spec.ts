@@ -7,8 +7,8 @@ import { containerNode } from "./owned-context";
 localizationAcceptance();
 
 async function listToolNames(client: Client) {
-  // A server without tools does not advertise the tools capability.
-  if (!client.getServerCapabilities()?.tools) return [];
+  // Tools are advertised even before the API has operations; the list is then empty.
+  expect(client.getServerCapabilities()?.tools).toBeDefined();
   return (await client.listTools()).tools.map((tool) => tool.name).sort();
 }
 

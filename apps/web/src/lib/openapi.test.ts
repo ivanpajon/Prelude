@@ -230,6 +230,28 @@ describe("OpenAPI HTTP adapter", () => {
     expect(html).not.toContain("proxy.scalar.com");
   });
 
+  it("serves a valid document and Scalar for a contract without procedures", async () => {
+    // This is the state `pnpm remove-demo` leaves before the first procedure is added.
+    const empty = createOpenApi(
+      implement({}).$context<FixtureContext>().router({}),
+      fixtureSpecOptions,
+    );
+    const document = await (
+      await empty.handle(new Request("http://localhost/api/openapi.json"), context())
+    ).json();
+    expect(document).toMatchObject({
+      openapi: "3.1.1",
+      info: fixtureSpecOptions.info,
+      servers: fixtureSpecOptions.servers,
+    });
+    expect(document.paths ?? {}).toEqual({});
+    const docs = await empty.handle(new Request("http://localhost/api/docs"), context());
+    expect(docs.status).toBe(200);
+    expect(await docs.text()).toContain("<title>Prelude API Reference</title>");
+    const missing = await empty.handle(new Request("http://localhost/api/anything"), context());
+    expect(missing.status).toBe(404);
+  });
+
   it("serves GET, POST, PATCH, and DELETE with state shared with RPC", async () => {
     const target = context(createNoteStore([]));
     const create = await request(target, "/notes", "POST", { text: "  Padded  " });

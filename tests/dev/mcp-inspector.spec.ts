@@ -37,14 +37,12 @@ test("embedded Inspector stays authenticated and discovers every generated tool"
   await expect(connection).toBeChecked();
 
   const names = expectedToolNames(await (await request.get("/api/openapi.json")).json());
-  // An API without operations has no tools for the Inspector to list.
-  if (names.length > 0) {
-    await inspector.getByText("Tools", { exact: true }).click();
-    const tools = inspector.getByTestId("tools-screen");
-    await expect(tools).toHaveAttribute("data-tool-count", String(names.length));
-    for (const name of names) {
-      await expect(tools.getByRole("button", { name: new RegExp(name) })).toBeVisible();
-    }
+  // The Tools screen also opens for an API without operations; it then lists none.
+  await inspector.getByText("Tools", { exact: true }).click();
+  const tools = inspector.getByTestId("tools-screen");
+  await expect(tools).toHaveAttribute("data-tool-count", String(names.length));
+  for (const name of names) {
+    await expect(tools.getByRole("button", { name: new RegExp(name) })).toBeVisible();
   }
   await page.screenshot({ path: test.info().outputPath("mcp-inspector.png") });
 });
