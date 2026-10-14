@@ -8,7 +8,7 @@ Verified on 2026-10-14 with Node 26.10.0 and pnpm 12.6.0 on Windows. This round 
 
 - During the round, `pnpm test:dev` failed now and then on the first click after a cold page load, before hydration. The browser tests now wait for hydration first.
 - After the review fixes (commit `26ca000`), `pnpm verify` passed: Biome, strict TypeScript, 523 unit/component/script tests in 48 files with coverage, 16 development and 124 production browser scenarios, the build, and cache restoration. Its first run failed once in the MCP App watcher test; the fix is described below. `pnpm test:stack` passed every acceptance check: `production`, `runtimeMcpToggleWithoutBuild`, `developmentInspectorAndHmr`, `developmentMcpAppSandbox`, `manifestWatchRebuild`, `hostSourceUnchanged`, `developmentHealthyWithoutMcp`, and `cleanup`. Production samples were healthy in about 2.0-2.3 s, with about 116-121 MiB idle RSS, a 32-46 ms p95, and a 235 MB unpacked / 75 MB gzip image.
-- In a copy, `pnpm remove-demo`, `pnpm verify` (302 unit tests in 31 files, 6 development and 52 production browser scenarios), and `pnpm test:stack` passed; `pnpm dev:app` started without the Inspector, and `pnpm mcp:check` listed 0 tools. In another copy, `pnpm customize --name acme-app --scope @acme` and `pnpm build` passed.
+- In a copy, `pnpm remove-demo`, `pnpm verify` (302 unit tests in 31 files, 6 development and 52 production browser scenarios), and `pnpm test:stack` passed. In another copy, `pnpm customize --name acme-app --scope @acme` and `pnpm build` passed. `pnpm dev:app` and `pnpm mcp:check` were not rerun at this commit; they last ran in a remove-demo copy earlier in the round.
 
 Final fixes, verified on the same day at commit `e4c26aa`:
 
@@ -17,6 +17,12 @@ Final fixes, verified on the same day at commit `e4c26aa`:
 - `pnpm check`, `pnpm test` (525 tests in 48 files), and `pnpm verify` (16 development and 124 production browser scenarios) passed. `pnpm test:stack` passed all eight acceptance checks, healthy in about 2.1-2.5 s, with about 113-117 MiB idle RSS, a 38-39 ms p95, and a 235 MB unpacked / 75 MB gzip image.
 - In a fresh copy, `pnpm remove-demo` changed 85 paths and passed its checks; `pnpm verify` (302 unit tests in 31 files, 6 development and 52 production browser scenarios) and `pnpm test:stack` (seven acceptance checks, without the demo's App sandbox check; healthy in about 1.9-2.0 s, 230 MB unpacked / 74 MB gzip) passed.
 - This record does not cover GitHub Actions, a Linux CI rehearsal, React Doctor, or the create-next-app workflow.
+
+Review fixes, verified on the same day at commit `c3892bc`:
+
+- The shadcn CLI is now a development dependency of `@repo/ui`, so `pnpm why braces -r --prod` shows only next-intl's `@parcel/watcher`. `pnpm audit --prod --audit-level high` still exits 0 with the braces advisory ignored, and the reason now holds without the demo.
+- `pnpm check`, `pnpm test` (525 tests in 48 files), and `pnpm verify` (16 development and 124 production browser scenarios) passed. `pnpm test:stack` was not rerun; the Dockerfile and Compose files did not change.
+- In a fresh copy, `pnpm remove-demo` changed 85 paths and passed its checks, then `pnpm check` and `pnpm test` (302 tests in 31 files) passed. `pnpm dev:app` started without the Inspector, and `pnpm mcp:check` listed 0 tools. In another copy, `pnpm customize --name acme-app --scope @acme` and `pnpm build` passed.
 
 ## Security headers and CI
 
