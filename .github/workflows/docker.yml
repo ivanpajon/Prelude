@@ -1,8 +1,8 @@
 name: Docker
 
-# The full Docker suites take 5-8 minutes, so they run outside the pull request path: on pushes,
-# weekly, by hand, and on pull requests that change how the images or the development stack are
-# built. Every pull request still gets the Docker smoke job in ci.yml.
+# The full Docker suites run outside the pull request path: on pushes, weekly, by hand, and on
+# pull requests that change how the images or the development stack are built. Every pull request
+# still gets the Docker smoke job in ci.yml.
 on:
   push:
     branches: [main, develop]
@@ -56,11 +56,32 @@ concurrency:
 env:
   HUSKY: "0"
 
+# Each job runs one part of pnpm test:stack in parallel; together they run all of it.
 jobs:
   stack:
-    name: Docker stack
+    name: Docker stack (${{ matrix.name }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: builds
+            id: builds
+            args: --part builds
+          - name: runtime
+            id: runtime
+            args: --part runtime
+          # Split by single tests, not spec files, so neither half is empty.
+          - name: development 1/2
+            id: development-1
+            args: --part development --shard 1/2
+          - name: development 2/2
+            id: development-2
+            args: --part development --shard 2/2
+          - name: rebuild
+            id: rebuild
+            args: --part rebuild
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -69,22 +90,46 @@ jobs:
         with:
           browsers: true
           compose: true
-      - run: pnpm test:stack
+      - run: pnpm test:stack ${{ matrix.args }}
       - if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: stack-results
+          name: stack-${{ matrix.id }}-results
           path: test-results/stack
           if-no-files-found: ignore
           retention-days: 7
 
   # demo:start
-  # Proves that a project without the demo stays green, browsers and Docker included.
-  # pnpm remove-demo deletes this job together with the demo.
+  # Proves that a project without the demo stays green, browsers and Docker included. Each job
+  # removes the demo, which also checks and unit-tests the result, and then runs one slice of
+  # pnpm verify and pnpm test:stack. pnpm remove-demo deletes this job together with the demo.
   demo-removal:
-    name: Demo removal
+    name: Demo removal (${{ matrix.name }})
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: e2e
+            id: e2e
+            run: pnpm test:e2e && pnpm test:cache
+          - name: dev
+            id: dev
+            run: pnpm test:dev
+          - name: stack builds
+            id: stack-builds
+            run: pnpm test:stack --part builds
+          - name: stack runtime
+            id: stack-runtime
+            run: pnpm test:stack --part runtime
+          # Without the demo, the development browser checks are short enough for one job.
+          - name: stack development
+            id: stack-development
+            run: pnpm test:stack --part development
+          - name: stack rebuild
+            id: stack-rebuild
+            run: pnpm test:stack --part rebuild
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -95,12 +140,11 @@ jobs:
           compose: true
       # The command does not commit, so the job needs no Git identity.
       - run: pnpm remove-demo
-      - run: pnpm verify
-      - run: pnpm test:stack
+      - run: ${{ matrix.run }}
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: demo-removal-results
+          name: demo-removal-${{ matrix.id }}-results
           path: |
             test-results
             playwright-report
