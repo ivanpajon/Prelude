@@ -448,7 +448,9 @@ describe("owned development process lifecycle", () => {
       {},
       { next: "next.js", inspector: "inspector.js" },
     );
-    const commands = definitions.slice(1).map((definition) => ({
+    const servers = definitions.filter((definition) => definition.port !== undefined);
+    expect(servers.map(({ name }) => name)).toEqual(["Next.js", "MCP Inspector"]);
+    const commands = servers.map((definition) => ({
       ...fixtureCommand(
         definition.port,
         "ready",
