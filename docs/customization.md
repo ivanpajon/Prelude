@@ -43,3 +43,7 @@ Production builds and browser tests remain available through `pnpm verify`. The 
 The existing scope is discovered from workspace manifests, so a second rename works without resetting to `@repo`. Repeating the same values makes no further text changes but still installs and validates. Invalid arguments, inconsistent workspace scopes, or conflicting dependency names fail before writes.
 
 If installation or validation fails, the command exits unsuccessfully and leaves the changes visible for inspection. Fix the reported problem and rerun the same command. No commit is created automatically, and the command does not discard existing work.
+
+## Template history
+
+`docs/verification-history.md` and `docs/docker-measurements.md` record the template's own test runs and container measurements. A new project can delete both. Then also remove the sentence that links to each one: the last line of `docs/verification.md`, and the "recorded measurements" sentence under "Verification and measurements" in `docs/docker.md`.
