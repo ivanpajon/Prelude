@@ -13,9 +13,10 @@ allowBuilds:
 auditConfig:
   # braces <=3.0.3 has no patched release (GHSA-vfj7-8cjw-p6xm: a stack overflow from deeply
   # nested brace patterns). Only build and development tools reach it: the shadcn CLI and
-  # next-intl's file watcher, @parcel/watcher. Their glob patterns come from this repository,
-  # not from requests, and the production image ships only the Next.js standalone output,
-  # which does not include braces. Remove this entry when a patched release ships.
+  # @parcel/watcher, the file watcher in next-intl and the Tailwind CLI. Their glob patterns
+  # come from this repository, not from requests, and the production image ships only the
+  # Next.js standalone output, which does not include braces. Remove this entry when a
+  # patched release ships.
   ignoreGhsas:
     - GHSA-vfj7-8cjw-p6xm
 
