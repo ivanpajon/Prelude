@@ -9,14 +9,18 @@
 Prelude gives developers and AI agents a shared foundation: a modern web application, typed APIs, discoverable tools, and interactive MCP Apps. Less setup. More building.
 
 - **One contract across interfaces.** Define schemas and operations once with oRPC and ArkType. Reuse them through RPC, REST, automatically generated OpenAPI documentation with Scalar, and native MCP tools.
-- **Interactive examples included.** Explore the task workspace and live MCP tool runner at `/playground`, or use the task-list MCP App inside a compatible host.
 - **Inspect as you build.** The managed local MCP Inspector lets you discover tools, inspect schemas, execute calls, and preview the MCP App. Check connectivity from the terminal with `pnpm mcp:check`.
 - **Feedback for humans and agents.** Strict TypeScript, Biome, Vitest, Testing Library, Playwright, and React Doctor provide checks and diagnostics, including structured React reports for agents.
 - **Two languages from the start.** English and Spanish cover the website, PWA feedback, and MCP App, with browser detection and a saved language choice on stable public URLs.
+<!-- demo:start -->
+- **Interactive examples included.** Explore the task workspace and live MCP tool runner at `/playground`, or use the task-list MCP App inside a compatible host. Remove them in one step with `pnpm remove-demo` when you start your own project.
+<!-- demo:end -->
 
 The pnpm + Turborepo workspace brings together React 19, Next.js 16 with Turbopack and Cache Components, Base UI shadcn components, Tailwind 4, TanStack Query, nuqs, Zustand, and Serwist. Keep your choice of database, authentication, AI provider, and deployment platform; no provider account or model API key is required to run the examples. Connect your preferred agent explicitly through MCP.
 
-The included task list connects the stack end to end. **It is public, shared, in-memory demo data:** every visitor reaches the same process-local list, which resets on restart and differs across server instances. Replace it before using the starter for private or persistent data. No database, authentication, or environment variables are required to run the demo.
+<!-- demo:start -->
+The included task list connects the stack end to end. **It is public, shared, in-memory demo data:** every visitor reaches the same process-local list, which resets on restart and differs across server instances. Remove it with `pnpm remove-demo` before using the starter for private or persistent data; see [Remove the demo](docs/remove-demo.md). No database, authentication, or environment variables are required to run the demo.
+<!-- demo:end -->
 
 ## Start locally
 
@@ -45,13 +49,21 @@ Check `node --version` in the shell that starts development; `.node-version` doe
 
 Open [localhost:3000](http://localhost:3000), then follow **API docs** to [the Scalar reference](http://localhost:3000/api/docs). The [OpenAPI specification](http://localhost:3000/api/openapi.json) is generated from the contracts on request; no generation command is needed. Scalar loads its version-pinned renderer from jsDelivr, so the interactive reference requires CDN access. See [OpenAPI usage](docs/openapi.md) for endpoints, adding procedures, and upgrades.
 
+<!-- demo:start -->
 Choose **Open playground** for [the task workspace and MCP explorer](http://localhost:3000/playground). Create tasks, try URL filters and compact view, then discover the generated MCP tools, edit JSON arguments, and execute real calls that refresh the same list. Motion and Morphicons previews stay on the homepage.
+<!-- demo:end -->
 
-Choose **English / Español** in the header to change language. Explicit routes such as `/en` and `/es/playground` are the default; unprefixed entry URLs negotiate your saved/browser preference. Try the stack card's **Language in URL** switch to browse without a prefix, preserving the selected language. Consumers can disable this visitor-specific demo and select either fixed policy. Both policies use prerendered localized documents. The MCP App follows its host's language; task titles, protocol output, and Scalar/Inspector retain their original content. See [localization](docs/i18n.md) for routing configuration, catalogs, cache boundaries, and offline behavior.
+Choose **English / Español** in the header to change language. Explicit routes such as `/en` and `/es` are the default; unprefixed entry URLs negotiate your saved/browser preference. Try the stack card's **Language in URL** switch to browse without a prefix, preserving the selected language. Consumers can disable this visitor-specific demo and select either fixed policy. Both policies use prerendered localized documents. The MCP App follows its host's language; task titles, protocol output, and Scalar/Inspector retain their original content. See [localization](docs/i18n.md) for routing configuration, catalogs, cache boundaries, and offline behavior.
 
+<!-- demo:start -->
 The task example supports listing, creating, editing titles, completing, and deleting through the workbench, REST, and MCP. Use a row's pencil button to edit its title; **Enter** saves and **Escape** cancels. Titles are trimmed before validating their 1–120-character length, completion is preserved, and failed saves retain the edit and new-task drafts. Deletion returns the removed task; missing IDs return `NOT_FOUND`.
+<!-- demo:end -->
 
-The same contracts provide native MCP tools at `/api/mcp`. A compatible host can render the task widget associated with `listTasks`, using the official MCP Apps SDK. `pnpm dev` builds the widget and starts an authenticated local MCP Inspector, available through **Open Inspector** on the playground. Use Inspector's **Apps** interface to preview it; the website itself is not an MCP Apps host. Run `pnpm mcp:check` from another terminal for a CLI connectivity check. MCP is public and enabled by default; `MCP_ENABLED=false` disables its tools, resources, and JSON explorer actions. See [MCP usage](docs/mcp.md) and [the MCP App guide](docs/mcp-apps.md) for connections, sandbox ports, builds, and example removal.
+The same contracts provide native MCP tools at `/api/mcp`. `pnpm dev` starts an authenticated local MCP Inspector at [localhost:3000/api/mcp/inspector](http://localhost:3000/api/mcp/inspector). Run `pnpm mcp:check` from another terminal for a CLI connectivity check. MCP is public and enabled by default; `MCP_ENABLED=false` turns it off. See [MCP usage](docs/mcp.md) for connections and configuration.
+
+<!-- demo:start -->
+A compatible host can render the task widget associated with `listTasks`, using the official MCP Apps SDK. `pnpm dev` builds the widget, and **Open Inspector** on the playground opens the Inspector. Use Inspector's **Apps** interface to preview it; the website itself is not an MCP Apps host. See [the MCP App guide](docs/mcp-apps.md) for sandbox ports and builds.
+<!-- demo:end -->
 
 To run the production build and PWA on a separate origin:
 
@@ -103,6 +115,10 @@ Development uses [localhost:3000](http://localhost:3000). Both workflows build t
 | `pnpm react-doctor` | Run optional React diagnostics with file locations. |
 | `pnpm --silent react-doctor:json` | Print a structured diagnostic report for agents. |
 
+<!-- demo:start -->
+`pnpm remove-demo` deletes the task demo, keeps the infrastructure, then reinstalls, checks, and tests the project; `--dry-run` previews the changes. It removes itself when it succeeds. See [Remove the demo](docs/remove-demo.md).
+<!-- demo:end -->
+
 Install the browser before running browser checks:
 
 ```sh
@@ -116,6 +132,18 @@ Renovate keeps dependencies up to date once you install its free GitHub App; see
 
 ## Make it yours
 
+<!-- demo:start -->
+Start by removing the demo, once, from a clean Git checkout:
+
+```sh
+# Preview the changes, then apply them.
+pnpm remove-demo --dry-run
+pnpm remove-demo
+```
+
+It deletes the task contract, repository, `/playground` page, MCP explorer, MCP App widget, and their tests and catalogs. It keeps the home page and all infrastructure, leaving an empty contract, an OpenAPI document with no paths, and an MCP endpoint with zero tools. Review the diff and commit it, then [add your first procedure](docs/openapi.md#add-or-change-a-procedure). See [Remove the demo](docs/remove-demo.md) for the full list, or to keep part of the demo, such as the [MCP App](docs/mcp-apps.md).
+
+<!-- demo:end -->
 Keep the default `@repo` workspace scope, or optionally choose your own:
 
 ```sh
@@ -136,14 +164,12 @@ The command updates package names, workspace dependencies, imports, shadcn alias
 - Import components from `@repo/ui/components/*` and `cn` from `@repo/ui/lib/utils`; the latter re-exports the `cn` package.
 - Import dates and times from `@repo/temporal`; it selects native Temporal or a browser-compatible fallback. See [Temporal usage](docs/temporal.md) for serialization and hydration guidance.
 - Use the shared Motion provider and Morphicons wrapper for animations that honor reduced motion. The compact-view toggle demonstrates both; see [animation guidance](docs/motion.md).
-- Replace the task contracts, repository, and `/playground` workbench with your feature, updating the corresponding tests. Replace or remove the separate MCP App example too; keep the provider and transport infrastructure you need.
 - Add an origin to the Content Security Policy in `apps/web/next.config.ts` before pages load scripts, images, or APIs from another host. See [security headers](docs/architecture.md#security-headers).
-- Update the API version, tags, and descriptions in `apps/web/src/lib/openapi.ts` (its title follows the site name); keep route metadata with the contracts. See [OpenAPI customization and demo removal](docs/openapi.md).
+- Update the API version, tags, and descriptions in `apps/web/src/lib/openapi.ts` (its title follows the site name); keep route metadata with the contracts. See [OpenAPI customization](docs/openapi.md).
 - MCP tools follow the same OpenAPI operations automatically. Configure exposure and request authorization with the rest of the API; see [MCP customization](docs/mcp.md).
-- MCP App interfaces have explicit resource associations. See [MCP Apps](docs/mcp-apps.md) for the widget's shared components, host connection, build pipeline, and removal checklist.
 - Add or adapt translations in `@repo/i18n`; use typed next-intl hooks in the website and use-intl in standalone widgets. See [localization](docs/i18n.md) for routing, cache privacy, and supported-locale changes.
 
-See [architecture](docs/architecture.md) for data access, state, caching, and removing the demo; [requirements](docs/requirements.md) records the stack and deferred choices. [React diagnostics](docs/diagnostics.md) explains scanner results and scoped exceptions. [Candidate skills](docs/skills.md) lists reviewed project-local agent skills and installation commands; none are installed by default.
+See [architecture](docs/architecture.md) for data access, state, and caching; [requirements](docs/requirements.md) records the stack and deferred choices. [React diagnostics](docs/diagnostics.md) explains scanner results and scoped exceptions. [Candidate skills](docs/skills.md) lists reviewed project-local agent skills and installation commands; none are installed by default.
 
 ## License
 

@@ -56,6 +56,7 @@ export const demo = {
     "apps/web/src/stores/workbench-store.test.ts",
     "apps/web/src/stores/workbench-store.ts",
     "docs/mcp-apps.md",
+    "docs/remove-demo.md",
     "packages/api/src/contract-types.ts",
     "packages/api/src/repository.ts",
     "packages/api/src/tasks.test.ts",
@@ -80,6 +81,7 @@ export const demo = {
   // Shared files with demo-only blocks.
   marked: [
     ".github/workflows/ci.yml",
+    "README.md",
     "apps/web/next.config.ts",
     "apps/web/src/app/[routingMode]/[locale]/layout.tsx",
     "apps/web/src/app/[routingMode]/[locale]/page.tsx",
@@ -89,6 +91,11 @@ export const demo = {
     "apps/web/src/lib/openapi.ts",
     "apps/web/src/lib/request-context.ts",
     "compose.dev.yaml",
+    "docs/architecture.md",
+    "docs/docker.md",
+    "docs/i18n.md",
+    "docs/mcp.md",
+    "docs/openapi.md",
     "docs/verification.md",
     "packages/api/src/index.ts",
     "packages/api/src/router.ts",

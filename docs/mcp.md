@@ -32,6 +32,7 @@ Creation only adds data, but repeating it creates another task. Completion and t
 
 These hints help clients describe operations; they do not authorize calls or enforce permissions. Revisit the matrix when replacing the repository or adding side effects, including mutation callbacks that send notifications or invoke external services.
 
+<!-- demo:start -->
 ## Website playground
 
 Open `/playground#mcp` for the live JSON tool explorer; `/playground#tasks` contains the browser workbench above it. Choose **Discover tools**, select a generated tool, edit its JSON arguments, and choose **Run tool**. Nothing is executed automatically. Tool descriptions, schemas, and read-only hints come from MCP discovery rather than a second hard-coded catalog. Starter arguments use schema defaults, examples, enums, and required fields; they are suggestions and may need editing. The homepage retains its separate Motion and Morphicons previews.
@@ -43,6 +44,7 @@ The browser calls same-origin Next.js Server Actions. Each action verifies the a
 This action bridge works in production without adding the application's origin to `MCP_ALLOWED_ORIGINS`. The public `/api/mcp` HTTP endpoint retains its explicit browser-origin allowlist; the action verifies its own same-origin caller before acting as a native server-side client. Forwarded headers do not establish trust. Reverse-proxy deployments must preserve the caller's public Host for the action's exact comparison. `MCP_ENABLED=false` disables playground discovery and execution too, with an explanatory message in the UI. Action responses and their MCP exchanges are not cached; there is no offline playground or automatic mutation retry.
 
 The separate `listTasks` MCP App is published at `ui://prelude/tasks.html` for compatible hosts. It keeps the same tool schemas and JSON outputs; the resource supplies a sandboxed task interface with host-mediated calls. `/playground#mcp-app` explains how to connect and links to the development Inspector, without embedding a custom App host. See [MCP Apps](mcp-apps.md) for the resource, build, CSP, and removal boundaries.
+<!-- demo:end -->
 
 ## Try it locally
 
@@ -119,9 +121,13 @@ Reusing the existing adapter means its supported methods and input mapping still
 
 Keep credentials and repository ownership in request context. When replacing the demo repository, update the MCP context factory alongside RPC, REST, and direct server calls. If adding cached server data, supply `onTasksChanged` consistently; MCP waits for it just as the other transports do. Tool discovery is not a substitute for procedure-level authorization.
 
-To remove only the website's JSON explorer, remove `McpPlayground` from `apps/web/src/app/[routingMode]/[locale]/playground/page.tsx` (public `/en/playground`, `/es/playground`, or `/playground` in unprefixed mode), its section-navigation link, its component, the `app/actions/mcp-playground.ts` actions, the `lib/mcp-playground*` helpers/types, the `stores/mcp-playground-store.ts` draft store, and related tests. Remove its `Mcp` catalogs and client-provider namespace after those consumers are gone. The public MCP endpoint, App resource, and Inspector can remain. When replacing the task demo, update the explorer's `orpc.tasks.key()` invalidation to cover your own client queries. To remove the separate task widget, follow the [MCP App removal checklist](mcp-apps.md#replace-or-remove-the-example).
+<!-- demo:start -->
+To remove the whole task demo, including the JSON explorer and the task widget, run `pnpm remove-demo`; see [Remove the demo](remove-demo.md).
 
-To remove MCP entirely, remove both examples and the widget build/resource integration, then its endpoint, bridge, development Inspector wrapper, managed Inspector launcher/check command, tests, and documentation. Remove the now-unused MCP dependencies and sandbox port configuration, and restore a plain Next.js/Turbo development command. Retain OpenAPI and Scalar if desired; the REST API does not depend on MCP. See [OpenAPI](openapi.md) for the shared specification and [architecture](architecture.md) for repository replacement.
+To remove only the website's JSON explorer, remove `McpPlayground` from `apps/web/src/app/[routingMode]/[locale]/playground/page.tsx` (public `/en/playground`, `/es/playground`, or `/playground` in unprefixed mode), its section-navigation link, its component, the `app/actions/mcp-playground.ts` actions, the `lib/mcp-playground*` helpers/types, the `stores/mcp-playground-store.ts` draft store, and related tests. Remove its `Mcp` catalogs and client-provider namespace after those consumers are gone. The public MCP endpoint, App resource, and Inspector can remain. When replacing the task demo, update the explorer's `orpc.tasks.key()` invalidation to cover your own client queries. To remove the separate task widget, follow the [MCP App removal checklist](mcp-apps.md#replace-or-remove-the-example).
+<!-- demo:end -->
+
+To remove MCP entirely, first remove the website code that calls it and any MCP App resources, then its endpoint, bridge, development Inspector wrapper, managed Inspector launcher/check command, tests, and documentation. Remove the now-unused MCP dependencies and sandbox port configuration, and restore a plain Next.js/Turbo development command. Retain OpenAPI and Scalar if desired; the REST API does not depend on MCP. See [OpenAPI](openapi.md) for the shared specification and [architecture](architecture.md) for repository replacement.
 
 ## Verification
 

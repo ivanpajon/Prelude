@@ -22,7 +22,9 @@ Title editing uses RPC `tasks.updateTitle` and MCP `updateTaskTitle`, with the s
 
 Deletion uses the same procedure through RPC (`tasks.delete`), REST, and MCP (`deleteTask`). A repeated delete returns `NOT_FOUND`. The workbench removes the row after success and invalidates every task filter. A failed deletion keeps the row and any unsaved draft for retry. If another client already removed the task, cancel any open edit and refresh or reload the stale view.
 
+<!-- demo:start -->
 The browser workbench now lives at `/playground#tasks`. The separate [MCP App](mcp-apps.md) uses the same generated tools and contracts through its host's connection. Its HTML resource and UI metadata do not change REST inputs, response bodies, or OpenAPI schemas.
+<!-- demo:end -->
 
 ## Add or change a procedure
 
@@ -50,10 +52,13 @@ Scalar uses its responsive layout and hash navigation with the title **Prelude A
 
 RPC, REST, documentation, and specification responses use `Cache-Control: no-store`. The service worker bypasses every `/api/` request and external resources, so it neither caches the documentation/API responses nor precaches Scalar. Offline documentation is not supported. The browser's ordinary HTTP caching of the CDN bundle is separate from the service worker.
 
-## Replace or remove the demo
+## Authentication, persistence, and removal
 
-- Replace the task schemas, route metadata, procedures, repository, and `/playground` workbench together. Update examples, API descriptions, the `Tasks` tag, operation IDs, and their unit/browser tests. Replace or remove the associated MCP App resource and widget as described in [its removal checklist](mcp-apps.md#replace-or-remove-the-example). Keep documentation generation if you want it for the replacement routes.
+<!-- demo:start -->
+To remove the task demo, run `pnpm remove-demo`. It leaves an empty contract, an OpenAPI document with no paths, and a working Scalar reference. See [Remove the demo](remove-demo.md).
+
+<!-- demo:end -->
 - When adding authentication or persistence, initialize the authorized context in the RPC, REST, and MCP Route Handlers and the direct server client. Keep authorization in the shared procedures/repository so every transport enforces it. Supply cache invalidation consistently across these entry points if server data becomes cached, and choose which contracts to expose in public docs and MCP discovery.
 - To remove REST and documentation entirely, first remove or replace the dependent MCP bridge as described in [MCP removal](mcp.md#add-change-or-remove-tools). Then remove the REST catch-all, `apps/web/src/lib/openapi.ts` and its tests, the shared header and homepage stack-card **API docs** links, and related browser checks. Remove `@orpc/openapi`, `@orpc/arktype`, and their now-unused direct peers from the web package, then regenerate the lockfile. Retain RPC and its shared contracts if the application still uses them.
 
-See [architecture](architecture.md#replace-or-remove-the-demo) for replacing the synchronous demo repository with asynchronous persistence and removing the remaining example UI.
+See [architecture](architecture.md#data-access-and-persistence) for the request context and asynchronous persistence.

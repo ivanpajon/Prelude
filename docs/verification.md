@@ -66,11 +66,13 @@ The real Inspector preview exercised initial rendering without duplicate fetchin
 
 The same source passed `pnpm test:stack` on Docker Engine 29.8.1, Compose 5.5.1, Linux amd64. Six production browser scenarios passed on each runtime, and four development scenarios passed, including the real widget over custom application/Inspector/sandbox ports and fresh resource reads after a shared-theme rebuild. Runtime MCP toggling, manifest-triggered rebuilding, unchanged host source, shutdown, and port cleanup passed. Both images contained identical application artifacts and the generated widget, with no tsdown, Tailwind CLI, or Inspector package in the runtime. See the [current container measurements](docker-measurements.md#playground-and-mcp-app-run).
 
+<!-- demo:start -->
 The current browser workbench and JSON tool explorer live at `/playground`; Motion/Morphicons remain on `/`. Browser acceptance must cover navigation between the two pages, playground server rendering and hydration, task URL/history behavior, JSON tool execution, and the development-only Inspector link. Earlier dated results below describe the source and routes at the time they were recorded.
 
 The MCP App adds protocol checks for UI metadata, HTML resource discovery/read, generated name changes, exclusions, unchanged modern/legacy JSON output, and masked asset failures. Widget tests cover result decoding, host input/result handling, query isolation, mutations/filter refresh, cancellation, and connection cleanup. Build tests check self-contained output and atomic replacement. `pnpm test:cache` restores both generated HTML and worker artifacts byte for byte.
 
 The real preview requires Inspector's **Apps** interface: connect, select **List tasks** (`listTasks`), supply `status`, and choose **Open App**. Native and Docker development checks must exercise that sandboxed widget, including its controls and asset rebuild/reopen behavior; raw Tools calls alone do not verify rendering. Production must serve the resource from the built standalone artifact while Inspector paths remain absent. See [MCP Apps](mcp-apps.md) for port and CSP boundaries. Consult the current run outputs for pass/fail results; this section describes acceptance scope rather than a new measured run.
+<!-- demo:end -->
 
 ## Docker stacks
 
