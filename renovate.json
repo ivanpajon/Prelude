@@ -15,6 +15,28 @@
     "enabled": true,
     "schedule": ["before 6am on the first day of the month"]
   },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "The Dockerfile installs the pnpm version from packageManager.",
+      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "matchStrings": ["pnpm@(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+      "depNameTemplate": "pnpm",
+      "datasourceTemplate": "npm"
+    },
+    {
+      "customType": "regex",
+      "description": "Scalar's renderer loads from jsDelivr, so only its URL pins the version.",
+      "managerFilePatterns": [
+        "/^apps/web/src/lib/openapi[^/]*\\.ts$/",
+        "/^tests/.+\\.spec\\.ts$/",
+        "/^docs/openapi\\.md$/"
+      ],
+      "matchStrings": ["@scalar/api-reference@(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+      "depNameTemplate": "@scalar/api-reference",
+      "datasourceTemplate": "npm"
+    }
+  ],
   "packageRules": [
     {
       "description": "Keep the Node range in engines; exact pins apply to dependencies.",
@@ -25,11 +47,10 @@
       "description": "Group non-major npm updates into one weekly pull request.",
       "matchManagers": ["npm"],
       "matchUpdateTypes": ["minor", "patch"],
-      "groupName": "non-major npm dependencies",
-      "groupSlug": "npm-non-major"
+      "groupName": "non-major npm dependencies"
     },
     {
-      "description": "Keep packages that release together in their own non-major groups.",
+      "description": "Packages that release together get their own groups; each group name sets its branch.",
       "matchManagers": ["npm"],
       "matchUpdateTypes": ["minor", "patch"],
       "matchPackageNames": ["next", "react", "react-dom", "@types/react", "@types/react-dom"],
@@ -71,7 +92,12 @@
       "allowedVersions": "/^26\\./"
     },
     {
-      "description": "pnpm follows packageManager; update it together with engines.pnpm.",
+      "description": "Update the Node runtime together: .node-version, engines, @types/node, and both images.",
+      "matchPackageNames": ["node", "@types/node", "gcr.io/distroless/nodejs26-debian13"],
+      "groupName": "Node.js"
+    },
+    {
+      "description": "pnpm follows packageManager; update it with engines.pnpm and the Dockerfile.",
       "matchPackageNames": ["pnpm"],
       "groupName": "pnpm"
     }
