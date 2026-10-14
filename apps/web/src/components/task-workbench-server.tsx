@@ -1,4 +1,5 @@
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
+import { MotionProvider } from "@repo/ui/components/motion-provider";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { connection } from "next/server";
 import { getServerApiClient, getServerQueryClient } from "@/lib/server-api";
@@ -21,7 +22,9 @@ export async function TaskWorkbenchServer({
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       <WorkbenchStoreProvider>
-        <TaskWorkbench />
+        <MotionProvider>
+          <TaskWorkbench />
+        </MotionProvider>
       </WorkbenchStoreProvider>
     </HydrationBoundary>
   );

@@ -32,7 +32,7 @@ type PreferenceControl = {
   changeMode: (mode: RoutingMode) => void;
 };
 
-const PreferenceContext = createContext<PreferenceControl | null>(null);
+const PreferenceContext = createContext<Omit<PreferenceControl, "disabled"> | null>(null);
 
 export function RoutingPreferenceProvider({
   mode,
@@ -46,16 +46,10 @@ export function RoutingPreferenceProvider({
   const [pending, startTransition] = useTransition();
   const [failure, setFailure] = useState<PreferenceControl["failure"]>(null);
   const submitting = useRef(false);
-  const hydrated = useSyncExternalStore(subscribeToReadiness, getClientSnapshot, getServerSnapshot);
   if (!isLocale(locale)) throw new Error("Unsupported language");
 
   function change(selectedLocale: Locale, selectedMode: RoutingMode) {
-    if (
-      submitting.current ||
-      pending ||
-      !hydrated ||
-      (selectedMode === mode && selectedLocale === locale)
-    ) {
+    if (submitting.current || pending || (selectedMode === mode && selectedLocale === locale)) {
       return;
     }
     submitting.current = true;
@@ -95,7 +89,6 @@ export function RoutingPreferenceProvider({
         value={{
           locale,
           mode,
-          disabled: pending || !hydrated,
           pending,
           failure,
           changeLocale: (selected) => change(selected, mode),
@@ -110,8 +103,11 @@ export function RoutingPreferenceProvider({
   );
 }
 
-export function useRoutingPreference() {
+export function useRoutingPreference(): PreferenceControl {
   const preference = useContext(PreferenceContext);
+  // Each control reads readiness itself. If the provider's value changed right after hydration,
+  // React would render every streamed Suspense boundary below it that is not revealed yet again.
+  const hydrated = useSyncExternalStore(subscribeToReadiness, getClientSnapshot, getServerSnapshot);
   if (!preference) throw new Error("Locale controls require RoutingPreferenceProvider");
-  return preference;
+  return { ...preference, disabled: preference.pending || !hydrated };
 }

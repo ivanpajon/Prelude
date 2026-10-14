@@ -23,6 +23,8 @@ The stateless Streamable HTTP MCP endpoint at `/api/mcp` derives its tools from 
 
 `apps/web/src/components/providers.tsx` wires TanStack Query and nuqs. `React.cache` scopes the server QueryClient to a render request; the browser uses a stable client. A 60-second stale time avoids an immediate duplicate fetch after hydration.
 
+Keep context values above a streamed Suspense boundary the same after hydration. React can reveal streamed content up to 300 ms after it arrives, so the page may hydrate first. If a provider above the hidden boundary then changes its value, React renders the boundary again on the client and drops its server HTML. For this reason the language controls read their hydration flag themselves, and the Motion provider wraps each animated section instead of the whole application.
+
 <!-- demo:start -->
 The workbench parses URL state on the server, fetches its initial query, and passes dehydrated state to TanStack Query. Successful mutations invalidate the task query family.
 

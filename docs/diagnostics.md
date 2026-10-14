@@ -40,12 +40,12 @@ The exceptions retain every other diagnostic for the affected files. Each has a 
 
 | Package/file | Rule | Reason |
 | --- | --- | --- |
-| Web `package.json` | `react-doctor/require-reduced-motion` | The scanner examines each workspace package separately and cannot follow the `@repo/ui` provider import. The application is wrapped by the shared `MotionConfig` with `reducedMotion="user"`; Morphicons has its own matching wrapper. Browser and component tests exercise reduced-motion behavior. The UI package's reduced-motion check remains enabled. |
+| Web `package.json` | `react-doctor/require-reduced-motion` | The scanner examines each workspace package separately and cannot follow the `@repo/ui` provider import. Each animated section is wrapped by the shared provider, whose `MotionConfig` uses `reducedMotion="user"`; Morphicons has its own matching wrapper. Browser and component tests exercise reduced-motion behavior. The UI package's reduced-motion check remains enabled. |
 | Web `src/app/(standalone)/offline/offline-content.tsx` | `react-doctor/nextjs-no-a-element` | The offline fallback intentionally uses a full document navigation for **Try again**, requesting fresh HTML after reconnection instead of relying on client-side navigation from the cached fallback. Ordinary internal navigation uses the locale-aware `Link`. |
 | Web `src/app/actions/locale.ts` | `react-doctor/server-auth-actions` | Anonymous visitors may set their own language cookie to one of two validated values. This action changes no protected/shared data and invokes no billable service; authentication would prevent anonymous language selection. Business actions still require their own authorization policy. |
 | UI `src/components/button.tsx` and `src/components/badge.tsx` | `react-doctor/only-export-components` | These generated shadcn modules export their components and CVA variant functions as the shared component API. This retains the upstream pattern and accepts its Fast Refresh limitation. If the modules become heavily customized, move the variant helpers into separate modules and remove the exception. |
 
-Other initial findings led to code changes: the home link uses Next.js `Link`, and animations use `m` with a shared `LazyMotion` provider. The provider loads `domMax`, because the home page tile example needs layout animation; the smaller `domAnimation` feature bundle does not include it. See [animation guidance](motion.md).
+Other initial findings led to code changes: the home link uses Next.js `Link`, and animations use `m` with a shared `LazyMotion` provider around each animated section. The provider loads `domMax`, because the home page tile example needs layout animation; the smaller `domAnimation` feature bundle does not include it. See [animation guidance](motion.md).
 
 <!-- demo:start -->
 In the demo, task submission uses a synchronous reentry guard, and the task rows also use layout animation.

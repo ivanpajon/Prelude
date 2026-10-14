@@ -1,5 +1,6 @@
 import { Badge } from "@repo/ui/components/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
+import { MotionProvider } from "@repo/ui/components/motion-provider";
 import { ArrowUpRightIcon, CheckIcon } from "lucide-react";
 import { cacheLife } from "next/cache";
 import { getTranslations } from "next-intl/server";
@@ -149,7 +150,9 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <AnimationExamples />
+        <MotionProvider>
+          <AnimationExamples />
+        </MotionProvider>
 
         <section
           className="mt-16 border-t border-border pt-10"
