@@ -27,10 +27,10 @@ Times are rough figures from a Windows workstation; cold caches and CI runners t
 | `pnpm test:stack --part <name>` | One part of `pnpm test:stack`: `builds`, `runtime`, `development`, or `rebuild`. | 2–3 min |
 | `pnpm test:stack:quick` | Only the production stack: one build, one runtime sample, and its browser checks. | 2 min |
 
-`pnpm test:e2e` builds automatically and starts its own production server at `http://127.0.0.1:3100`; leave that port free. Desktop and mobile app scenarios block service workers to isolate UI behavior, while the PWA project allows them. The tests detect hydration errors. Reports, traces, and failure screenshots go to ignored test output directories.
+`pnpm test:e2e` builds automatically and starts its own production server at `http://127.0.0.1:3100`; leave that port free. Desktop and mobile app scenarios block service workers to isolate UI behavior, while the PWA project allows them. The tests detect hydration errors. Streamed Suspense content can wait in a hidden copy until React reveals it, so find elements by role, or filter ID and CSS locators to visible elements. Reports, traces, and failure screenshots go to ignored test output directories.
 
 <!-- demo:start -->
-The demo also builds its MCP App before Next.js. Its browser scenarios verify initial data without an immediate duplicate RPC fetch, create/edit/complete/delete tasks, navigate filters with history, check failed-request recovery, and verify compact view stays local to its browser context.
+The demo also builds its MCP App before Next.js. Its browser scenarios verify initial data without an immediate duplicate RPC fetch, check that React hydrates the streamed workbench instead of rendering it again, create/edit/complete/delete tasks, navigate filters with history, check failed-request recovery, and verify compact view stays local to its browser context.
 <!-- demo:end -->
 
 `pnpm test:dev` starts its own development server at `http://127.0.0.1:3102`, with the Inspector on 6284 and its sandbox on 6286. Stop ordinary `pnpm dev` first because both use the application's development output directory and lock. The smoke test captures all console errors and uncaught exceptions, exercises both animation previews, reloads, and checks Next.js's issues overlay. `pnpm verify` runs this check before building production; development-only validation errors can pass a production build.

@@ -102,6 +102,33 @@ test("hydrates without an immediate duplicate RPC or hydration errors", async ({
       hydrationErrors.push(message.text());
     }
   });
+  // React reveals streamed Suspense content with its inline `$RV` script, up to 300 ms late.
+  // Hold that reveal so the page hydrates first, then record every form the document receives.
+  // React keeps the one server-rendered form when it hydrates the workbench. A context change
+  // above the hidden boundary makes React render it again, which adds a second form.
+  await page.addInitScript(() => {
+    const forms = new Set<Element>();
+    Object.assign(window, { taskForms: forms });
+    new MutationObserver((records) => {
+      for (const node of records.flatMap((record) => [...record.addedNodes])) {
+        if (!(node instanceof Element)) continue;
+        if (node.matches("form")) forms.add(node);
+        for (const form of node.querySelectorAll("form")) forms.add(form);
+      }
+    }).observe(document, { childList: true, subtree: true });
+    let reveal: unknown;
+    Object.defineProperty(window, "$RV", {
+      configurable: true,
+      get: () => {
+        const run = reveal;
+        if (typeof run !== "function") return run;
+        return (...args: unknown[]) => setTimeout(() => run(...args), 1000);
+      },
+      set: (value) => {
+        reveal = value;
+      },
+    });
+  });
 
   await page.goto("/playground");
   await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
@@ -120,6 +147,7 @@ test("hydrates without an immediate duplicate RPC or hydration errors", async ({
   expect(listRequests).toEqual([]);
   expect(pageErrors).toEqual([]);
   expect(hydrationErrors).toEqual([]);
+  expect(await page.evaluate(() => Reflect.get(window, "taskForms").size)).toBe(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
@@ -159,10 +187,13 @@ test("prevents duplicate creation when a form submits twice before rendering", a
   });
   await page.goto("/playground");
   await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
-  await page.getByRole("textbox", { name: "New task" }).fill(title);
-  await page.locator("form").evaluate((form: HTMLFormElement) => {
-    form.requestSubmit();
-    form.requestSubmit();
+  const input = page.getByRole("textbox", { name: "New task" });
+  await input.fill(title);
+  // Submit the form that owns the visible field, not whichever form the document holds.
+  await input.evaluate((field: HTMLInputElement) => {
+    if (!field.form) throw new Error("The New task field is outside a form");
+    field.form.requestSubmit();
+    field.form.requestSubmit();
   });
   await expect(
     page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
@@ -350,25 +381,27 @@ test("retains a task after failed deletion and supports retry without losing a d
   const title = `Delete retry ${crypto.randomUUID()}`;
   await page.goto("/playground");
   const input = page.getByRole("textbox", { name: "New task", exact: true });
+  // Only the visible workbench counts; a streamed copy can wait hidden until React reveals it.
+  const feedback = page.locator("#task-feedback").filter({ visible: true });
   await input.fill(title);
   await page.getByRole("button", { name: "Add task", exact: true }).click();
   const remove = page.getByRole("button", { name: `Delete ${title}`, exact: true });
   await expect(remove).toBeVisible();
   await input.fill("   ");
   await page.getByRole("button", { name: "Add task", exact: true }).click();
-  await expect(page.locator("#task-feedback")).toContainText("Enter a task");
+  await expect(feedback).toContainText("Enter a task");
   await input.fill("Keep this deletion draft");
   await page.route(deleteRpc, (route) => route.abort("internetdisconnected"));
   await remove.click();
-  await expect(page.locator("#task-feedback")).toContainText(/\S/);
-  await expect(page.locator("#task-feedback")).not.toContainText("Enter a task");
+  await expect(feedback).toContainText(/\S/);
+  await expect(feedback).not.toContainText("Enter a task");
   await expect(remove).toBeEnabled();
   await expect(input).toHaveValue("Keep this deletion draft");
   await page.unroute(deleteRpc);
   await remove.click();
   await expect(remove).toHaveCount(0);
   await expect(input).toHaveValue("Keep this deletion draft");
-  await expect(page.locator("#task-feedback")).toBeEmpty();
+  await expect(feedback).toBeEmpty();
 });
 
 test("sends only one deletion when its button is clicked twice before rendering", async ({
@@ -513,7 +546,7 @@ test("retains a failed mutation's draft and supports retry", async ({ page }, te
   await page.goto("/playground");
   const input = page.getByRole("textbox", { name: "New task", exact: true });
   const add = page.getByRole("button", { name: "Add task", exact: true });
-  const feedback = page.locator("#task-feedback");
+  const feedback = page.locator("#task-feedback").filter({ visible: true });
   await page.route(createRpc, (route) => route.abort("internetdisconnected"));
   await input.fill(title);
   await add.click();
