@@ -72,8 +72,8 @@ jobs:
           - name: runtime
             id: runtime
             args: --part runtime
-          # Split by single tests in list order (see playwright.stack.config.ts), so the halves take
-          # about the same time and neither is empty without the demo.
+          # Split by single tests in list order, so the halves take about the same time and neither
+          # is empty without the demo (see docs/verification.md#continuous-integration).
           - name: development 1/2
             id: development-1
             args: --part development --shard 1/2
