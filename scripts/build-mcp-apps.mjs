@@ -5,6 +5,7 @@ import { watch } from "node:fs";
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { Script } from "node:vm";
@@ -79,12 +80,27 @@ export function appHtml(script, css) {
 `;
 }
 
+/**
+ * Windows refuses to replace a file while another process reads it, for example while Next.js
+ * serves the widget during a rebuild. Retry those short-lived errors instead of failing the build.
+ */
+export async function replaceFile(from, to, move = rename, attempts = 20) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await move(from, to);
+    } catch (error) {
+      if (attempt >= attempts || !["EPERM", "EACCES", "EBUSY"].includes(error.code)) throw error;
+      await delay(attempt * 10);
+    }
+  }
+}
+
 export async function atomicWrite(file, contents) {
   await mkdir(path.dirname(file), { recursive: true });
   const temporary = `${file}.${randomUUID()}.tmp`;
   try {
     await writeFile(temporary, contents, { flag: "wx" });
-    await rename(temporary, file);
+    await replaceFile(temporary, file);
   } finally {
     await unlink(temporary).catch((error) => {
       if (error.code !== "ENOENT") throw error;
