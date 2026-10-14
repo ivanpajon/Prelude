@@ -93,6 +93,7 @@ export const demo = {
     "apps/web/src/lib/request-context.ts",
     "compose.dev.yaml",
     "docs/architecture.md",
+    "docs/diagnostics.md",
     "docs/docker.md",
     "docs/i18n.md",
     "docs/mcp.md",
