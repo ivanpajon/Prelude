@@ -79,6 +79,7 @@ export const demo = {
   ],
   // Shared files with demo-only blocks.
   marked: [
+    ".github/workflows/ci.yml",
     "apps/web/next.config.ts",
     "apps/web/src/app/[routingMode]/[locale]/layout.tsx",
     "apps/web/src/app/[routingMode]/[locale]/page.tsx",
@@ -88,6 +89,7 @@ export const demo = {
     "apps/web/src/lib/openapi.ts",
     "apps/web/src/lib/request-context.ts",
     "compose.dev.yaml",
+    "docs/verification.md",
     "packages/api/src/index.ts",
     "packages/api/src/router.ts",
     "packages/contracts/src/index.ts",

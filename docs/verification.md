@@ -141,6 +141,10 @@ pnpm verify
 
 GitHub Actions runs `.github/workflows/ci.yml` on pushes to `main` or `develop`, pull requests, manual dispatch, and a weekly schedule (Monday 06:00 UTC). The **Audit** job runs `pnpm audit` on production dependencies and fails on high or critical advisories that have a patched release. pnpm 12 `--ignore-unfixable` only adds advisories without a patched release to the ignore list in `pnpm-workspace.yaml`, so the job runs it first in its own checkout and then audits. Locally, `pnpm audit --prod` also lists advisories without a patched release; do not commit the ignore list that `--ignore-unfixable` writes. The **Verify** job runs `pnpm verify`; the **Docker stack** job runs `pnpm test:stack`. The scheduled run only audits. Verify and Docker stack use Ubuntu, the Node version in `.node-version`, the pinned pnpm from `packageManager`, Chromium with its OS dependencies, and `HUSKY=0`. The stack job also installs a pinned Docker Compose release and checks its SHA-256, because the runner's plugin is older than the minimum in [Docker workflows](docker.md); update the version and checksum together. Failed runs upload Playwright traces, screenshots, and the HTML report; the stack job always uploads its measurement report. Actions are pinned to commit SHAs with the release in a comment; update both together.
 
+<!-- demo:start -->
+The **Demo removal** job runs `pnpm remove-demo` in a fresh checkout, then `pnpm verify` and `pnpm test:stack`, so every push proves that a project without the demo stays green. It uses the same setup as the stack job, is skipped on the weekly schedule, and uploads test results when it fails. `pnpm remove-demo` deletes this job and this paragraph.
+<!-- demo:end -->
+
 ## Checks and scenarios
 
 | Command | Coverage |
