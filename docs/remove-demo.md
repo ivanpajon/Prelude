@@ -24,6 +24,8 @@ Prelude ships with a task demo: a shared in-memory task list, the `/playground` 
 
 The command uses Node built-ins only and works on Windows and Linux. It never commits.
 
+`pnpm remove-demo --skip-checks` does the same, but skips `pnpm check` and `pnpm test` and says so at the end. It is meant for CI jobs whose checks already run in another job, like the **Demo removal** jobs in `.github/workflows/docker.yml`. If you use it, run `pnpm check` and `pnpm test` yourself before you commit: the command has already removed itself, so you fix any failure by hand.
+
 ## What it deletes
 
 - The task contract and procedures and the in-memory repository in `packages/contracts` and `packages/api`.
@@ -38,7 +40,7 @@ The command uses Node built-ins only and works on Windows and Linux. It never co
 - **Marked blocks.** Shared files wrap demo-only lines between a `demo:start` and a `demo:end` comment, each on its own line: `// demo:start` in code, `{/* demo:start */}` in JSX, `# demo:start` in YAML, and `<!-- demo:start -->` in Markdown. The command deletes each block, markers included. Examples are the playground links in the header and on the home page, the task fields in the API context, the OpenAPI description and `Tasks` tag, the MCP App registration, the widget builder in the development launcher and Compose Watch, and demo paragraphs in the README, `AGENTS.md`, and the guides. An unbalanced or nested marker stops the command before it writes anything.
 - **JSON files.** It removes the `Common.playground`, `Home.openPlayground`, and `Playground` messages, the `./widget` and `./limits` package exports, and the `@modelcontextprotocol/ext-apps`, `@modelcontextprotocol/core`, `use-intl`, `tsdown`, and `@tailwindcss/cli` dependencies, which only the demo imports. It also drops the widget step from the web build script and the widget input and output from `turbo.json`.
 
-Then, like `pnpm customize`, it runs `pnpm install` to update the lockfile, `pnpm fix` to format, and `pnpm check` and `pnpm test`. When they pass, it removes its own tooling and prints the next steps.
+Then, like `pnpm customize`, it runs `pnpm install` to update the lockfile, `pnpm fix` to format, and `pnpm check` and `pnpm test` (unless you pass `--skip-checks`). When they pass, it removes its own tooling and prints the next steps.
 
 All of this comes from one list at the top of `scripts/remove-demo.mjs`. Its unit test fails if a listed path no longer exists, or if a marker appears in a file that is not listed.
 

@@ -15,8 +15,10 @@ reinstalls, formats, checks and tests the project. When the checks pass, it
 also removes itself. It does not commit.
 
 Options:
-  --dry-run  List changes without writing files or running checks
-  --help     Show this help
+  --dry-run      List changes without writing files or running checks
+  --skip-checks  Reinstall and format, but skip pnpm check and pnpm test;
+                 run them yourself afterwards
+  --help         Show this help
 `;
 
 const enSite = "packages/i18n/src/messages/en/site.json";
@@ -143,6 +145,9 @@ export const demo = {
 
 /** The pnpm commands that run after the demo changes, in order. Install updates pnpm-lock.yaml. */
 export const commands = [["install", "--no-frozen-lockfile"], ["fix"], ["check"], ["test"]];
+
+/** The commands that --skip-checks leaves out, for CI jobs that run them in another job. */
+const checks = ["check", "test"];
 
 /** This command itself. It is removed last, after the checks pass, so a failed run can be repeated. */
 export const tooling = {
@@ -321,6 +326,9 @@ function printChanges(changes) {
 }
 
 export function removeDemo(directory, options = {}, run, lists = { demo, tooling }) {
+  const skipChecks = options["skip-checks"] === true;
+  const steps = skipChecks ? commands.filter(([name]) => !checks.includes(name)) : commands;
+  const skipped = `pnpm ${checks.join(" and pnpm ")}`;
   const plan = planRemoval(directory, lists.demo);
   printChanges(plan.changes);
   if (plan.changes.length === 0) {
@@ -332,7 +340,8 @@ export function removeDemo(directory, options = {}, run, lists = { demo, tooling
   }
   if (options["dry-run"]) {
     console.log("Then it would run these commands (install updates pnpm-lock.yaml):");
-    for (const args of commands) console.log(`  pnpm ${args.join(" ")}`);
+    for (const args of steps) console.log(`  pnpm ${args.join(" ")}`);
+    if (skipChecks) console.log(`It would skip ${skipped} (--skip-checks).`);
     console.log("When they pass, it would remove itself:");
     printChanges(planFiles(plan.root, lists.tooling));
     return plan;
@@ -350,7 +359,7 @@ export function removeDemo(directory, options = {}, run, lists = { demo, tooling
   applyChanges(plan.root, plan.changes);
   try {
     // Reinstall even on a rerun: a previous attempt may have stopped during installation.
-    for (const args of commands) execute(args);
+    for (const args of steps) execute(args);
   } catch (error) {
     throw new Error(
       `${error.message}\nThe demo changes remain for review. Fix the reported error and run pnpm remove-demo again to finish.`,
@@ -358,6 +367,10 @@ export function removeDemo(directory, options = {}, run, lists = { demo, tooling
     );
   }
   applyChanges(plan.root, planFiles(plan.root, lists.tooling));
+  if (skipChecks) {
+    console.log(`Demo removed. It skipped ${skipped} (--skip-checks); run them before you commit.`);
+    return plan;
+  }
   console.log(`Demo removed, and the checks pass. Next steps:
   1. Review the changes with git status and git diff.
   2. Commit them with git add -A and git commit -m "chore: remove the demo".
@@ -369,7 +382,11 @@ export function removeDemo(directory, options = {}, run, lists = { demo, tooling
 if (import.meta.main) {
   try {
     const { values } = parseArgs({
-      options: { "dry-run": { type: "boolean" }, help: { type: "boolean" } },
+      options: {
+        "dry-run": { type: "boolean" },
+        "skip-checks": { type: "boolean" },
+        help: { type: "boolean" },
+      },
       allowPositionals: false,
     });
     if (values.help) console.log(help);

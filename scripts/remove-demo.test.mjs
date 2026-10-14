@@ -297,6 +297,35 @@ describe("demo removal", () => {
     expect(console.log).toHaveBeenCalledWith("Nothing to remove: the demo is already gone.");
   });
 
+  it("skips only check and test with --skip-checks, says so, and still removes itself", () => {
+    const root = fixture();
+    const preview = vi.fn();
+    removeDemo(root, { "dry-run": true, "skip-checks": true }, preview, fixtureLists);
+    expect(preview).not.toHaveBeenCalled();
+    expect(console.log.mock.calls.map(([line]) => line).slice(-7)).toEqual([
+      "Then it would run these commands (install updates pnpm-lock.yaml):",
+      "  pnpm install --no-frozen-lockfile",
+      "  pnpm fix",
+      "It would skip pnpm check and pnpm test (--skip-checks).",
+      "When they pass, it would remove itself:",
+      "  delete scripts/remove-demo.mjs",
+      '  edit package.json: remove "remove-demo" from scripts',
+    ]);
+    const run = vi.fn();
+    removeDemo(root, { "skip-checks": true }, run, fixtureLists);
+    expect(run.mock.calls.map(([args]) => args)).toEqual([
+      ["install", "--no-frozen-lockfile"],
+      ["fix"],
+    ]);
+    for (const file of ["src/demo.ts", "tests/demo", "scripts/remove-demo.mjs"]) {
+      expect(existsSync(path.join(root, file)), file).toBe(false);
+    }
+    expect(JSON.parse(read(root, "package.json")).scripts).toEqual({ build: "next build" });
+    expect(console.log).toHaveBeenLastCalledWith(
+      "Demo removed. It skipped pnpm check and pnpm test (--skip-checks); run them before you commit.",
+    );
+  });
+
   it("refuses to start with uncommitted changes, so the result can be reviewed", () => {
     const root = fixture();
     write(root, "notes.txt", "work in progress\n");
