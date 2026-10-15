@@ -23,7 +23,9 @@ test("serves the standalone app, health, docs, MCP, and optimized images", async
   await page.goto("/");
   await page.getByRole("button", { name: "Move to end", exact: true }).click();
   await expect(page.getByText("Tile at the end.", { exact: true })).toBeVisible();
-  const image = await request.get("/_next/image?url=%2Fbranding%2Fprelude-logo.png&w=256&q=75");
+  const image = await request.get(
+    `/_next/image?url=${encodeURIComponent(site.logo.src)}&w=256&q=75`,
+  );
   expect(image.status()).toBe(200);
   expect(image.headers()["content-type"]).toMatch(/^image\//);
   expect((await image.body()).length).toBeGreaterThan(100);

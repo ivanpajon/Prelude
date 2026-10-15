@@ -19,10 +19,10 @@ export async function SiteHeader(
         aria-label={t("home")}
       >
         <Image
-          src="/branding/prelude-logo.png"
+          src={site.logo.src}
           alt={site.name}
-          width={2027}
-          height={776}
+          width={site.logo.width}
+          height={site.logo.height}
           className="h-auto w-36 sm:w-44"
           unoptimized
           preload
