@@ -14,7 +14,7 @@
   "offlineTitle": "No tienes conexión.",
   "offlineDescription": "Esta página necesita conexión. Los cambios que hagas sin conexión no se guardan. Vuelve a conectarte e inténtalo de nuevo.",
   "offlineAction": "Reintentar",
-  "offlineDocumentTitle": "Sin conexión — Prelude",
+  "offlineDocumentTitle": "Sin conexión",
   "manifestDescription": "Un punto de partida conectado para tu próximo proyecto.",
   "toastClose": "Cerrar notificación",
   "toastRegion": "Notificaciones"

@@ -14,7 +14,7 @@
   "offlineTitle": "You’re offline.",
   "offlineDescription": "This page needs a connection. Changes made while offline aren’t saved. Reconnect, then try again.",
   "offlineAction": "Try again",
-  "offlineDocumentTitle": "You’re offline — Prelude",
+  "offlineDocumentTitle": "You’re offline",
   "manifestDescription": "A connected starting point for your next project.",
   "toastClose": "Dismiss notification",
   "toastRegion": "Notifications"

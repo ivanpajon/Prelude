@@ -21,7 +21,7 @@ export function OfflineContent() {
     const selected = browserLocale(cookie, navigator.languages);
     setLocale(selected);
     document.documentElement.lang = selected;
-    document.title = getPwaMessages(selected).Pwa.offlineDocumentTitle;
+    document.title = `${getPwaMessages(selected).Pwa.offlineDocumentTitle} — ${site.name}`;
   }, []);
 
   return (

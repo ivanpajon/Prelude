@@ -86,7 +86,7 @@ Run `pnpm exec playwright install chromium` once before the browser checks. Husk
 
 ## Make it yours
 
-1. **Site identity.** Set the display name, slug, repository URL, and header logo in `apps/web/src/site.ts`. They feed the metadata, manifest, API reference, offline page, MCP server name, the label of the header's home link, and the footer link (leave the URL unset to hide it). Tests read these values from `site.ts`. Some translated texts still contain the name; change them in both `packages/i18n/src/messages/en` and `es`: `Home.metaTitle` in `site.json` and `offlineDocumentTitle` in `pwa.json`. Also replace the footer credit, `Common.footer` in `site.json` ("Made with ❤️ by Ivan Pajon"). Change other metadata in `apps/web/src/app/[routingMode]/[locale]/layout.tsx` and the manifest colors in `apps/web/src/app/manifest.ts`.
+1. **Site identity.** Set the display name, slug, repository URL, and header logo in `apps/web/src/site.ts`. They feed the metadata, manifest, API reference, offline page, MCP server name, the label of the header's home link, and the footer link (leave the URL unset to hide it). Tests read these values from `site.ts`. One translated text still contains the name: `Home.metaTitle` in `packages/i18n/src/messages/en/site.json` and `es/site.json`. Also replace the footer credit, `Common.footer` in `site.json` ("Made with ❤️ by Ivan Pajon"). Change other metadata in `apps/web/src/app/[routingMode]/[locale]/layout.tsx` and the manifest colors in `apps/web/src/app/manifest.ts`.
 
    <!-- demo:start -->
    The demo's texts contain the name too: `Playground` in `site.json` and the MCP App texts in `widget.json`. `pnpm remove-demo` deletes them.

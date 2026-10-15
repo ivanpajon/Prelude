@@ -2,6 +2,7 @@ import type { Locale } from "@repo/i18n";
 import { getMessages } from "@repo/i18n/messages";
 import { createTranslator } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
+import { site } from "@/site";
 import { generateMetadata as catchAllMetadata } from "./[...rest]/page";
 import { generateMetadata } from "./not-found";
 
@@ -13,8 +14,8 @@ vi.mock("next-intl/server", () => ({
 
 describe("not-found metadata", () => {
   it.each([
-    ["en", "A fresh direction — Prelude"],
-    ["es", "Un nuevo rumbo — Prelude"],
+    ["en", `A fresh direction — ${site.name}`],
+    ["es", `Un nuevo rumbo — ${site.name}`],
   ] as const)("gives the %s page its own title", async (current, title) => {
     locale.current = current;
     const metadata = await generateMetadata();
