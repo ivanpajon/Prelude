@@ -23,6 +23,10 @@ on:
       - scripts/test-stack.mjs
       - playwright.stack.config.ts
       - "tests/stack/**"
+      # Shared helpers that the stack specs import.
+      - "tests/*.ts"
+      - "apps/web/src/testing/**"
+      - apps/web/src/lib/api-info.ts
       # The stack test edits these files to check rebuild caching and live reload.
       - apps/web/src/site.ts
       - apps/web/src/components/site-header.tsx
@@ -33,10 +37,11 @@ on:
       - packages/i18n/src/messages/en/widget.json
       - scripts/build-mcp-apps.mjs
       - scripts/remove-demo.mjs
+      # Helpers that the demo's stack specs import.
+      - "tests/demo/**"
       # Demo removal runs the browser suites, which the quick job in ci.yml skips.
       - "tests/e2e/**"
       - "tests/dev/**"
-      - "tests/*.ts"
       - playwright.config.ts
       - playwright.dev.config.ts
       # demo:end
