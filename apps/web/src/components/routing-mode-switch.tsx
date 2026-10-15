@@ -10,11 +10,11 @@ export function RoutingModeSwitch() {
   const t = useTranslations("Common");
   const { mode, disabled, pending, failure, changeMode } = useRoutingPreference();
   const switchId = useId();
-  if (!ROUTING_DEMO_ENABLED) return <span>{t("internationalization")}</span>;
+  if (!ROUTING_DEMO_ENABLED) return null;
   return (
     <div className="flex flex-col items-end gap-1">
-      <div className="flex min-h-8 items-center gap-2 text-xs">
-        <label htmlFor={switchId} className="cursor-pointer py-2">
+      <div className="flex items-center gap-2 text-xs whitespace-nowrap text-foreground sm:text-sm">
+        <label htmlFor={switchId} className="cursor-pointer py-1">
           {t("languageInUrl")}
         </label>
         <Switch

@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { site } from "@/site";
 import { LanguageSelector } from "./language-selector";
+import { RoutingModeSwitch } from "./routing-mode-switch";
 
 export async function SiteHeader(
   // demo:start
@@ -16,7 +17,7 @@ export async function SiteHeader(
       <Link
         href="/"
         className="shrink-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-        aria-label={t("home")}
+        aria-label={t("home", { name: site.name })}
       >
         <Image
           src={site.logo.src}
@@ -58,6 +59,7 @@ export async function SiteHeader(
           <span className="sr-only">{t("newTab")}</span>
         </a>
         <LanguageSelector />
+        <RoutingModeSwitch />
       </nav>
     </header>
   );

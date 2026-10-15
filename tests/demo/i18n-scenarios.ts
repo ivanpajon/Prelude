@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
+import { site } from "../../apps/web/src/site";
 import { waitForHydration } from "../hydration";
+import { homeLinkName } from "../page-state";
 
 /** Task demo localization scenarios. The shared scenarios are in ../i18n-scenarios.ts. */
 export function demoLocalizationAcceptance() {
@@ -14,7 +16,7 @@ export function demoLocalizationAcceptance() {
     await page.getByRole("button", { name: "Discover tools", exact: true }).click();
     const argumentsDraft = '{"status":"active"}';
     await page.getByRole("textbox", { name: "Arguments JSON", exact: true }).fill(argumentsDraft);
-    await page.getByRole("link", { name: "Prelude home", exact: true }).click();
+    await page.getByRole("link", { name: homeLinkName.en, exact: true }).click();
     await expect(page).toHaveURL((url) => url.pathname === "/en");
     const documentId = await page.evaluate(() => {
       const id = crypto.randomUUID();
@@ -29,7 +31,7 @@ export function demoLocalizationAcceptance() {
     await page.keyboard.press("Space");
     await expect(page).toHaveURL(/\/\?preview=1#main-content$/);
     await expect(mode).not.toBeChecked();
-    await expect(page.getByRole("link", { name: "Open playground", exact: true })).toHaveAttribute(
+    await expect(page.getByRole("link", { name: "Playground", exact: true })).toHaveAttribute(
       "href",
       "/playground",
     );
@@ -147,7 +149,7 @@ export function demoLocalizationAcceptance() {
     await selector.selectOption("es");
     await expect(page.locator("html")).toHaveAttribute("lang", "es");
     await expect(page).toHaveURL(/\/es\/playground\?status=active#mcp$/);
-    await expect(page).toHaveTitle("Zona de pruebas — Prelude");
+    await expect(page).toHaveTitle(`Zona de pruebas — ${site.name}`);
     await expect(page.getByRole("button", { name: "Pendientes", exact: true })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -162,20 +164,18 @@ export function demoLocalizationAcceptance() {
     await page.reload();
     await waitForHydration(page);
     await expect(page.locator("html")).toHaveAttribute("lang", "es");
-    await page.getByRole("link", { name: "Inicio de Prelude", exact: true }).click();
+    await page.getByRole("link", { name: homeLinkName.es, exact: true }).click();
     await expect(page).toHaveURL((url) => url.pathname === "/es");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-      /Menos configuración\.\s*Más creación\./,
-    );
-    await expect(page.getByText("Aplicación", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Guardar idea", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Idea guardada", exact: true })).toHaveAttribute(
-      "aria-pressed",
-      "true",
+    await expect(page.getByRole("link", { name: "Zona de pruebas", exact: true })).toHaveAttribute(
+      "href",
+      "/es/playground",
     );
     await page.getByRole("combobox", { name: "Idioma", exact: true }).selectOption("en");
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
-    await expect(page.getByText("Application", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Playground", exact: true })).toHaveAttribute(
+      "href",
+      "/en/playground",
+    );
     await expect(page).toHaveURL((url) => url.pathname === "/en");
   });
 

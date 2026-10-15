@@ -5,6 +5,7 @@ const browserSpecs = [
   "app.spec.ts",
   "openapi.spec.ts",
   "i18n.spec.ts",
+  "animation-examples.spec.ts",
   // demo:start
   "mcp-playground.spec.ts",
   // demo:end

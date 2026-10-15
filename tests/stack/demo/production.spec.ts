@@ -26,7 +26,7 @@ test("serves the playground, REST, MCP tools, and the task App resource", async 
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
-  await page.getByRole("link", { name: "Open playground", exact: true }).click();
+  await page.getByRole("link", { name: "Playground", exact: true }).click();
   await expect(page).toHaveURL(/\/playground$/);
   await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
   const playground = page.getByRole("region", {

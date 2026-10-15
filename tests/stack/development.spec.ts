@@ -5,6 +5,7 @@ import { site } from "../../apps/web/src/site";
 import { expectedToolNames } from "../../apps/web/src/testing/mcp-tool-names";
 import { waitForHydration } from "../hydration";
 import { localizationAcceptance } from "../i18n-scenarios";
+import { documentMark, markDocument } from "../page-state";
 import { ownedContext } from "./owned-context";
 
 localizationAcceptance();
@@ -32,11 +33,6 @@ test("does not attempt service-worker registration when the browser allows it", 
     await page.goto("/");
     await waitForHydration(page);
     expect(await page.evaluate(() => "serviceWorker" in navigator)).toBe(true);
-    await page.getByRole("button", { name: "Save idea", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Idea saved", exact: true })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
     // Observe provider effects after hydration, without suppressing registrations.
     await page.evaluate(
       () =>
@@ -95,22 +91,24 @@ test("syncs app and shared-package changes with HMR while preserving browser sta
 }) => {
   if (!baseURL) throw new Error("Missing isolated development URL");
   const context = await ownedContext();
-  const component = path.join(context, "apps/web/src/components/site-footer.tsx");
+  // The header is on every page and carries the language controls, so projects keep it.
+  const component = path.join(context, "apps/web/src/components/site-header.tsx");
   const stylesheet = path.join(context, "packages/ui/src/styles/globals.css");
   const originalComponent = await readFile(component, "utf8");
   const originalStylesheet = await readFile(stylesheet, "utf8");
   const marker = `Stack HMR ${crypto.randomUUID()}`;
-  expect(originalComponent).toContain('{t("footer")}');
+  expect(originalComponent).toContain("</header>");
   await page.goto("/");
   await waitForHydration(page);
-  // Confirm the client island handles events before relying on its state.
-  await page.getByRole("button", { name: "Save idea", exact: true }).click();
-  const saved = page.getByRole("button", { name: "Idea saved", exact: true });
-  await expect(saved).toHaveAttribute("aria-pressed", "true");
+  // HMR keeps the document, so this mark survives every update below.
+  const mark = await markDocument(page);
   try {
-    await writeFile(component, originalComponent.replace('{t("footer")}', marker));
+    await writeFile(
+      component,
+      originalComponent.replace("</header>", `<p>${marker}</p>\n</header>`),
+    );
     await expect(page.getByText(marker, { exact: true })).toBeVisible();
-    await expect(saved).toHaveAttribute("aria-pressed", "true");
+    expect(await documentMark(page)).toBe(mark);
     await writeFile(stylesheet, `${originalStylesheet}\nbody { --stack-watch-probe: ready; }\n`);
     await expect
       .poll(() =>
@@ -119,7 +117,7 @@ test("syncs app and shared-package changes with HMR while preserving browser sta
         ),
       )
       .toBe("ready");
-    await expect(saved).toHaveAttribute("aria-pressed", "true");
+    expect(await documentMark(page)).toBe(mark);
   } finally {
     await Promise.all([
       writeFile(component, originalComponent),

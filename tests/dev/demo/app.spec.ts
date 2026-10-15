@@ -10,15 +10,7 @@ test("development playground rendering and reloads have no framework errors", as
 
   await page.goto("/");
   await waitForHydration(page);
-  await page.getByRole("button", { name: "Move to end", exact: true }).click();
-  await expect(page.getByText("Tile at the end.", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Save idea", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Idea saved", exact: true })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-
-  await page.getByRole("link", { name: "Open playground", exact: true }).click();
+  await page.getByRole("link", { name: "Playground", exact: true }).click();
   await expect(page).toHaveURL(/\/playground$/);
   await page.reload();
   await waitForHydration(page);

@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { site } from "../../apps/web/src/site";
 import { localizationAcceptance } from "../i18n-scenarios";
+import { homeLinkName } from "../page-state";
 
 localizationAcceptance();
 
@@ -22,9 +23,13 @@ test("isolates server-rendered language and negotiates only unprefixed entries",
     for (const [index, page] of pages.entries()) {
       await expect(page.locator("html")).toHaveAttribute("lang", index === 0 ? "es" : "en");
       await expect(page).toHaveURL(`${baseURL}/${index === 0 ? "es" : "en"}`);
-      await expect(page.getByRole("heading", { level: 1, includeHidden: true })).toHaveText(
-        index === 0 ? /Menos configuración/ : /Less setup/,
-      );
+      await expect(
+        page.getByRole("combobox", {
+          name: index === 0 ? "Idioma" : "Language",
+          exact: true,
+          includeHidden: true,
+        }),
+      ).toHaveCount(1);
     }
     const spanish = contexts[0];
     const page = pages[0];
@@ -77,7 +82,7 @@ for (const locale of ["en", "es"] as const) {
         else await expect(toggle).not.toBeChecked();
         await expect(
           page.getByRole("link", {
-            name: locale === "en" ? "Prelude home" : "Inicio de Prelude",
+            name: homeLinkName[locale],
             exact: true,
             includeHidden: true,
           }),

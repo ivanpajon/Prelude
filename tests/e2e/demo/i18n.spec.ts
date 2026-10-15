@@ -24,7 +24,7 @@ for (const locale of ["en", "es"] as const) {
         await expect(page.locator("html")).toHaveAttribute("lang", locale);
         await expect(
           page.getByRole("link", {
-            name: locale === "en" ? "Open playground" : "Abrir zona de pruebas",
+            name: locale === "en" ? "Playground" : "Zona de pruebas",
             exact: true,
             includeHidden: true,
           }),

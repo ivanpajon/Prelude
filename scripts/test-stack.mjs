@@ -702,7 +702,7 @@ try {
     const cached = await build("production", "production-unchanged");
     assert(cached.dependencyCacheHit, "Unchanged build must reuse dependency installation");
     assert(cached.compilationCacheHit, "Unchanged build must reuse Next.js compilation");
-    const changedSource = path.join(context, "apps/web/src/components/animation-examples.tsx");
+    const changedSource = path.join(context, "apps/web/src/site.ts");
     const original = await readFile(changedSource, "utf8");
     await writeFile(changedSource, `${original}\n// isolated stack source-cache probe\n`);
     const changed = await build("production", "production-source-change");
