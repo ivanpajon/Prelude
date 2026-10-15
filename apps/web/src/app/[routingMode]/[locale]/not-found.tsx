@@ -1,5 +1,14 @@
+import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
+import { site } from "@/site";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("Errors");
+  // Drop the heading's final period: "A fresh direction — Prelude".
+  const title = t("notFoundTitle").replace(/\.$/, "");
+  return { title: `${title} — ${site.name}`, description: t("notFoundDescription") };
+}
 
 export default async function NotFound() {
   const t = await getTranslations("Errors");
