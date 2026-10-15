@@ -6,7 +6,6 @@ import { OpenAPIGenerator } from "@orpc/openapi";
 import { implement } from "@orpc/server";
 import { type } from "arktype";
 import { describe, expect, it, vi } from "vitest";
-import { site } from "@/site";
 import {
   createNoteStore,
   type FixtureContext,
@@ -17,6 +16,7 @@ import {
   type NoteStore,
   noteTextMaxLength,
 } from "@/testing/fixture-api";
+import { apiInfo } from "./api-info";
 import { createOpenApi, DirectionalArkTypeConverter } from "./openapi";
 import { createRpc } from "./rpc";
 
@@ -218,7 +218,7 @@ describe("OpenAPI HTTP adapter", () => {
     expect(response.headers.get("Content-Type")).toContain("text/html");
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     const html = await response.text();
-    expect(html).toContain(`<title>${site.name} API Reference</title>`);
+    expect(html).toContain(`<title>${apiInfo.title} Reference</title>`);
     expect(html).toContain(
       'src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.72.1/dist/browser/standalone.js"',
     );
@@ -250,7 +250,7 @@ describe("OpenAPI HTTP adapter", () => {
     expect(await empty.generateSpec()).toMatchObject({ paths: {} });
     const docs = await empty.handle(new Request("http://localhost/api/docs"), context());
     expect(docs.status).toBe(200);
-    expect(await docs.text()).toContain(`<title>${site.name} API Reference</title>`);
+    expect(await docs.text()).toContain(`<title>${apiInfo.title} Reference</title>`);
     const missing = await empty.handle(new Request("http://localhost/api/anything"), context());
     expect(missing.status).toBe(404);
   });

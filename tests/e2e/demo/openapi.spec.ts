@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { site } from "../../../apps/web/src/site";
+import { apiInfo } from "../../../apps/web/src/lib/api-info";
 
 const scalarScript =
   "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.72.1/dist/browser/standalone.js";
@@ -26,7 +26,7 @@ test("searches task operations in the pinned Scalar reference on a narrow screen
   const renderer = page.waitForResponse(scalarScript);
   await page.goto("/api/docs");
   expect((await renderer).ok()).toBe(true);
-  await expect(page.getByRole("heading", { name: `${site.name} API`, exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: apiInfo.title, exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Open Menu", exact: true }).click();
   await page.getByRole("button", { name: /Open Search/ }).click();

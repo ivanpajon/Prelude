@@ -24,7 +24,7 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export const viewport: Viewport = { themeColor: "#20382a" };
+export const viewport: Viewport = { themeColor: site.colors.theme };
 
 export function generateStaticParams() {
   return routingModes.flatMap((routingMode) => locales.map((locale) => ({ routingMode, locale })));

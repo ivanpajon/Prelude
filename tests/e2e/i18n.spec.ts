@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { site } from "../../apps/web/src/site";
+import { apiInfo } from "../../apps/web/src/lib/api-info";
 import { localizationAcceptance } from "../i18n-scenarios";
 import { homeLinkName } from "../page-state";
 
@@ -164,6 +164,6 @@ test("localizes the dynamic manifest while keeping API responses language-neutra
     request.get("/api/openapi.json", { headers: { "accept-language": "es" } }),
   ]);
   const spec = await esSpec.json();
-  expect(spec.info.title).toBe(`${site.name} API`);
+  expect(spec.info.title).toBe(apiInfo.title);
   expect(spec).toEqual(await enSpec.json());
 });

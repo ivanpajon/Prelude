@@ -14,8 +14,8 @@ import { type AnyRouter, type InferRouterInitialContext, ORPCError, onError } fr
 import { BodyLimitPlugin } from "@orpc/server/fetch";
 import { router } from "@repo/api";
 import type { Type } from "arktype";
-import { site } from "@/site";
 import { logUnexpectedApiError, logUnexpectedHandlerErrors } from "./api-errors";
+import { apiInfo } from "./api-info";
 import { plainRequest } from "./plain-request";
 
 /** oRPC 1.15.4's converter does not select the input/output side of ArkType morphs. */
@@ -100,7 +100,7 @@ export function createOpenApi<TRouter extends AnyRouter>(
         docsPath: "/docs",
         specPath: "/openapi.json",
         docsProvider: "scalar",
-        docsTitle: `${site.name} API Reference`,
+        docsTitle: `${apiInfo.title} Reference`,
         // Pin the renderer separately: the oRPC package version does not pin this CDN asset.
         docsScriptUrl:
           "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.72.1/dist/browser/standalone.js",
@@ -159,8 +159,7 @@ export function createOpenApi<TRouter extends AnyRouter>(
 
 const openApi = createOpenApi(router, {
   info: {
-    title: `${site.name} API`,
-    version: "1.0.0",
+    ...apiInfo,
     // demo:start
     description:
       "Public, shared, in-memory demo tasks. Changes affect every visitor on this server instance and reset when it restarts. Reload or refetch the workbench to see changes made here.",

@@ -1,3 +1,4 @@
+import { getPwaMessages } from "@repo/i18n/pwa";
 import { describe, expect, it, vi } from "vitest";
 import { site } from "@/site";
 import manifest from "./manifest";
@@ -12,8 +13,8 @@ describe("localized installation manifest", () => {
     const spanish = await manifest();
     expect(english.lang).toBe("en");
     expect(spanish.lang).toBe("es");
-    expect(english.description).toBe("A connected starting point for your next project.");
-    expect(spanish.description).toBe("Un punto de partida conectado para tu próximo proyecto.");
+    expect(english.description).toBe(getPwaMessages("en").Pwa.manifestDescription);
+    expect(spanish.description).toBe(getPwaMessages("es").Pwa.manifestDescription);
     for (const result of [english, spanish]) {
       expect(result).toMatchObject({
         id: "/",
@@ -23,6 +24,8 @@ describe("localized installation manifest", () => {
         scope: "/",
         dir: "ltr",
         display: "standalone",
+        theme_color: site.colors.theme,
+        background_color: site.colors.background,
       });
     }
     expect(spanish.icons).toEqual(english.icons);

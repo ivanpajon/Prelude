@@ -8,6 +8,7 @@ const site = vi.hoisted(
     name: "Acme",
     slug: "acme",
     logo: { src: "/branding/logo.png", width: 100, height: 40 },
+    colors: { theme: "#000000", background: "#ffffff" },
   }),
 );
 vi.mock("@/site", () => ({ site }));
