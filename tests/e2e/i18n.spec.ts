@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { site } from "../../apps/web/src/site";
 import { localizationAcceptance } from "../i18n-scenarios";
 
 localizationAcceptance();
@@ -76,11 +77,11 @@ for (const locale of ["en", "es"] as const) {
         else await expect(toggle).not.toBeChecked();
         await expect(
           page.getByRole("link", {
-            name: locale === "en" ? "Open playground" : "Abrir zona de pruebas",
+            name: locale === "en" ? "Prelude home" : "Inicio de Prelude",
             exact: true,
             includeHidden: true,
           }),
-        ).toHaveAttribute("href", mode === "always" ? `/${locale}/playground` : "/playground");
+        ).toHaveAttribute("href", mode === "always" ? `/${locale}` : "/");
       } finally {
         await context.close();
       }
@@ -133,7 +134,7 @@ test("keeps explicit URLs deterministic and hidden variants private without expo
   expect(await missing.text()).toContain('name="robots" content="noindex"');
 });
 
-test("localizes the dynamic manifest while preserving API identifiers and task data", async ({
+test("localizes the dynamic manifest while keeping API responses language-neutral", async ({
   request,
 }) => {
   const [english, spanish] = await Promise.all([
@@ -148,41 +149,16 @@ test("localizes the dynamic manifest while preserving API identifiers and task d
   for (const key of ["id", "name", "short_name", "start_url", "scope", "icons"])
     expect(es[key]).toEqual(en[key]);
   expect(spanish.headers()["cache-control"]).toContain("no-store");
-  const [enTasks, esTasks] = await Promise.all([
-    request.get("/api/v1/tasks?status=all", { headers: { "accept-language": "en" } }),
-    request.get("/api/v1/tasks?status=all", { headers: { "accept-language": "es" } }),
+  const [enHealth, esHealth] = await Promise.all([
+    request.get("/api/health", { headers: { "accept-language": "en" } }),
+    request.get("/api/health", { headers: { "accept-language": "es" } }),
   ]);
-  expect(await enTasks.json()).toEqual(await esTasks.json());
-  const spec = await (
-    await request.get("/api/openapi.json", { headers: { "accept-language": "es" } })
-  ).json();
-  expect(spec.info.title).toBe("Prelude API");
-  expect(spec.paths["/v1/tasks"].get.operationId).toBe("listTasks");
-});
-
-test("hydrates Spanish tasks without immediately fetching them again", async ({
-  browser,
-  baseURL,
-}) => {
-  const context = await browser.newContext({ locale: "es-ES" });
-  try {
-    const page = await context.newPage();
-    const requests: string[] = [];
-    const errors: string[] = [];
-    page.on("request", (request) => {
-      if (/\/api\/rpc\/tasks\/list/.test(request.url())) requests.push(request.url());
-    });
-    page.on("pageerror", (error) => errors.push(error.message));
-    await page.goto(`${baseURL}/playground`);
-    await expect(page.getByRole("list", { name: "Tareas", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Vista compacta", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Vista compacta", exact: true })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    expect(requests).toEqual([]);
-    expect(errors).toEqual([]);
-  } finally {
-    await context.close();
-  }
+  expect(await enHealth.json()).toEqual(await esHealth.json());
+  const [enSpec, esSpec] = await Promise.all([
+    request.get("/api/openapi.json", { headers: { "accept-language": "en" } }),
+    request.get("/api/openapi.json", { headers: { "accept-language": "es" } }),
+  ]);
+  const spec = await esSpec.json();
+  expect(spec.info.title).toBe(`${site.name} API`);
+  expect(spec).toEqual(await enSpec.json());
 });

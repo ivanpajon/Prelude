@@ -5,11 +5,27 @@ packages:
 allowBuilds:
   # Published Inspector assets are prebuilt; its postinstall is for source checkouts.
   '@modelcontextprotocol/inspector': false
-  # Tailwind CLI uses the published platform binaries, not a local node-gyp build.
+  # The published platform binaries are used, not a local node-gyp build.
   '@parcel/watcher': false
   '@swc/core': true
   esbuild: true
 
+auditConfig:
+  # braces <=3.0.3 has no patched release (GHSA-vfj7-8cjw-p6xm: a stack overflow from deeply
+  # nested brace patterns). Only build and development tools reach it. The production path is
+  # @parcel/watcher, the file watcher in next-intl; development tools such as the shadcn CLI
+  # reach it too. Their glob patterns come from this repository, not from requests, and the
+  # production image ships only the Next.js standalone output, which does not include braces.
+  # Remove this entry when a patched release ships.
+  ignoreGhsas:
+    - GHSA-vfj7-8cjw-p6xm
+
 engineStrict: true
+
+overrides:
+  # @serwist/next 9.5.12 pins browserslist 4.28.6 (GHSA-c83g-rgw3-j3cx, GHSA-73wf-gq98-2v4g).
+  # 9.5.13 depends on ^4.29.3; this override stops matching once Renovate updates Serwist.
+  '@serwist/next@9.5.12>browserslist': 4.29.3
+
 saveExact: true
 strictPeerDependencies: true

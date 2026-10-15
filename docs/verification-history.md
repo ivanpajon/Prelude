@@ -1,0 +1,216 @@
+# Verification history
+
+Dated results of the template's own verification runs, newest first; [verification](verification.md) describes the checks themselves. Each record describes the source, tests, and routes at the time it was written. Runs that mention a Node slim runtime predate the removal of that measurement-only target.
+
+## Starter readiness
+
+Verified on 2026-10-14 with Node 26.10.0 and pnpm 12.6.0 on Windows. This round updated Next.js to 16.4.0 and added Renovate, the CI audit, environment validation, server error logging, `/api/health`, a global error page, `pnpm dev:app`, `pnpm remove-demo` with its CI job, and this documentation split. Infrastructure tests no longer depend on the task demo.
+
+- During the round, `pnpm test:dev` failed now and then on the first click after a cold page load, before hydration. The browser tests now wait for hydration first.
+- After the review fixes (commit `26ca000`), `pnpm verify` passed: Biome, strict TypeScript, 523 unit/component/script tests in 48 files with coverage, 16 development and 124 production browser scenarios, the build, and cache restoration. Its first run failed once in the MCP App watcher test; the fix is described below. `pnpm test:stack` passed every acceptance check: `production`, `runtimeMcpToggleWithoutBuild`, `developmentInspectorAndHmr`, `developmentMcpAppSandbox`, `manifestWatchRebuild`, `hostSourceUnchanged`, `developmentHealthyWithoutMcp`, and `cleanup`. Production samples were healthy in about 2.0-2.3 s, with about 116-121 MiB idle RSS, a 32-46 ms p95, and a 235 MB unpacked / 75 MB gzip image.
+- In a copy, `pnpm remove-demo`, `pnpm verify` (302 unit tests in 31 files, 6 development and 52 production browser scenarios), and `pnpm test:stack` passed. In another copy, `pnpm customize --name acme-app --scope @acme` and `pnpm build` passed. `pnpm dev:app` and `pnpm mcp:check` were not rerun at this commit; they last ran in a remove-demo copy earlier in the round.
+
+Final fixes, verified on the same day at commit `e4c26aa`:
+
+- The watcher test failure was a Windows rename error: replacing the widget HTML fails with EPERM while another process reads it, and the test polls that file. The rebuild failed and the edit was lost until the next one. The output swap now retries briefly. Before the fix, a timing script lost 1 of 240 rebuilds under load; after it, 0 of 600. The watcher test file passed 25 of 25 and then 20 of 20 runs in a row while the coverage suite ran in a loop.
+- `pnpm audit --prod --audit-level high` exits 0 without changing the tree. The only production advisory, braces GHSA-vfj7-8cjw-p6xm, has no fix and is ignored in `pnpm-workspace.yaml` with its reason; a standalone build contains no braces. MCP Inspector 2.10.1 removed the vulnerable `@modelcontextprotocol/client` 2.0.0, and `pnpm audit` with development dependencies reports only the ignored braces advisory. `pnpm remove-demo --dry-run` lists the follow-up commands and left the tree clean.
+- `pnpm check`, `pnpm test` (525 tests in 48 files), and `pnpm verify` (16 development and 124 production browser scenarios) passed. `pnpm test:stack` passed all eight acceptance checks, healthy in about 2.1-2.5 s, with about 113-117 MiB idle RSS, a 38-39 ms p95, and a 235 MB unpacked / 75 MB gzip image.
+- In a fresh copy, `pnpm remove-demo` changed 85 paths and passed its checks; `pnpm verify` (302 unit tests in 31 files, 6 development and 52 production browser scenarios) and `pnpm test:stack` (seven acceptance checks, without the demo's App sandbox check; healthy in about 1.9-2.0 s, 230 MB unpacked / 74 MB gzip) passed.
+- This record does not cover GitHub Actions, a Linux CI rehearsal, React Doctor, or the create-next-app workflow.
+
+Review fixes, verified on the same day at commit `c3892bc`:
+
+- The shadcn CLI is now a development dependency of `@repo/ui`, so `pnpm why braces -r --prod` shows only next-intl's `@parcel/watcher`. `pnpm audit --prod --audit-level high` still exits 0 with the braces advisory ignored, and the reason now holds without the demo.
+- `pnpm check`, `pnpm test` (525 tests in 48 files), and `pnpm verify` (16 development and 124 production browser scenarios) passed. `pnpm test:stack` was not rerun; the Dockerfile and Compose files did not change.
+- In a fresh copy, `pnpm remove-demo` changed 85 paths and passed its checks, then `pnpm check` and `pnpm test` (302 tests in 31 files) passed. `pnpm dev:app` started without the Inspector, and `pnpm mcp:check` listed 0 tools. In another copy, `pnpm customize --name acme-app --scope @acme` and `pnpm build` passed.
+
+## Security headers and CI
+
+Verified on 2026-10-13 with Node 26.10.0 and pnpm 12.6.0:
+
+- On Windows, the complete `pnpm verify` workflow passed: Biome, strict TypeScript, 402 unit/component/script tests with coverage, 10 development browser scenarios, 88 production browser scenarios, and byte-for-byte widget/service-worker cache restoration. `pnpm test:stack` passed (run `prelude-stack-80402474`); a production sample was ready in 1.4 s and healthy in 2.2 s, with about 140 MB RSS and a 30 ms p95.
+- The CI **Verify** job's steps passed in a clean `node:26.10.0-trixie-slim` container with the same results and no leftover processes. The first Linux rehearsal hung after both browser suites: pnpm runs scripts in their own process group, so Playwright's shutdown orphaned the servers. Both Playwright configurations now start their servers directly and stop them with SIGTERM.
+- The new production browser case checks page and API headers and fails on Content Security Policy violations. It failed as expected when `'unsafe-inline'` was removed from `script-src`, because Next.js starts prerendered pages with inline scripts.
+
+On the first GitHub Actions run, **Verify** passed. **Docker stack** passed its production builds and runtime samples, then failed to start the development stack: the runner's Compose 2.38.2 rejects `initial_sync`. The job now installs Compose 5.6.0, the version used locally.
+
+## Interactive locale routing
+
+Verified on 2026-09-30 with Node 26.10.0 and pnpm 12.6.0:
+
+- Frozen installation, Biome, strict TypeScript, and all 404 unit/component/script tests with coverage passed.
+- All 10 native development scenarios passed, including real Inspector/MCP App workflows and routing transitions that preserve task and MCP drafts.
+- Production browser coverage passed across desktop, mobile, and PWA. The initial 80-case run passed 77 cases; two aggregate SSR checks exceeded their 30-second budget while Docker profiling ran concurrently, and one toast selector matched an inactive Activity tree. The four SSR variants now run as separate cases, the concurrent-language scenario has an explicit 60-second budget, and the toast assertion targets the visible notification. All 11 affected desktop/mobile/PWA cases passed on rerun, covering the final 86-case suite together with the preceding successful checks.
+- The production build confirms all four internal homepage variants have complete static documents. `pnpm test:cache` asserts this and verifies byte-for-byte restoration of the service worker and MCP App HTML.
+- `pnpm test:stack` passed with three runtime samples per image: 12 distroless production, 12 Node-slim production, and 11 development browser scenarios. Runtime checks, dependency-layer reuse, cached builds, manifest-triggered rebuilds, host-source preservation, and owned-resource cleanup passed. The ignored report is `test-results/stack/report.json` (run `prelude-stack-eeaaa609`).
+
+`pnpm verify` ran the checks through production browser coverage; after the test corrections, focused browser reruns, `pnpm check`, and `pnpm test:cache` completed verification. The native preview was restored afterward. Routing tests cover fixed policies, session overrides, canonical prefix precedence, private hidden responses, pre-hydration links/controls, accessible switching, browser history, and localized missing pages. PWA acceptance confirms the actual controller object and dismissal state survive mode transitions without granting update approval.
+
+## Localization pattern review
+
+Verified on 2026-09-30 with Node 26.10.0 and pnpm 12.6.0: Biome, strict TypeScript, all 364 unit/component/script tests, four focused development browser scenarios, 14 focused production browser scenarios, the production build, and byte-for-byte widget/service-worker cache restoration passed. HTTP acceptance now checks the actual relative `Location` returned for explicit locale prefixes. Language-switching checks retain drafts, errors, filters, hashes, and browser history.
+
+An isolated production Compose stack passed five routing checks with different public/internal ports: English home, Spanish filtered playground, HTTPS-forwarded rewrites, relative prefix removal, and localized missing routes with `noindex`. Its containers, image, network, and port were released. These are focused routing/hydration regression checks; the broader localization acceptance results below describe the preceding implementation.
+
+The review removed redundant URL-header repair from the proxy. The documented `skipProxyUrlNormalize` workaround remains for the pinned framework's loopback-origin issue, and the terminal localized 404 catchall retains its narrowly scoped `instant` exemption. The selector keeps the server/client snapshot readiness guard, with explicit names and rationale. See [localization](i18n.md) for the framework references and upgrade considerations.
+
+React Doctor completed full scans of both configured packages without skipped checks. It reported zero errors and no findings on the reviewed patterns; 11 advisory warnings remain elsewhere. The public language-cookie action's authentication false positive and the intentional offline full-navigation link have documented, rule-specific exceptions in [diagnostics](diagnostics.md#scoped-exceptions).
+
+## Localization checks
+
+Verified on 2026-09-30 (Europe/Madrid) with Node 26.10.0 and pnpm 12.6.0 on Windows: frozen installation and the complete `pnpm verify` workflow passed, including Biome, strict TypeScript, 364 unit/component/script tests across 32 files with coverage, eight native development browser scenarios, 72 production browser scenarios, the production build, and byte-for-byte Turbo restoration of the widget HTML and service worker.
+
+Coverage includes English/Spanish browser detection and saved-cookie precedence, catalog parity and ICU formatting, concurrent request-isolated SSR, localized metadata and manifest identity, hydration without duplicate fetching, stable public URLs and browser filter history, and drafts/errors/pending actions surviving locale changes. The real Inspector renders both widget languages and exercises mutations; host-language changes preserve its connection, drafts, filter, and initial query data. Production PWA checks cover translated update notices, dismissal and per-tab approval, plus a precached offline fallback that selects bundled translations without network access. API identifiers, descriptions, JSON output, and task content retain their original values.
+
+`pnpm test:stack --samples 1` passed all 29 container browser scenarios: ten on the distroless runtime, ten on the slim baseline, and nine on the development stack. Checks include standalone locale rewrites and public-origin redirects, runtime MCP toggling, dependency-layer reuse, cached unchanged builds, authenticated Inspector widgets, Fast Refresh draft preservation, shared-theme/catalog rebuilds, manifest-triggered container rebuilding, unchanged host source, and process/port cleanup. This sequential functional regression run uses one runtime sample per image and does not establish a new performance baseline.
+
+See [localization](i18n.md) for adding catalogs, cache ownership, state lifetimes, and the static offline document's brief English presentation before hydration.
+
+## Task title editing checks
+
+Verified on 2026-09-29 with Node 26.10.0 and pnpm 12.6.0 on Windows: frozen installation, Biome, strict TypeScript, 327 unit/component/script tests with coverage, three native development browser scenarios, 57 production browser scenarios, the production build, and byte-for-byte Turbo restoration of the widget HTML and service worker passed. Commands ran separately; the two Scalar scenarios passed on rerun after the test was corrected to close its Create dialog before navigating to Edit.
+
+Coverage exercises title editing through RPC, REST, Scalar, modern/legacy MCP, the JSON explorer, and the real Inspector-hosted widget. Checks include title normalization and validation, unchanged completion and ID, missing tasks, path-ID protection, invalid outputs, awaited callbacks, isolation, optional/renamed tools, keyboard Save/Cancel, duplicate-save prevention, preserved drafts after failure, and cached rows remaining editable after a failed background refetch.
+
+`pnpm test:stack --samples 1` passed all 16 container browser scenarios, runtime MCP toggling, dependency-layer reuse, manifest-triggered rebuilding, unchanged host source, and cleanup. Native production tests ran alongside this functional container check; its single runtime sample is not a new performance baseline.
+
+## Task deletion checks
+
+Verified on 2026-09-29 with Node 26.10.0 and pnpm 12.6.0 on Windows: frozen installation, Biome, strict TypeScript, 293 unit/component/script tests with coverage, three native development browser scenarios, 51 production browser scenarios, the production build, and byte-for-byte Turbo restoration of the widget HTML and service worker passed. The verification commands ran separately, with Scalar's desktop/mobile deletion scenarios rerun after correcting navigation and path-parameter selectors in the browser test.
+
+Coverage includes deletion through RPC, REST, Scalar, modern/legacy MCP, the live workbench, and the real Inspector-hosted MCP App. Checks verify missing IDs, path-ID protection, output validation, isolated repositories, awaited callbacks, duplicate-action prevention, preserved drafts on failure, filter invalidation, and renamed/excluded widget tools.
+
+`pnpm test:stack --samples 1` passed all 16 container browser scenarios across the distroless runtime, slim baseline, and development Inspector. Runtime MCP toggling, source-change dependency reuse, manifest-triggered rebuilding, unchanged host source, and cleanup passed. This was a functional regression run; its single runtime sample does not establish a new performance baseline.
+
+## Playground and MCP App checks
+
+Verified on 2026-09-29 with Node 26.10.0 and pnpm 12.6.0 on Windows: frozen installation and `pnpm verify` passed, including Biome, strict TypeScript, 271 unit/component/script tests with coverage, three native development browser scenarios, 47 production browser scenarios, the production build, and byte-for-byte Turbo restoration of the widget HTML and service worker.
+
+The real Inspector preview exercised initial rendering without duplicate fetching, creation, completion, filtering, external-write refresh, a 360 px host frame, size notifications, and zero external widget asset requests under its restrictive CSP. It also exposed the pinned SDK's record-only bridge result validation; the explicit public result-schema adapter is covered by real SDK tests for modern arrays and legacy wrappers.
+
+The same source passed `pnpm test:stack` on Docker Engine 29.8.1, Compose 5.5.1, Linux amd64. Six production browser scenarios passed on each runtime, and four development scenarios passed, including the real widget over custom application/Inspector/sandbox ports and fresh resource reads after a shared-theme rebuild. Runtime MCP toggling, manifest-triggered rebuilding, unchanged host source, shutdown, and port cleanup passed. Both images contained identical application artifacts and the generated widget, with no tsdown, Tailwind CLI, or Inspector package in the runtime. See the [current container measurements](docker-measurements.md#playground-and-mcp-app-run).
+
+## Homepage MCP playground
+
+Verified on 2026-09-29 with Node 26.10.0 and pnpm 12.6.0 on Windows: frozen installation and `pnpm verify` passed, including Biome, strict TypeScript, 205 unit/component/script tests with coverage, two development scenarios, all 43 production scenarios, the Turbopack/Serwist build, and byte-for-byte service-worker cache restoration. The live development playground was also inspected in the browser.
+
+The desktop and mobile production projects exercise the real homepage playground: on-demand discovery, input/output schemas, keyboard execution, natural array results, malformed JSON, tool errors, discovery retries, and refreshing the catalog without stale output. Mutation checks cover duplicate clicks, normalized creation, completion, preserved drafts, and immediate RPC workbench refresh without a page reload. The disabled-runtime test verifies that `MCP_ENABLED=false` disables the playground as well as the endpoint.
+
+Focused unit coverage exercises the action bridge with real SDK clients and isolated repositories: same-origin and development loopback guards, runtime enablement, identity forwarding and protocol-header isolation, paginated discovery, validation/errors, concurrent context isolation, mutation callbacks, timeouts/cleanup, and zero outbound requests. JSON editing helpers are checked separately. The SDK client is a web runtime dependency behind `server-only`; browser output is checked for accidental transport imports.
+
+## Native MCP scenarios
+
+Verified on 2026-09-28 with Node 26.10.0 and pnpm 12.6.0 on Windows:
+
+- Frozen installation and the complete `pnpm verify` workflow passed: Biome, strict TypeScript, 183 unit/component/script tests with coverage, two development browser scenarios, and all 37 production scenarios.
+- The actual Inspector CLI listed all three tools without mutations. The embedded Inspector connected with authentication enabled and executed create/update/list operations against the shared REST/RPC data; its screenshot was inspected.
+- Production enablement was verified in both directions: disabling the endpoint after a normal build, and serving the default enabled endpoint from a build created with `MCP_ENABLED=false`. Inspector paths remained unavailable in production.
+- Managed-process tests covered occupied ports, startup failures, shutdown, and parent/launcher termination with listening descendants. The production Turbopack/Serwist build, API/MCP cache exclusions, PWA updates and offline fallback passed; Turbo restored the generated service worker byte for byte.
+
+The MCP unit suite covers tool generation from the shared OpenAPI document, flat parameter/body mapping, ArkType validation, protocol output conversion, immutable catalog reuse, failed generation retries, request isolation, and awaited mutation callbacks. Transport tests cover disabled access, development loopback restrictions, exact production Origin rules, no-store responses, and a development-only Inspector wrapper.
+
+The production `mcp` Playwright project connects real SDK clients using both modern discovery and the legacy initialize handshake. It executes all five tools and checks that writes are visible through REST, RPC, and the rendered workbench. A separately owned production process starts with `MCP_ENABLED=false` against the existing build to prove that the switch applies at runtime while REST remains available. The test terminates only its own process tree. Production also checks that the Inspector wrapper and nested asset/backend paths return 404.
+
+Development acceptance starts the actual pinned Inspector alongside Next.js on dedicated ports. It checks its authentication and origin protections, the full-viewport token-free iframe, manual connection, generated forms, and real create/title-edit/completion/delete/list calls. The resulting data is checked through REST and the RPC workbench. The wrapper never proxies Inspector backend or asset routes. The test saves `mcp-inspector.png` for visual review.
+
+Run `pnpm test:dev` separately from an ordinary development session because both use the Next.js development output. The production MCP project runs within `pnpm test:e2e`; `pnpm verify` includes both. Do not run the production build or worker-cache checks concurrently with these servers. `pnpm mcp:check` provides a separate read-only Inspector CLI discovery check against a running application.
+
+## Toast-based PWA update acceptance
+
+Verified on 2026-09-28 with Node 26.10.0 and pnpm 12.6.0 on Windows:
+
+- Frozen-lockfile installation and the complete `pnpm verify` workflow passed without adding dependencies.
+- Biome, strict TypeScript, and all 106 unit/component/customization tests passed with V8 coverage. The new tests cover toast keyboard actions, persistence and dismissal, plus 19 lifecycle scenarios for registration races, per-tab approval, successive workers, timeout/retry, and cleanup.
+- The development smoke test and all 33 production browser scenarios passed. Real worker replacements verified desktop/320px keyboard approval, reduced motion, exactly one document reload, preservation of another tab's draft until its own approval, and swipe dismissal followed by a newer update notification.
+- The production Turbopack/Serwist build, existing API/docs cache exclusions and offline fallback, and byte-for-byte service-worker restoration from Turbo cache passed. Desktop and mobile toast screenshots were inspected.
+
+Reload checks count document navigation requests and completed loads; Next.js same-document history synchronization does not count as another reload. Streamed hidden form markup is excluded by using the visible input's accessible name.
+
+## OpenAPI and Scalar acceptance
+
+Verified on 2026-09-28 with Node 26.10.0 and pnpm 12.6.0 on Windows:
+
+- Frozen-lockfile installation and the complete `pnpm verify` workflow passed.
+- Biome, strict TypeScript, and all 85 unit/component/customization tests passed with V8 coverage. The 25 OpenAPI tests cover generated operations, schema conversion failures, validation, REST/RPC consistency, request isolation, and mutation callbacks.
+- The development smoke test and all 29 production browser scenarios passed across desktop, mobile, and PWA projects. Scalar checks exercise the pinned CDN renderer, narrow navigation, search, direct same-origin reads and writes, and workbench refetching.
+- The Turbopack/Serwist production build passed. API/docs responses stayed outside service-worker caches, and offline fallback and user-controlled updates passed. Turbo restored the generated service worker byte for byte.
+
+## pnpm 12 upgrade
+
+Verified on 2026-09-28 with Node 26.10.0 and pnpm 12.6.0: frozen-lockfile installation and `pnpm verify` passed, including Biome, TypeScript, 60 unit/component/customization tests, one development browser test, 25 production browser scenarios, the production build, and byte-for-byte service-worker cache restoration.
+
+The package-manager pin and engine requirement now use 12.6.0. pnpm added its own package-manager integrity metadata to the lockfile; application dependency versions remain unchanged. The cache verification script supports both JavaScript entrypoints and native pnpm executables.
+
+Run from the workspace root with the documented Node and pnpm versions:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm exec playwright install chromium
+pnpm verify
+```
+
+## Initial acceptance run
+
+Verified on 2026-09-25 with Node 24.19.0 and pnpm 11.19.0 on Windows:
+
+- `pnpm install --frozen-lockfile`: passed.
+- `pnpm verify`: passed formatting, linting, strict TypeScript, 18 Vitest tests, the production build, and 17 Chromium browser scenarios across desktop, mobile emulation, and PWA projects.
+- The cache check restored `sw.js` with identical bytes after deleting it; this build does not emit a separate worker source map.
+- The hook checks confirmed invalid staged code is rejected and unstaged changes survive safe fixes.
+
+The browser suite also verifies the application remains usable when service-worker registration is blocked. The server-rendering scenario checks task markup with JavaScript disabled; it does not promise an interactive application without JavaScript. Re-run these checks after changes or dependency upgrades.
+
+The subsequent Biome-only tooling change passed `pnpm check`, all 18 Vitest tests, `pnpm build`, and frozen-lockfile installation. Hook regression checks again confirmed safe fixes preserve unstaged edits and invalid staged code is rejected. Temporary application TSX fixtures confirmed that valid token classes pass and arbitrary values in both `className` and `cn(...)` fail Biome's native rule. Browser scenarios were not rerun for this tooling-only change.
+
+## Node 26 and additional tooling acceptance
+
+Verified on 2026-09-25 with Node 26.10.0 and pnpm 11.19.0 on Windows:
+
+- Frozen-lockfile installation, Biome, and strict TypeScript passed.
+- All 25 Vitest tests passed with V8 coverage, including native Temporal identity, an isolated polyfill fallback, DST/calendar behavior, keyboard form interaction, and reduced-motion icon updates.
+- All 19 Chromium browser scenarios passed across desktop, mobile emulation, and PWA projects. These include server-rendered icons, hydration, keyboard density changes with reduced motion, mutations, URL history, offline fallback, and user-controlled worker updates.
+- The production Turbopack/Serwist build passed, and Turbo restored the generated service worker byte for byte.
+- The Vitest UI started in watch mode and ran the suite successfully. The actual Git `commit-msg` hook rejected an invalid message and accepted a Conventional Commit message.
+
+## Recovering development client-manifest errors
+
+The reported pair of errors on `/` had one underlying failure: Next.js could not find its internal `PlaceValidationBoundaryBelowThisLevel` component in the React Client Manifest. That blocked instant UI validation, producing the second diagnostic. The affected development session had experienced package resolution failures during dependency changes and was still running Node 22.22.2. A browser reload reproduced the errors; restarting after installation under Node 26.10.0 removed both errors without changing Next.js, Turbopack, Cache Components, or the validation settings.
+
+## Homepage examples and diagnostic tooling acceptance
+
+Verified on 2026-09-25 with Node 26.10.0 and pnpm 11.19.0:
+
+- Frozen-lockfile installation, Biome, strict TypeScript, and all 26 Vitest tests with coverage passed.
+- The new development smoke test passed without console errors, uncaught exceptions, or a Next.js issues overlay.
+- All 25 production browser scenarios passed across desktop, mobile, and PWA. The two no-JavaScript HTML checks were rerun after adding `includeHidden` to inspect streamed controls; the remaining 23 scenarios passed in the full run.
+- Browser checks cover both motion preferences, keyboard controls, tile movement, bookmark path changes, independent preview state, and duplicate-submission prevention.
+- The production build and byte-for-byte service-worker restoration passed. The homepage previews were also inspected in the browser.
+- React Doctor's human-readable and JSON commands completed with zero findings after the documented scoped exceptions. Both packages reported `complete: true` and no skipped checks.
+
+## Creating a project from the public template
+
+The [create-next-app example workflow](https://nextjs.org/docs/app/api-reference/cli/create-next-app#with-any-public-github-example) downloads public GitHub repositories. The initial test against private Prelude failed with “Could not locate the repository”; it downloaded successfully after the owner made Prelude public.
+
+For this monorepo, generate files first and install dependencies afterward:
+
+```sh
+pnpm dlx create-next-app@16.4.0 my-app --example https://github.com/ivanpajon/Prelude --use-pnpm --skip-install --yes
+cd my-app
+pnpm install --frozen-lockfile
+pnpm exec playwright install chromium
+pnpm verify
+```
+
+Without `--skip-install`, create-next-app (tested with 16.3.6) finishes successfully but attempts `next typegen` at the repository root, where the Next.js executable is not installed. It also runs the Husky install before creating `.git`. The two-step workflow avoids both warnings. The normal workspace type-check command generates the Next.js route types in `apps/web`.
+
+The generated copy has a new initial commit, no remote, the original workspace package names and Prelude branding, and an unchanged lockfile. After installation, `core.hooksPath` points to `.husky/_`. Rename the root package and application branding as part of customization; the folder name alone does not rename template content.
+
+On 2026-09-25, the two-step workflow was tested in a fresh Windows temporary directory against Prelude commit `71cf82b`, using Node 26.10.0, pnpm 11.19.0, and create-next-app 16.3.6. `pnpm verify` passed: Biome, TypeScript, 26 unit/component tests with coverage, one development browser scenario, 25 production browser scenarios, the production build, and service-worker cache restoration. The copied project used its own workspace dependencies and initially empty build caches.
+
+## Project customization acceptance
+
+The optional `pnpm customize` command preserves `@repo` unless the consumer supplies a scope. Its 35 regression cases use isolated temporary Git repositories to verify name/scope independence, an unchanged customization guide, exact package references and subpaths, all configuration targets, ignored files, untracked files, dry runs, invalid arguments, dependency collisions, duplicate names, repeat renames, and failure recovery. The Windows checks exercise temporary paths containing spaces and 8.3 user-directory aliases.
+
+On 2026-09-25, a separate consumer copy was customized with `pnpm customize --name sonata-app --scope "@sonata"`. The command successfully updated package names and references, refreshed the workspace links and lockfile, and passed Biome, TypeScript, and the unit/component suite. A subsequent frozen-lockfile installation, production build with Serwist, and two production browser checks passed. Those browser checks exercised hydration without duplicate RPC requests and a task mutation surviving reload, using the renamed package filter in Playwright's server command.
+
+Rerunning the final command on that consumer reported zero file changes and passed all 60 tests, including the new customization regressions. The original Prelude workspace retained its root name and `@repo` scope. No dependency was added for customization; application branding remains a separate manual step.

@@ -1,13 +1,14 @@
 import { getPwaMessages } from "@repo/i18n/pwa";
 import type { MetadataRoute } from "next";
+import { site } from "@/site";
 import { getRequestLocale } from "../i18n/http-locale";
 
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
   const locale = await getRequestLocale();
   return {
     id: "/",
-    name: "Prelude",
-    short_name: "Prelude",
+    name: site.name,
+    short_name: site.name,
     description: getPwaMessages(locale).Pwa.manifestDescription,
     lang: locale,
     dir: "ltr",

@@ -1,10 +1,13 @@
 import "server-only";
 
-import { type McpEnvironment, rejectNonLocalRequest, withoutMcpCache } from "./mcp-access";
+import { parseServerEnvironment, type RuntimeEnvironment, type ServerEnvironment } from "@/env";
+import { site } from "@/site";
+import { rejectNonLocalRequest, withoutMcpCache } from "./mcp-access";
+import { logServerError } from "./server-log";
 
 export function handleInspectorRequest(
   request: Request,
-  environment: McpEnvironment = process.env,
+  environment: RuntimeEnvironment = process.env,
 ): Response {
   if (environment.NODE_ENV !== "development") {
     return withoutMcpCache(new Response("Not found", { status: 404 }));
@@ -16,20 +19,27 @@ export function handleInspectorRequest(
       new Response("Method not allowed", { status: 405, headers: { Allow: "GET, HEAD" } }),
     );
   }
-  const port = environment.MCP_INSPECTOR_PORT ?? "6274";
-  if (!/^\d+$/.test(port) || Number(port) < 1 || Number(port) > 65535) {
-    return withoutMcpCache(new Response("Invalid MCP_INSPECTOR_PORT.", { status: 500 }));
+  let config: ServerEnvironment;
+  try {
+    config = parseServerEnvironment(environment);
+  } catch (error) {
+    logServerError("MCP Inspector request failed", error, { method: request.method });
+    return withoutMcpCache(
+      new Response("Invalid configuration. Check the server logs.", { status: 500 }),
+    );
   }
-  const inspectorOrigin = `http://127.0.0.1:${Number(port)}`;
+  // The launcher does not start the Inspector when MCP is disabled; match the endpoint's 404.
+  if (!config.mcpEnabled) return withoutMcpCache(new Response("Not found", { status: 404 }));
+  const inspectorOrigin = `http://127.0.0.1:${config.mcpInspectorPort}`;
   const html = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Prelude MCP Inspector</title>
+<title>${site.name} MCP Inspector</title>
 <style>html,body{height:100%;margin:0}iframe{display:block;width:100%;height:100%;border:0}</style>
 </head>
-<body><iframe src="${inspectorOrigin}/" title="Prelude MCP Inspector"></iframe></body>
+<body><iframe src="${inspectorOrigin}/" title="${site.name} MCP Inspector"></iframe></body>
 </html>`;
   return withoutMcpCache(
     new Response(request.method === "HEAD" ? null : html, {

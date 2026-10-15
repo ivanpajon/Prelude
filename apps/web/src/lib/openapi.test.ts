@@ -1,28 +1,43 @@
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
+import type { ContractRouterClient } from "@orpc/contract";
 import { oc } from "@orpc/contract";
 import { OpenAPIGenerator } from "@orpc/openapi";
-import { RPCHandler } from "@orpc/server/fetch";
-import {
-  type Context,
-  createDemoRepository,
-  demoRepository,
-  router,
-  type TaskRepository,
-} from "@repo/api";
-import type { ApiClient, Task } from "@repo/contracts";
+import { implement } from "@orpc/server";
 import { type } from "arktype";
 import { describe, expect, it, vi } from "vitest";
-import { POST as rpcPost } from "../app/api/rpc/[[...rest]]/route";
-import { DirectionalArkTypeConverter, generateOpenApiSpec, handleOpenApiRequest } from "./openapi";
+import { site } from "@/site";
+import {
+  createNoteStore,
+  type FixtureContext,
+  type fixtureContract,
+  fixtureRouter,
+  fixtureSpecOptions,
+  type Note,
+  type NoteStore,
+  noteTextMaxLength,
+} from "@/testing/fixture-api";
+import { createOpenApi, DirectionalArkTypeConverter } from "./openapi";
+import { createRpc } from "./rpc";
+
+const openApi = createOpenApi(fixtureRouter, fixtureSpecOptions);
+const handleRpc = createRpc(fixtureRouter);
+const seed: readonly Note[] = [
+  { id: "first", text: "First", pinned: false },
+  { id: "second", text: "Second", pinned: true },
+];
 
 // Route handlers receive a Proxy like this one; `new Request(proxy)` cannot read its fields.
 function nextRequest(request: Request) {
   return new Proxy(request, { get: (target, key) => Reflect.get(target, key, target) });
 }
 
-function request(context: Context, path: string, method = "GET", body?: unknown) {
-  return handleOpenApiRequest(
+function context(store = createNoteStore(seed)) {
+  return { store, onChanged: vi.fn() } satisfies FixtureContext;
+}
+
+function request(context: FixtureContext, path: string, method = "GET", body?: unknown) {
+  return openApi.handle(
     nextRequest(
       new Request(`http://localhost/api${path}`, {
         method,
@@ -35,176 +50,99 @@ function request(context: Context, path: string, method = "GET", body?: unknown)
   );
 }
 
+function rpcClient(context: FixtureContext): ContractRouterClient<typeof fixtureContract> {
+  return createORPCClient(
+    new RPCLink({
+      url: "http://localhost/api/rpc",
+      fetch: (rpcRequest) => handleRpc(nextRequest(rpcRequest), context),
+    }),
+  );
+}
+
+function expectUnchanged(target: ReturnType<typeof context>) {
+  expect(target.store.list("all")).toEqual(seed);
+  expect(target.onChanged).not.toHaveBeenCalled();
+}
+
 describe("generated OpenAPI specification", () => {
-  it("describes the task operations and maps query, body, and path inputs", async () => {
-    const spec = await generateOpenApiSpec();
+  it("maps query, body, and path inputs with their success statuses and errors", async () => {
+    const spec = await openApi.generateSpec();
 
     expect(spec).toMatchObject({
       openapi: "3.1.1",
-      info: { title: "Prelude API", version: "1.0.0" },
+      info: { title: "Fixture API", version: "1.0.0" },
       servers: [{ url: "/api" }],
       paths: {
-        "/v1/tasks": {
+        "/notes": {
           get: {
-            operationId: "listTasks",
-            tags: ["Tasks"],
+            operationId: "listNotes",
+            "x-mcp": { annotations: { readOnlyHint: true } },
             parameters: [
               {
-                name: "status",
+                name: "filter",
                 in: "query",
                 required: true,
-                example: "all",
-                schema: { enum: expect.arrayContaining(["all", "active", "completed"]) },
+                schema: { enum: expect.arrayContaining(["all", "pinned"]) },
               },
             ],
             responses: {
-              "200": {
-                content: { "application/json": { schema: { type: "array" } } },
-              },
+              "200": { content: { "application/json": { schema: { type: "array" } } } },
             },
           },
           post: {
-            operationId: "createTask",
-            tags: ["Tasks"],
+            operationId: "createNote",
             requestBody: {
               required: true,
               content: {
                 "application/json": {
-                  example: { title: "Build a feature" },
-                  schema: {
-                    type: "object",
-                    required: ["title"],
-                    properties: { title: { type: "string" } },
-                  },
+                  schema: { type: "object", required: ["text"], properties: { text: {} } },
                 },
               },
             },
-            responses: { "201": expect.any(Object) },
+            responses: { "201": { description: "Note created" } },
           },
         },
-        "/v1/tasks/{id}": {
+        "/notes/{id}": {
           patch: {
-            operationId: "setTaskCompleted",
-            tags: ["Tasks"],
+            operationId: "updateNote",
             parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-            requestBody: {
-              required: true,
-              content: {
-                "application/json": {
-                  example: { completed: true },
-                  schema: {
-                    type: "object",
-                    required: ["completed"],
-                    properties: { completed: { type: "boolean" } },
-                  },
-                },
-              },
-            },
             responses: { "200": expect.any(Object), "404": expect.any(Object) },
           },
           delete: {
-            operationId: "deleteTask",
-            tags: ["Tasks"],
-            parameters: [
-              { name: "id", in: "path", required: true, schema: { type: "string", minLength: 1 } },
-            ],
-            responses: {
-              "200": {
-                description: "Task deleted",
-                content: {
-                  "application/json": {
-                    schema: {
-                      type: "object",
-                      required: expect.arrayContaining(["id", "title", "completed"]),
-                    },
-                  },
-                },
-              },
-              "404": expect.any(Object),
-            },
-          },
-        },
-        "/v1/tasks/{id}/title": {
-          patch: {
-            operationId: "updateTaskTitle",
-            tags: ["Tasks"],
-            parameters: [
-              { name: "id", in: "path", required: true, schema: { type: "string", minLength: 1 } },
-            ],
-            requestBody: {
-              required: true,
-              content: {
-                "application/json": {
-                  example: { title: "Polish a feature" },
-                  schema: {
-                    type: "object",
-                    required: ["title"],
-                    properties: { title: { type: "string" } },
-                  },
-                },
-              },
-            },
-            responses: {
-              "200": {
-                description: "Task title updated",
-                content: {
-                  "application/json": {
-                    schema: {
-                      type: "object",
-                      required: expect.arrayContaining(["id", "title", "completed"]),
-                    },
-                  },
-                },
-              },
-              "404": expect.any(Object),
-            },
+            operationId: "deleteNote",
+            parameters: [{ name: "id", in: "path", required: true }],
+            responses: { "200": expect.any(Object), "404": expect.any(Object) },
           },
         },
       },
     });
-    expect(Object.keys(spec.paths ?? {}).sort()).toEqual([
-      "/v1/tasks",
-      "/v1/tasks/{id}",
-      "/v1/tasks/{id}/title",
-    ]);
-    expect(spec.paths?.["/v1/tasks/{id}"]?.delete?.requestBody).toBeUndefined();
+    expect(Object.keys(spec.paths ?? {}).sort()).toEqual(["/notes", "/notes/{id}"]);
+    expect(spec.paths?.["/notes/{id}"]?.delete?.requestBody).toBeUndefined();
   });
 
   it("documents normalized output limits without rejecting padded raw input", async () => {
-    const spec = await generateOpenApiSpec();
-    const create = spec.paths?.["/v1/tasks"]?.post;
+    const create = (await openApi.generateSpec()).paths?.["/notes"]?.post;
 
     expect(create?.responses?.["201"]).toMatchObject({
       content: {
         "application/json": {
           schema: {
-            properties: { title: { type: "string", minLength: 1, maxLength: 120 } },
+            properties: { text: { type: "string", minLength: 1, maxLength: noteTextMaxLength } },
           },
         },
       },
     });
-    expect(JSON.stringify(create?.requestBody)).not.toContain('"maxLength":120');
+    expect(JSON.stringify(create?.requestBody)).not.toContain(`"maxLength":${noteTextMaxLength}`);
     expect(JSON.stringify(create?.requestBody)).not.toContain('"minLength":1');
-    const edit = spec.paths?.["/v1/tasks/{id}/title"]?.patch;
-    expect(edit?.description).toContain("normalized title must contain 1–120 characters");
-    expect(edit?.responses?.["200"]).toMatchObject({
-      content: {
-        "application/json": {
-          schema: { properties: { title: { type: "string", minLength: 1, maxLength: 120 } } },
-        },
-      },
-    });
-    expect(JSON.stringify(edit?.requestBody)).not.toContain('"maxLength":120');
-    expect(JSON.stringify(edit?.requestBody)).not.toContain('"minLength":1');
   });
 
   it("serves the generated document publicly without caching it", async () => {
-    const response = await request({ repository: createDemoRepository([]) }, "/openapi.json");
+    const response = await request(context(), "/openapi.json");
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toContain("application/json");
     expect(response.headers.get("Cache-Control")).toBe("no-store");
-    expect(await response.json()).toEqual(await generateOpenApiSpec());
+    expect(await response.json()).toEqual(await openApi.generateSpec());
   });
 
   it("fails visibly when a schema cannot be represented as JSON Schema", () => {
@@ -275,373 +213,359 @@ describe("generated OpenAPI specification", () => {
 
 describe("OpenAPI HTTP adapter", () => {
   it("serves public Scalar HTML with the pinned renderer and generated contract", async () => {
-    const response = await request({ repository: createDemoRepository([]) }, "/docs");
+    const response = await request(context(), "/docs");
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toContain("text/html");
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     const html = await response.text();
-    expect(html).toContain("<title>Prelude API Reference</title>");
+    expect(html).toContain(`<title>${site.name} API Reference</title>`);
     expect(html).toContain(
       'src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.72.1/dist/browser/standalone.js"',
     );
     expect(html).toContain('"withDefaultFonts":false');
     expect(html).toContain('"telemetry":false');
     expect(html).toContain('"agent":{"disabled":true}');
-    expect(html).toContain("listTasks");
-    expect(html).toContain("createTask");
-    expect(html).toContain("deleteTask");
-    expect(html).toContain("updateTaskTitle");
+    for (const operationId of ["listNotes", "createNote", "updateNote", "deleteNote"]) {
+      expect(html).toContain(operationId);
+    }
     expect(html).not.toContain("proxy.scalar.com");
   });
 
-  it("creates, completes, edits, filters, and deletes tasks shared with RPC", async () => {
-    const context: Context = { repository: createDemoRepository([]), onTasksChanged: vi.fn() };
-    const create = await request(context, "/v1/tasks", "POST", {
-      title: `  ${"x".repeat(120)}  `,
-    });
-    expect(create.status).toBe(201);
-    const task = (await create.json()) as Task;
-    expect(task).toMatchObject({ title: "x".repeat(120), completed: false });
-    expect(task.id).not.toBe("");
-
-    const active = await request(context, "/v1/tasks?status=active");
-    expect(active.status).toBe(200);
-    expect(await active.json()).toEqual([task]);
-
-    const update = await request(context, `/v1/tasks/${task.id}`, "PATCH", { completed: true });
-    expect(update.status).toBe(200);
-    expect(await update.json()).toEqual({ ...task, completed: true });
-    expect(await (await request(context, "/v1/tasks?status=active")).json()).toEqual([]);
-    expect(await (await request(context, "/v1/tasks?status=completed")).json()).toEqual([
-      { ...task, completed: true },
-    ]);
-
-    const rpcHandler = new RPCHandler(router);
-    const rpcClient: ApiClient = createORPCClient(
-      new RPCLink({
-        url: "http://localhost/api/rpc",
-        fetch: async (rpcRequest) => {
-          const result = await rpcHandler.handle(rpcRequest, { prefix: "/api/rpc", context });
-          if (!result.matched) throw new Error("RPC request was not matched");
-          return result.response;
-        },
-      }),
+  it("serves a valid document and Scalar for a contract without procedures", async () => {
+    // An API without procedures, as in a new project before its first feature.
+    const empty = createOpenApi(
+      implement({}).$context<FixtureContext>().router({}),
+      fixtureSpecOptions,
     );
-    await expect(rpcClient.tasks.list({ status: "all" })).resolves.toEqual([
-      { ...task, completed: true },
-    ]);
-    const edit = await request(context, `/v1/tasks/${task.id}/title`, "PATCH", {
-      title: "  Edited through REST  ",
+    const document = await (
+      await empty.handle(new Request("http://localhost/api/openapi.json"), context())
+    ).json();
+    expect(document).toMatchObject({
+      openapi: "3.1.1",
+      info: fixtureSpecOptions.info,
+      servers: fixtureSpecOptions.servers,
     });
-    expect(edit.status).toBe(200);
-    expect(await edit.json()).toEqual({ ...task, title: "Edited through REST", completed: true });
-    await expect(rpcClient.tasks.list({ status: "completed" })).resolves.toEqual([
-      { ...task, title: "Edited through REST", completed: true },
-    ]);
-    await expect(
-      rpcClient.tasks.updateTitle({ id: task.id, title: "  Edited through RPC  " }),
-    ).resolves.toEqual({
-      ...task,
-      title: "Edited through RPC",
-      completed: true,
+    // OpenAPI 3.1 requires paths, components, or webhooks; an empty `paths` keeps it valid.
+    expect(document.paths).toEqual({});
+    expect(await empty.generateSpec()).toMatchObject({ paths: {} });
+    const docs = await empty.handle(new Request("http://localhost/api/docs"), context());
+    expect(docs.status).toBe(200);
+    expect(await docs.text()).toContain(`<title>${site.name} API Reference</title>`);
+    const missing = await empty.handle(new Request("http://localhost/api/anything"), context());
+    expect(missing.status).toBe(404);
+  });
+
+  it("serves GET, POST, PATCH, and DELETE with state shared with RPC", async () => {
+    const target = context(createNoteStore([]));
+    const create = await request(target, "/notes", "POST", { text: "  Padded  " });
+    expect(create.status).toBe(201);
+    const note = (await create.json()) as Note;
+    expect(note).toMatchObject({ text: "Padded", pinned: false });
+
+    const update = await request(target, `/notes/${note.id}`, "PATCH", { pinned: true });
+    expect(update.status).toBe(200);
+    expect(await update.json()).toEqual({ ...note, pinned: true });
+    const pinned = await request(target, "/notes?filter=pinned");
+    expect(pinned.status).toBe(200);
+    expect(await pinned.json()).toEqual([{ ...note, pinned: true }]);
+
+    const rpc = rpcClient(target);
+    await expect(rpc.notes.list({ filter: "all" })).resolves.toEqual([{ ...note, pinned: true }]);
+    await expect(rpc.notes.update({ id: note.id, text: " Through RPC " })).resolves.toEqual({
+      ...note,
+      text: "Through RPC",
+      pinned: true,
     });
-    expect(await (await request(context, "/v1/tasks?status=completed")).json()).toEqual([
-      { ...task, title: "Edited through RPC", completed: true },
-    ]);
-    const deleted = await request(context, `/v1/tasks/${task.id}`, "DELETE");
+    const deleted = await request(target, `/notes/${note.id}`, "DELETE");
     expect(deleted.status).toBe(200);
-    expect(await deleted.json()).toEqual({ ...task, title: "Edited through RPC", completed: true });
-    await expect(rpcClient.tasks.list({ status: "all" })).resolves.toEqual([]);
-    await expect(rpcClient.tasks.delete({ id: task.id })).rejects.toMatchObject({
-      code: "NOT_FOUND",
-    });
-    const rpcTask = await rpcClient.tasks.create({ title: "Delete through RPC" });
-    await expect(rpcClient.tasks.delete({ id: rpcTask.id })).resolves.toEqual(rpcTask);
-    expect(await (await request(context, "/v1/tasks?status=all")).json()).toEqual([]);
-    expect(context.onTasksChanged).toHaveBeenCalledTimes(7);
-    expect(create.headers.get("Cache-Control")).toBe("no-store");
-    expect(active.headers.get("Cache-Control")).toBe("no-store");
-    expect(update.headers.get("Cache-Control")).toBe("no-store");
-    expect(deleted.headers.get("Cache-Control")).toBe("no-store");
-    expect(edit.headers.get("Cache-Control")).toBe("no-store");
+    expect(await deleted.json()).toEqual({ ...note, text: "Through RPC", pinned: true });
+    await expect(rpc.notes.delete({ id: note.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(target.onChanged).toHaveBeenCalledTimes(4);
+    for (const response of [create, update, pinned, deleted]) {
+      expect(response.headers.get("Cache-Control")).toBe("no-store");
+    }
   });
 
   it.each<[path: string, method: string, body?: unknown]>([
-    ["/v1/tasks", "GET", undefined],
-    ["/v1/tasks?status=invalid", "GET", undefined],
-    ["/v1/tasks", "POST", {}],
-    ["/v1/tasks", "POST", { title: 42 }],
-    ["/v1/tasks", "POST", { title: "   " }],
-    ["/v1/tasks", "POST", { title: "x".repeat(121) }],
-    ["/v1/tasks/explore", "PATCH", { completed: "true" }],
-    ["/v1/tasks/explore", "PATCH", {}],
-    ["/v1/tasks/explore/title", "PATCH", {}],
-    ["/v1/tasks/explore/title", "PATCH", { title: 42 }],
-    ["/v1/tasks/explore/title", "PATCH", { title: "   " }],
-    ["/v1/tasks/explore/title", "PATCH", { title: "x".repeat(121) }],
+    ["/notes", "GET", undefined],
+    ["/notes?filter=invalid", "GET", undefined],
+    ["/notes", "POST", {}],
+    ["/notes", "POST", { text: 42 }],
+    ["/notes", "POST", { text: "   " }],
+    ["/notes", "POST", { text: "x".repeat(noteTextMaxLength + 1) }],
+    ["/notes/first", "PATCH", { pinned: "true" }],
   ])("rejects invalid %s %s input before mutation: %j", async (path, method, body) => {
-    const repository = createDemoRepository();
-    const before = repository.list("all");
-    const changed = vi.fn();
-    const response = await request({ repository, onTasksChanged: changed }, path, method, body);
+    const target = context();
+    const response = await request(target, path, method, body);
 
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ code: "BAD_REQUEST" });
     expect(response.headers.get("Cache-Control")).toBe("no-store");
-    expect(repository.list("all")).toEqual(before);
-    expect(changed).not.toHaveBeenCalled();
+    expectUnchanged(target);
   });
 
   it.each([
-    ["PATCH", "", { completed: true }],
-    ["DELETE", "", undefined],
-    ["PATCH", "/title", { title: "Edited" }],
-  ] as const)(
-    "returns the typed missing-task error for %s %s without invalidating caches",
-    async (method, suffix, body) => {
-      const changed = vi.fn();
-      const response = await request(
-        { repository: createDemoRepository([]), onTasksChanged: changed },
-        `/v1/tasks/missing${suffix}`,
-        method,
-        body,
-      );
+    ["PATCH", { pinned: true }],
+    ["DELETE", undefined],
+  ] as const)("returns the typed NOT_FOUND error for %s", async (method, body) => {
+    const target = context();
+    const response = await request(target, "/notes/missing", method, body);
 
-      expect(response.status).toBe(404);
-      expect(await response.json()).toMatchObject({ code: "NOT_FOUND", message: "Task not found" });
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ code: "NOT_FOUND", message: "Note not found" });
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expectUnchanged(target);
+  });
+
+  it("returns a non-cacheable 404 for an unmatched path", async () => {
+    const response = await request(context(), "/unknown");
+    expect(response.status).toBe(404);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+  });
+
+  it("awaits the mutation's asynchronous side effects before responding", async () => {
+    let settled = false;
+    const response = await request(
+      {
+        store: createNoteStore([]),
+        onChanged: async () => {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          settled = true;
+        },
+      },
+      "/notes",
+      "POST",
+      { text: "Fresh note" },
+    );
+
+    expect(response.status).toBe(201);
+    expect(settled).toBe(true);
+  });
+
+  it("keeps concurrent requests bound to their own context", async () => {
+    const first = context(createNoteStore([]));
+    const second = context(createNoteStore([]));
+    const responses = await Promise.all([
+      request(first, "/notes", "POST", { text: "First context" }),
+      request(second, "/notes", "POST", { text: "Second context" }),
+    ]);
+
+    expect(responses.map((response) => response.status)).toEqual([201, 201]);
+    expect(first.store.list("all").map((note) => note.text)).toEqual(["First context"]);
+    expect(second.store.list("all").map((note) => note.text)).toEqual(["Second context"]);
+    expect(first.onChanged).toHaveBeenCalledOnce();
+    expect(second.onChanged).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["list", "/notes?filter=all", "GET", undefined],
+    ["delete", "/notes/first", "DELETE", undefined],
+  ] as const)(
+    "turns invalid %s output into a logged 500 instead of a successful response",
+    async (method, path, httpMethod, body) => {
+      const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const broken = { list: () => [{ id: "broken", text: 42 }], delete: () => ({ id: "broken" }) };
+      const store = { ...createNoteStore(seed), [method]: broken[method] } as unknown as NoteStore;
+      const response = await request({ store }, path, httpMethod, body);
+
+      expect(response.status).toBe(500);
+      expect(await response.json()).toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
       expect(response.headers.get("Cache-Control")).toBe("no-store");
-      expect(changed).not.toHaveBeenCalled();
+      expect(logged).toHaveBeenCalledOnce();
+      logged.mockRestore();
+    },
+  );
+});
+
+describe("path parameter guard", () => {
+  it.each([
+    ["the same value", { id: "first", pinned: true }],
+    ["another record's id", { id: "second", pinned: true }],
+  ])("rejects a JSON body that repeats the path parameter with %s", async (_label, body) => {
+    const target = context();
+    const response = await request(target, "/notes/first", "PATCH", body);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      code: "BAD_REQUEST",
+      message: 'Provide "id" only in the URL path.',
+    });
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expectUnchanged(target);
+  });
+
+  it.each([
+    ["PATCH", "?id=second", { pinned: true }],
+    ["PATCH", "?id[0]=second", { pinned: true }],
+    ["DELETE", "?id=second", undefined],
+  ] as const)(
+    "rejects a query that repeats the path parameter: %s %s",
+    async (method, query, body) => {
+      const target = context();
+      const response = await request(target, `/notes/first${query}`, method, body);
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({ code: "BAD_REQUEST" });
+      expectUnchanged(target);
     },
   );
 
-  it("returns NOT_FOUND for a repeated HTTP deletion and invalidates only once", async () => {
-    const repository = createDemoRepository();
-    const changed = vi.fn();
-    const context = { repository, onTasksChanged: changed };
-    expect((await request(context, "/v1/tasks/explore", "DELETE")).status).toBe(200);
-    const repeated = await request(context, "/v1/tasks/explore", "DELETE");
-    expect(repeated.status).toBe(404);
-    expect(await repeated.json()).toMatchObject({ code: "NOT_FOUND", message: "Task not found" });
-    expect(changed).toHaveBeenCalledOnce();
+  it.each([
+    ["an escaped bracket key", "?%5Cid[0]=second"],
+    ["an escape inside the key", "?i%5Cd[a]=second"],
+  ])("rejects %s that oRPC decodes to the path parameter", async (_label, query) => {
+    const target = context();
+    const response = await request(target, `/notes/first${query}`, "PATCH", { pinned: true });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ message: 'Provide "id" only in the URL path.' });
+    expectUnchanged(target);
   });
 
   it.each([
-    ["PATCH", ""],
-    ["DELETE", ""],
-    ["PATCH", "/title"],
-  ] as const)("rejects a body id overriding the URL for %s %s", async (method, suffix) => {
-    const repository = createDemoRepository([
-      { id: "url-task", title: "URL task", completed: false },
-      { id: "body-task", title: "Body task", completed: false },
-    ]);
-    const before = repository.list("all");
-    const changed = vi.fn();
-    const response = await request(
-      { repository, onTasksChanged: changed },
-      `/v1/tasks/url-task${suffix}`,
-      method,
-      { id: "body-task", completed: true, title: "Edited" },
+    ["form data", () => new FormData(), "id"],
+    ["form data in bracket notation", () => new FormData(), "id[0]"],
+    ["a URL-encoded body", () => new URLSearchParams(), "id"],
+  ] as const)("rejects %s that repeats the path parameter", async (_label, create, key) => {
+    const target = context();
+    const body = create();
+    body.append(key, "second");
+    body.append("pinned", "true");
+    const response = await openApi.handle(
+      new Request("http://localhost/api/notes/first", { method: "PATCH", body }),
+      target,
     );
 
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ code: "BAD_REQUEST" });
-    expect(response.headers.get("Cache-Control")).toBe("no-store");
-    expect(repository.list("all")).toEqual(before);
-    expect(changed).not.toHaveBeenCalled();
+    expectUnchanged(target);
   });
 
-  it.each([
-    ["PATCH", ""],
-    ["DELETE", ""],
-    ["PATCH", "/title"],
-  ] as const)(
-    "rejects a query id overriding the %s %s path without changing either task",
-    async (method, suffix) => {
-      const repository = createDemoRepository();
-      const before = repository.list("all");
-      const changed = vi.fn();
-      const response = await request(
-        { repository, onTasksChanged: changed },
-        `/v1/tasks/explore${suffix}?id=feature`,
+  it("rejects a GET query that repeats a path parameter", async () => {
+    const lookup = oc
+      .route({ method: "GET", path: "/notes/{id}" })
+      .input(type({ id: "string > 0" }))
+      .output(type({ id: "string" }));
+    const api = implement({ lookup }).$context<FixtureContext>();
+    const lookupApi = createOpenApi(
+      api.router({ lookup: api.lookup.handler(({ input }) => ({ id: input.id })) }),
+      fixtureSpecOptions,
+    );
+    const url = (path: string) => new Request(`http://localhost/api${path}`);
+
+    const allowed = await lookupApi.handle(url("/notes/first"), context());
+    expect(await allowed.json()).toEqual({ id: "first" });
+    const repeated = await lookupApi.handle(url("/notes/first?id=second"), context());
+    expect(repeated.status).toBe(400);
+  });
+
+  it("leaves detailed inputs alone, where the path and body cannot collide", async () => {
+    const rename = oc
+      .route({ method: "PATCH", path: "/things/{id}", inputStructure: "detailed" })
+      .input(type({ params: { id: "string" }, body: { id: "string" } }))
+      .output(type({ path: "string", body: "string" }));
+    const api = implement({ rename }).$context<FixtureContext>();
+    const detailedApi = createOpenApi(
+      api.router({
+        rename: api.rename.handler(({ input }) => ({ path: input.params.id, body: input.body.id })),
+      }),
+      fixtureSpecOptions,
+    );
+    const response = await detailedApi.handle(
+      new Request("http://localhost/api/things/first", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: "second" }),
+      }),
+      context(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ path: "first", body: "second" });
+  });
+
+  it.each(["PATCH", "DELETE"])("rejects malformed %s JSON before mutation", async (method) => {
+    const target = context();
+    const response = await openApi.handle(
+      new Request("http://localhost/api/notes/first", {
         method,
-        method === "PATCH" ? { completed: true, title: "Edited" } : undefined,
-      );
-      expect(response.status).toBe(400);
-      expect(await response.json()).toMatchObject({ code: "BAD_REQUEST" });
-      expect(repository.list("all")).toEqual(before);
-      expect(changed).not.toHaveBeenCalled();
-    },
-  );
+        headers: { "Content-Type": "application/json" },
+        body: '{"pinned":',
+      }),
+      target,
+    );
 
-  it.each([
-    ["PATCH", ""],
-    ["DELETE", ""],
-    ["PATCH", "/title"],
-  ] as const)(
-    "rejects malformed %s %s JSON before mutation or cache invalidation",
-    async (method, suffix) => {
-      const repository = createDemoRepository();
-      const before = repository.list("all");
-      const changed = vi.fn();
-      const response = await handleOpenApiRequest(
-        new Request(`http://localhost/api/v1/tasks/explore${suffix}`, {
-          method,
-          headers: { "Content-Type": "application/json" },
-          body: '{"completed":',
-        }),
-        { repository, onTasksChanged: changed },
-      );
-
-      expect(response.status).toBe(400);
-      expect(await response.json()).toMatchObject({ code: "BAD_REQUEST" });
-      expect(response.headers.get("Cache-Control")).toBe("no-store");
-      expect(repository.list("all")).toEqual(before);
-      expect(changed).not.toHaveBeenCalled();
-    },
-  );
-
-  it.each([
-    ["POST", "/v1/tasks"],
-    ["PATCH", "/v1/tasks/explore/title"],
-  ] as const)("rejects an oversized %s %s body before mutation", async (method, path) => {
-    const repository = createDemoRepository();
-    const before = repository.list("all");
-    const changed = vi.fn();
-    const response = await request({ repository, onTasksChanged: changed }, path, method, {
-      title: "Oversized",
-      pad: "x".repeat(64 * 1024),
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      code: "BAD_REQUEST",
+      message: "Malformed request body.",
     });
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expectUnchanged(target);
+  });
+
+  it("allows bodies without a repeated parameter", async () => {
+    const target = context();
+    const response = await request(target, "/notes/first", "PATCH", { text: "Edited" });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ id: "first", text: "Edited", pinned: false });
+  });
+});
+
+describe("body limits", () => {
+  const oversized = { text: "Oversized", pad: "x".repeat(64 * 1024) };
+
+  it.each([
+    ["POST", "/notes"],
+    ["PATCH", "/notes/first"],
+  ] as const)("rejects an oversized %s %s body before mutation", async (method, path) => {
+    const target = context();
+    const response = await request(target, path, method, oversized);
 
     expect(response.status).toBe(413);
     expect(await response.json()).toMatchObject({ code: "PAYLOAD_TOO_LARGE" });
     expect(response.headers.get("Cache-Control")).toBe("no-store");
-    expect(repository.list("all")).toEqual(before);
-    expect(changed).not.toHaveBeenCalled();
+    expectUnchanged(target);
   });
 
-  it("rejects an oversized RPC body before mutation", async () => {
-    const before = demoRepository.list("all");
-    const response = await rpcPost(
+  function rpcPost(target: FixtureContext, json: unknown) {
+    return handleRpc(
       nextRequest(
-        new Request("http://localhost/api/rpc/tasks/create", {
+        new Request("http://localhost/api/rpc/notes/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ json: { title: "Oversized", pad: "x".repeat(64 * 1024) } }),
+          body: JSON.stringify({ json }),
         }),
       ),
+      target,
     );
+  }
+
+  it("rejects an oversized RPC body before mutation", async () => {
+    const target = context();
+    const response = await rpcPost(target, oversized);
 
     expect(response.status).toBe(413);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
-    expect(demoRepository.list("all")).toEqual(before);
+    expectUnchanged(target);
   });
 
   it("accepts an RPC body within the limit from a route-handler request", async () => {
-    const response = await rpcPost(
-      nextRequest(
-        new Request("http://localhost/api/rpc/tasks/create", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ json: { title: "Within limit" } }),
-        }),
-      ),
-    );
+    const target = context(createNoteStore([]));
+    const response = await rpcPost(target, { text: "Within limit" });
 
     expect(response.status).toBe(200);
-    const { json: task } = await response.json();
-    expect(demoRepository.list("all")).toContainEqual(task);
-    demoRepository.delete(task.id);
-  });
-
-  it("rejects invalid repository output instead of exposing it as a successful response", async () => {
-    const repository: TaskRepository = {
-      ...createDemoRepository(),
-      list: () => [{ id: "broken", title: 42, completed: false } as unknown as Task],
-    };
-    const response = await request({ repository }, "/v1/tasks?status=all");
-
-    expect(response.status).toBe(500);
-    expect(await response.json()).toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
     expect(response.headers.get("Cache-Control")).toBe("no-store");
+    const { json: note } = await response.json();
+    expect(target.store.list("all")).toEqual([note]);
   });
 
-  it("rejects invalid DELETE output instead of returning successful JSON", async () => {
-    const repository: TaskRepository = {
-      ...createDemoRepository(),
-      delete: () => ({ id: "broken", title: 42, completed: false }) as unknown as Task,
-    };
-    const response = await request({ repository }, "/v1/tasks/broken", "DELETE");
-    expect(response.status).toBe(500);
-    expect(await response.json()).toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
-    expect(response.headers.get("Cache-Control")).toBe("no-store");
-  });
-
-  it("rejects invalid title edit output instead of returning successful JSON", async () => {
-    const repository: TaskRepository = {
-      ...createDemoRepository(),
-      updateTitle: () => ({ id: "broken", title: 42, completed: false }) as unknown as Task,
-    };
-    const response = await request({ repository }, "/v1/tasks/broken/title", "PATCH", {
-      title: "Edited",
-    });
-    expect(response.status).toBe(500);
-    expect(await response.json()).toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
-    expect(response.headers.get("Cache-Control")).toBe("no-store");
-  });
-
-  it("normalizes edits at the length limit and isolates HTTP request contexts", async () => {
-    const first = { repository: createDemoRepository(), onTasksChanged: vi.fn() };
-    const second = { repository: createDemoRepository(), onTasksChanged: vi.fn() };
-    const title = "x".repeat(120);
-    const responses = await Promise.all([
-      request(first, "/v1/tasks/explore/title", "PATCH", { title: `  ${title}  ` }),
-      request(second, "/v1/tasks/explore/title", "PATCH", { title: "Second context" }),
-    ]);
-    expect(responses.map((response) => response.status)).toEqual([200, 200]);
-    expect(first.repository.list("completed")).toEqual([{ id: "explore", title, completed: true }]);
-    expect(second.repository.list("completed")).toEqual([
-      { id: "explore", title: "Second context", completed: true },
-    ]);
-    expect(first.onTasksChanged).toHaveBeenCalledOnce();
-    expect(second.onTasksChanged).toHaveBeenCalledOnce();
-  });
-
-  it("keeps concurrent HTTP requests bound to their own repository and invalidator", async () => {
-    const first = { repository: createDemoRepository([]), onTasksChanged: vi.fn() };
-    const second = { repository: createDemoRepository([]), onTasksChanged: vi.fn() };
-    const responses = await Promise.all([
-      request(first, "/v1/tasks", "POST", { title: "First context" }),
-      request(second, "/v1/tasks", "POST", { title: "Second context" }),
-    ]);
-
-    expect(responses.map((response) => response.status)).toEqual([201, 201]);
-    expect(first.repository.list("all").map((task) => task.title)).toEqual(["First context"]);
-    expect(second.repository.list("all").map((task) => task.title)).toEqual(["Second context"]);
-    expect(first.onTasksChanged).toHaveBeenCalledOnce();
-    expect(second.onTasksChanged).toHaveBeenCalledOnce();
-  });
-
-  it("awaits the mutation's asynchronous cache invalidation before responding", async () => {
-    let invalidated = false;
-    const response = await request(
-      {
-        repository: createDemoRepository([]),
-        onTasksChanged: async () => {
-          await new Promise((resolve) => setTimeout(resolve, 0));
-          invalidated = true;
-        },
-      },
-      "/v1/tasks",
-      "POST",
-      { title: "Fresh task" },
+  it("returns a non-cacheable 404 for an unknown RPC procedure", async () => {
+    const response = await handleRpc(
+      new Request("http://localhost/api/rpc/unknown", { method: "POST" }),
+      context(),
     );
-
-    expect(response.status).toBe(201);
-    expect(invalidated).toBe(true);
-  });
-
-  it("returns a non-cacheable 404 for an unmatched path", async () => {
-    const response = await request({ repository: createDemoRepository([]) }, "/unknown");
     expect(response.status).toBe(404);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
   });

@@ -35,7 +35,7 @@ function Controls({
       <RoutingPreferenceProvider mode={mode}>
         <LanguageSelector />
         <RoutingModeSwitch />
-        <Link href="/playground">Playground</Link>
+        <Link href="/about">About</Link>
       </RoutingPreferenceProvider>
     </NextIntlClientProvider>
   );
@@ -49,10 +49,10 @@ beforeEach(() => {
 
 describe("routing preference controls", () => {
   it.each([
-    ["always", "en", "/en/playground", true],
-    ["always", "es", "/es/playground", true],
-    ["never", "en", "/playground", false],
-    ["never", "es", "/playground", false],
+    ["always", "en", "/en/about", true],
+    ["always", "es", "/es/about", true],
+    ["never", "en", "/about", false],
+    ["never", "es", "/about", false],
   ] as const)(
     "renders static %s/%s links and disabled controls before hydration",
     (mode, locale, href, checked) => {
@@ -64,14 +64,14 @@ describe("routing preference controls", () => {
   );
 
   it("removes the prefix by keyboard, preserving the selected locale, query, fragment and scroll", async () => {
-    window.history.replaceState(null, "", "/es/playground?status=active#tasks");
+    window.history.replaceState(null, "", "/es/about?status=active#details");
     const user = userEvent.setup();
     render(<Controls locale="es" />);
     const control = screen.getByRole("switch", { name: "Idioma en la URL" });
     control.focus();
     await user.keyboard(" ");
     await waitFor(() =>
-      expect(mocks.replace).toHaveBeenCalledWith("/playground?status=active#tasks", {
+      expect(mocks.replace).toHaveBeenCalledWith("/about?status=active#details", {
         scroll: false,
       }),
     );
@@ -90,11 +90,11 @@ describe("routing preference controls", () => {
   });
 
   it("changes languages through explicit routes while retaining query and fragment", async () => {
-    window.history.replaceState(null, "", "/en/playground?status=completed#tasks");
+    window.history.replaceState(null, "", "/en/about?status=completed#details");
     render(<Controls />);
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Language" }), "es");
     await waitFor(() =>
-      expect(mocks.replace).toHaveBeenCalledWith("/es/playground?status=completed#tasks", {
+      expect(mocks.replace).toHaveBeenCalledWith("/es/about?status=completed#details", {
         scroll: false,
       }),
     );
@@ -102,7 +102,7 @@ describe("routing preference controls", () => {
   });
 
   it("refreshes language changes in hidden mode without adding a prefix", async () => {
-    window.history.replaceState(null, "", "/playground?status=active#tasks");
+    window.history.replaceState(null, "", "/about?status=active#details");
     render(<Controls mode="never" />);
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Language" }), "es");
     await waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1));

@@ -1,10 +1,13 @@
 import "server-only";
 
-import { demoRepository } from "@repo/api";
 import { createMcpEndpoint } from "./mcp";
+import { generateOpenApiSpec, handleOpenApiRequest } from "./openapi";
+import { createRequestContext } from "./request-context";
 
-// The public endpoint and the homepage client use the same request context factory.
+// The public route and in-process callers share this endpoint.
 export const mcpEndpoint = createMcpEndpoint({
-  // Extend this factory with the caller's identity when adding authentication.
-  getContext: (_request) => ({ repository: demoRepository }),
+  getSpec: generateOpenApiSpec,
+  dispatch: handleOpenApiRequest,
+  // Extend the factory with the caller's identity when adding authentication.
+  getContext: (_request) => createRequestContext(),
 });

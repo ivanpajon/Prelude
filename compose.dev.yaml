@@ -22,9 +22,12 @@ services:
         - CMD
         - node
         - -e
+        # The launcher skips the Inspector and its sandbox when MCP_ENABLED=false.
         - >-
-          Promise.all([[process.env.PORT, '/', 'HEAD'], [process.env.MCP_INSPECTOR_PORT, '/', 'HEAD'],
-          [process.env.MCP_SANDBOX_PORT, '/sandbox', 'GET']].map(([port, path, method]) =>
+          const probes = [[process.env.PORT, '/api/health', 'GET']];
+          if (process.env.MCP_ENABLED?.trim().toLowerCase() !== 'false') probes.push(
+          [process.env.MCP_INSPECTOR_PORT, '/', 'HEAD'], [process.env.MCP_SANDBOX_PORT, '/sandbox', 'GET']);
+          Promise.all(probes.map(([port, path, method]) =>
           fetch('http://127.0.0.1:' + port + path, {method, signal: AbortSignal.timeout(4000)})
           .then(response => {if (!response.ok) throw new Error('Unhealthy development server')})))
           .catch(() => process.exit(1))
@@ -47,7 +50,9 @@ services:
             - .dockerignore
             - "compose*.yaml"
             - "scripts/dev-*.mjs"
+            # demo:start
             - scripts/build-mcp-apps.mjs
+            # demo:end
             - "apps/*/next.config.*"
             - "apps/*/postcss.config.*"
             - "**/tsconfig*.json"
@@ -57,7 +62,9 @@ services:
           initial_sync: true
           include:
             - "scripts/dev-*.mjs"
+            # demo:start
             - scripts/build-mcp-apps.mjs
+            # demo:end
             - "apps/*/next.config.*"
             - "apps/*/postcss.config.*"
             - "**/tsconfig*.json"

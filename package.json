@@ -1,6 +1,7 @@
 {
   "name": "prelude",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@12.6.0",
   "engines": {
@@ -9,7 +10,9 @@
   },
   "scripts": {
     "customize": "node scripts/customize.mjs",
+    "remove-demo": "node scripts/remove-demo.mjs",
     "dev": "turbo run dev",
+    "dev:app": "turbo run dev -- --no-inspector",
     "mcp:check": "node scripts/mcp-check.mjs",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck && tsc --project tsconfig.tools.json",
@@ -31,6 +34,7 @@
     "test:dev": "playwright test --config playwright.dev.config.ts",
     "test:cache": "node scripts/verify-build-cache.mjs",
     "test:stack": "node scripts/test-stack.mjs",
+    "test:stack:quick": "node scripts/test-stack.mjs --quick",
     "verify": "pnpm check && pnpm test:coverage && pnpm test:dev && pnpm test:e2e && pnpm test:cache"
   },
   "devDependencies": {
@@ -38,7 +42,7 @@
     "@commitlint/cli": "21.2.3",
     "@commitlint/config-conventional": "21.2.3",
     "@modelcontextprotocol/client": "2.2.0",
-    "@modelcontextprotocol/inspector": "2.8.0",
+    "@modelcontextprotocol/inspector": "2.10.1",
     "@playwright/test": "1.63.0",
     "@testing-library/dom": "10.4.2",
     "@testing-library/jest-dom": "7.0.1",

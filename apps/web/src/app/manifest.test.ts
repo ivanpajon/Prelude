@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { site } from "@/site";
 import manifest from "./manifest";
 
 const requestLocale = vi.hoisted(() => vi.fn());
@@ -16,8 +17,8 @@ describe("localized installation manifest", () => {
     for (const result of [english, spanish]) {
       expect(result).toMatchObject({
         id: "/",
-        name: "Prelude",
-        short_name: "Prelude",
+        name: site.name,
+        short_name: site.name,
         start_url: "/",
         scope: "/",
         dir: "ltr",

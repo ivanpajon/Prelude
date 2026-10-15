@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
+  // Includes tests/dev/demo/.
   testDir: "./tests/dev",
   outputDir: "./test-results/development",
   workers: 1,
@@ -9,6 +10,16 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 15_000 },
   reporter: "list",
+  // demo:start
+  // CI shards this list with --fully-parallel, so each shard takes a contiguous slice of it. The
+  // demo comes first and its Spanish MCP App test last, so the two slow MCP App tests in
+  // tests/dev/demo/ stay in different halves when tests are added to the shared ones.
+  projects: [
+    { name: "demo", testDir: "./tests/dev/demo", testIgnore: "**/mcp-apps-es.spec.ts" },
+    { name: "development", testIgnore: "**/demo/**" },
+    { name: "demo-es", testDir: "./tests/dev/demo", testMatch: "**/mcp-apps-es.spec.ts" },
+  ],
+  // demo:end
   use: {
     ...devices["Desktop Chrome"],
     baseURL: "http://127.0.0.1:3102",

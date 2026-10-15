@@ -1,7 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { browserLocale, isLocale, locales, requestLocale, resolveLocale } from "./index";
+import {
+  browserLocale,
+  isLocale,
+  type Locale,
+  locales,
+  requestLocale,
+  resolveLocale,
+} from "./index";
 import { getMessages } from "./messages";
+// demo:start
+
 import { getWidgetMessages } from "./widget";
+
+// demo:end
+
+/** Every message catalog the website and its embedded interfaces load. */
+const catalogs: ((locale: Locale) => object)[] = [
+  getMessages,
+  // demo:start
+  getWidgetMessages,
+  // demo:end
+];
 
 function leaves(value: object, prefix = ""): [string, string][] {
   return Object.entries(value).flatMap(([key, child]): [string, string][] => {
@@ -47,13 +66,12 @@ describe("locale selection", () => {
 });
 
 describe("message catalogs", () => {
-  it("keeps all website and widget keys aligned across locales", () => {
-    expect(keys(getMessages("es"))).toEqual(keys(getMessages("en")));
-    expect(keys(getWidgetMessages("es"))).toEqual(keys(getWidgetMessages("en")));
+  it("keeps all catalog keys aligned across locales", () => {
+    for (const get of catalogs) expect(keys(get("es"))).toEqual(keys(get("en")));
   });
 
   it("uses the same ICU arguments and rich-text tags in every locale", () => {
-    for (const get of [getMessages, getWidgetMessages]) {
+    for (const get of catalogs) {
       const spanish = new Map(leaves(get("es")));
       for (const [key, english] of leaves(get("en"))) {
         expect(placeholders(spanish.get(key) ?? ""), key).toEqual(placeholders(english));

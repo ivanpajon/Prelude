@@ -13,8 +13,8 @@
     "newTab": "(opens in a new tab)",
     "skip": "Skip to content",
     "footer": "Made with ❤️ by Ivan Pajon",
-    "github": "Prelude on GitHub (opens in a new tab)",
-    "loading": "Getting your workspace ready…"
+    "repository": "{name} source code (opens in a new tab)",
+    "loading": "Loading…"
   },
   "Home": {
     "metaTitle": "Prelude — Less setup. More building.",
@@ -81,11 +81,12 @@
   "Errors": {
     "eyebrow": "A small interruption",
     "title": "Let’s try that again.",
-    "description": "We couldn’t load this page. Give it another try to get back to your workspace.",
+    "description": "We couldn’t load this page. Please try again.",
     "retry": "Try again",
+    "reference": "Reference: {digest}",
     "notFoundEyebrow": "404 / PAGE NOT FOUND",
     "notFoundTitle": "A fresh direction.",
-    "notFoundDescription": "There’s nothing at this address. Your workspace is a good place to start.",
-    "home": "Back to the workspace"
+    "notFoundDescription": "There’s nothing at this address. The home page is a good place to start.",
+    "home": "Back to home"
   }
 }

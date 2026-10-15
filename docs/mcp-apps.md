@@ -108,6 +108,8 @@ The server loads HTML only when a client reads the resource. Production memoizes
 
 ## Replace or remove the example
 
+To remove the whole task demo, including this widget and guide, run `pnpm remove-demo`; see [Remove the demo](remove-demo.md). The notes below keep the rest of the demo.
+
 To keep MCP Apps for a different feature, replace the widget UI/model, resource URI, operation-ID mapping, and generated asset path together. Keep application schemas and business logic in the existing contracts/API packages. Update the HTML build, standalone tracing, cache outputs, documentation, and Inspector/protocol/browser tests. A new OpenAPI operation becomes a JSON MCP tool automatically; its interactive interface still needs an explicit design and resource association.
 
 To remove just the widget:
@@ -118,6 +120,7 @@ To remove just the widget:
 4. Remove the `/playground#mcp-app` panel/link from `apps/web/src/app/[routingMode]/[locale]/playground/page.tsx` and update its section navigation. Remove unused `Widget` catalogs and its catalog-loader exports, plus widget-specific playground messages in both languages. Keep the browser workbench and JSON explorer if useful.
 5. Remove unused `ext-apps`, its now-unused direct peers, tsdown, and Tailwind CLI dependencies, then regenerate the lockfile. Retain SDK packages needed by JSON MCP and the independent Next.js Tailwind PostCSS setup.
 6. If keeping Inspector only for JSON tools, remove widget-specific sandbox publishing/configuration and corresponding launcher/port checks together. If removing Inspector too, follow [MCP removal](mcp.md#add-change-or-remove-tools).
+7. Remove the `pnpm remove-demo` command, whose list no longer matches; see [Remove only part of the demo](remove-demo.md#remove-only-part-of-the-demo).
 
 Run `pnpm verify` and, when Docker configuration remains, `pnpm test:stack` after changing these boundaries. The [verification guide](verification.md) describes the acceptance commands; generated reports are not committed as source.
 

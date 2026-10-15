@@ -10,21 +10,51 @@ import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
-import { parseArgs } from "node:util";
+import { parseArgs, stripVTControlCharacters } from "node:util";
 import { measureUnpackedImageSize } from "./stack-image-size.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const require = createRequire(import.meta.url);
+const partNames = ["builds", "runtime", "development", "rebuild"];
 const { values } = parseArgs({
-  options: { samples: { type: "string", default: "3" }, help: { type: "boolean" } },
+  options: {
+    part: { type: "string" },
+    shard: { type: "string" },
+    samples: { type: "string" },
+    quick: { type: "boolean" },
+    help: { type: "boolean" },
+  },
 });
 if (values.help) {
-  console.log(
-    "pnpm test:stack [--samples 3]\nBuild and exercise disposable Docker stacks; write test-results/stack/report.json.",
-  );
+  console.log(`pnpm test:stack [--part <name>] [--shard 1/2] [--samples 3] [--quick]
+Build and exercise disposable Docker stacks; write test-results/stack/report.json.
+Without --part, it runs every part in this order. Each part also runs on its own:
+  builds       production builds on an empty builder (cold, unchanged, source change,
+               restore) and the image sizes
+  runtime      one production build with the selected builder: runtime facts, samples,
+               the production browser checks, and the MCP toggle without a rebuild
+  development  the development stack with Compose Watch and its browser checks;
+               --shard 1/2 runs half of those checks
+  rebuild      the development stack: a manifest rebuild through Compose Watch, then
+               a restart without MCP
+--quick is --part runtime with one sample (by default).`);
   process.exit(0);
 }
-const samples = Number(values.samples);
+const quick = values.quick === true;
+assert(!quick || !values.part, "--quick already selects the runtime part");
+assert(
+  !values.part || partNames.includes(values.part),
+  `--part must be one of: ${partNames.join(", ")}`,
+);
+const parts = quick ? ["runtime"] : values.part ? [values.part] : partNames;
+const runs = (part) => parts.includes(part);
+const shard = values.shard;
+const [, current, total] = shard?.match(/^([1-9]\d*)\/([1-9]\d*)$/) ?? [];
+assert(
+  !shard || (values.part === "development" && Number(current) <= Number(total)),
+  "--shard i/n needs --part development and 1 <= i <= n",
+);
+const samples = Number(values.samples ?? (quick ? 1 : 3));
 assert(Number.isInteger(samples) && samples >= 1 && samples <= 10, "--samples must be 1–10");
 const project = `prelude-stack-${randomUUID().slice(0, 8)}`;
 const reportDirectory = path.join(root, "test-results", "stack");
@@ -43,17 +73,33 @@ process.once("SIGINT", stop);
 process.once("SIGTERM", stop);
 const report = {
   project,
+  mode: quick ? "quick" : values.part ? "part" : "full",
+  parts,
+  ...(shard && { shard }),
   startedAt: new Date().toISOString(),
   status: "running",
   methodology: {
     samples,
     runtime: { cpus: 2, memory: "1g" },
     development: { cpus: 2, memory: "4g" },
-    requests: { warmup: 6, count: 50, concurrency: 4, routes: ["/", "/api/v1/tasks?status=all"] },
-    build: "Dedicated empty Buildx builder; host Docker engine resource defaults.",
+    requests: {
+      warmup: 6,
+      count: 50,
+      concurrency: 4,
+      // Requests rotate through these routes.
+      routes: [
+        "/",
+        "/api/health",
+        // demo:start
+        "/api/v1/tasks?status=all",
+        // demo:end
+      ],
+    },
+    build:
+      "Builds part: a dedicated empty Buildx builder, created for the cache measurements. Runtime part on its own, and development: the selected Buildx builder (selectedBuilder), which docker compose watch also rebuilds with; by default the Docker engine's own builder, whose cache may already be warm. A full run reuses the builds part's restored production image for the runtime part. Each build records its builder. Host Docker engine resource defaults.",
     size: "Unpacked bytes are SizeRootFs minus SizeRw from a never-started, network-disabled measurement container. Raw rootfs/writable values and image inspect Size (image-store bytes, potentially packed plus unpacked) are retained separately. Compressed bytes sum unique gzip OCI layers, excluding config/manifest metadata; not measured network transfer.",
     readiness:
-      "First successful task API response after compose up, with container-start-relative and command-relative timing; first HTML request reported separately. The Compose healthcheck must then report healthy (commandToHealthyMs).",
+      "First successful /api/health response after compose up, with container-start-relative and command-relative timing; first HTML request reported separately. The Compose healthcheck must then report healthy (commandToHealthyMs).",
     rss: "Sum of Node application processes' VmRSS from /proc, excluding the measurement process.",
   },
   builds: {},
@@ -196,7 +242,23 @@ async function sourceDigest(files) {
   return hash.digest("hex");
 }
 
-async function build(target, label, extra = []) {
+// Development images build where `docker compose watch` builds and rebuilds them: in the selected
+// builder, by default the engine's own one, named after the Docker context. That one writes straight
+// into the engine's image store, while a docker-container builder boots first and then exports and
+// imports every image as a tarball. The runtime part's production image builds there too; only the
+// builds part needs an empty builder for its cache measurements.
+async function selectedBuilder() {
+  const inspected = (await docker(["buildx", "inspect"])).output;
+  const name = inspected.match(/^Name:\s+(\S+)/m)?.[1];
+  assert(name, "No Buildx builder is selected");
+  report.methodology.selectedBuilder = {
+    name,
+    driver: inspected.match(/^Driver:\s+(\S+)/m)?.[1],
+  };
+  return name;
+}
+
+async function build(target, label, using = builder) {
   const tag = `${project}:${target}`;
   console.log(`Stack: building ${label}`);
   const result = await docker(
@@ -204,7 +266,7 @@ async function build(target, label, extra = []) {
       "buildx",
       "build",
       "--builder",
-      builder,
+      using,
       "--progress=plain",
       "--provenance=false",
       "--target",
@@ -214,7 +276,6 @@ async function build(target, label, extra = []) {
       "--label",
       imageLabel,
       "--load",
-      ...extra,
       context,
     ],
     { log: `build-${label}.log` },
@@ -234,6 +295,7 @@ async function build(target, label, extra = []) {
   ownedImages.add(tag);
   ownedImageIds.add(JSON.parse((await docker(["image", "inspect", tag])).output)[0].Id);
   const metric = {
+    builder: using,
     ms: result.ms,
     dependencyCacheHit,
     compilationCacheHit,
@@ -296,6 +358,23 @@ async function ociSize(archive) {
 }
 
 const nodeBin = (target) => (target === "production" ? "/nodejs/bin/node" : "/usr/local/bin/node");
+// Build-only packages that must not resolve from the production server.
+const buildTools = [
+  "@modelcontextprotocol/inspector",
+  // demo:start
+  "tsdown",
+  "@tailwindcss/cli",
+  // demo:end
+];
+// Extra runtime assertions; each one that passes is reported as `name: true`.
+const runtimeChecks = [
+  // demo:start
+  [
+    "mcpApp",
+    "assert(fs.readFileSync('/app/apps/web/.generated/mcp-apps/tasks.html','utf8').includes('<!--PRELUDE_MCP_APP_CONFIG-->'),'Runtime must contain the generated MCP App HTML');",
+  ],
+  // demo:end
+];
 const inspectRuntimeSource = `
 const fs=require('node:fs'), path=require('node:path');
 const assert=require('node:assert/strict');
@@ -304,36 +383,20 @@ assert.equal(Intl.DateTimeFormat.supportedLocalesOf(['en','es','ja','ar']).lengt
 assert.match(new Intl.DateTimeFormat('es',{month:'long',timeZone:'Europe/Madrid'}).format(new Date('2026-01-01')),/enero/);
 assert.equal(Temporal.Instant.from('2026-01-01T00:00:00Z').toZonedDateTimeISO('Europe/Madrid').hour,1);
 const fromApp=require('node:module').createRequire('/app/apps/web/server.js');
-for(const dependency of ['tsdown','@tailwindcss/cli','@modelcontextprotocol/inspector']) {
+for(const dependency of ${JSON.stringify(buildTools)}) {
  assert.throws(()=>fromApp.resolve(dependency),{code:'MODULE_NOT_FOUND'},dependency+' must not ship in the runtime');
 }
-const appHtml=fs.readFileSync('/app/apps/web/.generated/mcp-apps/tasks.html','utf8');
-assert(appHtml.includes('<!--PRELUDE_MCP_APP_CONFIG-->'),'Runtime must contain the generated MCP App HTML');
+${runtimeChecks.map(([, check]) => check).join("\n")}
 const fromNext=require('node:module').createRequire(fromApp.resolve('next/package.json'));
 const sharp=fromNext('sharp'); assert(sharp.versions.vips);
 const cache='/app/apps/web/.next/cache'; fs.mkdirSync(cache,{recursive:true});
 const probe=path.join(cache,'stack-permission-probe'); fs.writeFileSync(probe,'ok'); fs.unlinkSync(probe);
-console.log(JSON.stringify({uid:process.getuid(),node:process.version,icu:process.versions.icu,sharp:sharp.versions.sharp,nativeTemporal:true,mcpApp:true,buildToolsAbsent:true}));
+console.log(JSON.stringify({uid:process.getuid(),node:process.version,icu:process.versions.icu,sharp:sharp.versions.sharp,nativeTemporal:true,${runtimeChecks.map(([name]) => `${name}:true,`).join("")}buildToolsAbsent:true}));
 `;
 
-async function imageMetrics(target) {
-  const tag = `${project}:${target}`;
-  const image = JSON.parse((await docker(["image", "inspect", tag])).output)[0];
+async function imageSize(target) {
+  const image = JSON.parse((await docker(["image", "inspect", `${project}:${target}`])).output)[0];
   const filesystem = await measureUnpackedImageSize(image.Id, { docker, owner: project });
-  const runtime = JSON.parse(
-    (
-      await docker([
-        "run",
-        "--rm",
-        "--network=none",
-        "--entrypoint",
-        nodeBin(target),
-        tag,
-        "-e",
-        inspectRuntimeSource,
-      ])
-    ).output,
-  );
   const archive = path.join(temporary, `${target}.oci.tar`);
   const exported = await docker(
     [
@@ -357,9 +420,28 @@ async function imageMetrics(target) {
     ...filesystem,
     ...(await ociSize(archive)),
     exportMs: exported.ms,
-    runtime,
-    samples: [],
   };
+  await checkpoint();
+}
+
+async function runtimeFacts(target) {
+  const tag = `${project}:${target}`;
+  const image = JSON.parse((await docker(["image", "inspect", tag])).output)[0];
+  const runtime = JSON.parse(
+    (
+      await docker([
+        "run",
+        "--rm",
+        "--network=none",
+        "--entrypoint",
+        nodeBin(target),
+        tag,
+        "-e",
+        inspectRuntimeSource,
+      ])
+    ).output,
+  );
+  report.images[target] = { ...report.images[target], id: image.Id, runtime, samples: [] };
   await checkpoint();
 }
 
@@ -416,9 +498,7 @@ async function waitReady(origin, timeout = 180_000) {
   while (performance.now() - started < timeout) {
     controller.signal.throwIfAborted();
     try {
-      const response = await fetch(`${origin}/api/v1/tasks?status=all`, {
-        signal: AbortSignal.timeout(1500),
-      });
+      const response = await fetch(`${origin}/api/health`, { signal: AbortSignal.timeout(1500) });
       lastStatus = response.status;
       await response.arrayBuffer();
       if (response.ok) return;
@@ -535,9 +615,16 @@ async function stopStack(config) {
 }
 
 async function browserChecks(config, target, id) {
-  await command(
+  const { output } = await command(
     process.execPath,
-    [require.resolve("@playwright/test/cli"), "test", "--config", "playwright.stack.config.ts"],
+    [
+      require.resolve("@playwright/test/cli"),
+      "test",
+      "--config",
+      "playwright.stack.config.ts",
+      // Shard single tests, not spec files, so neither half is empty.
+      ...(shard ? ["--fully-parallel", `--shard=${shard}`] : []),
+    ],
     {
       env: {
         PRELUDE_STACK_MODE: target,
@@ -552,6 +639,13 @@ async function browserChecks(config, target, id) {
       log: `browser-${target}.log`,
     },
   );
+  // Playwright reports success for an empty shard. FORCE_COLOR adds color codes to its summary.
+  if (shard)
+    assert.match(
+      stripVTControlCharacters(output),
+      /Running [1-9]\d* tests? using/,
+      `No ${target} stack browser tests ran`,
+    );
 }
 
 let watch;
@@ -601,126 +695,172 @@ try {
   assert.equal(report.docker.Server.Os, "linux", "Docker must run Linux containers");
   report.compose = (await docker(["compose", "version", "--short"])).output.trim();
   files = await copyContext();
-  await docker(["buildx", "create", "--name", builder, "--driver", "docker-container"]);
-  builderCreated = true;
-  await build("production", "production-cold");
-  const cached = await build("production", "production-unchanged");
-  assert(cached.dependencyCacheHit, "Unchanged build must reuse dependency installation");
-  assert(cached.compilationCacheHit, "Unchanged build must reuse Next.js compilation");
-  const changedSource = path.join(context, "apps/web/src/components/animation-examples.tsx");
-  const original = await readFile(changedSource, "utf8");
-  await writeFile(changedSource, `${original}\n// isolated stack source-cache probe\n`);
-  const changed = await build("production", "production-source-change");
-  assert(changed.dependencyCacheHit, "Source changes must reuse dependency installation");
-  assert(!changed.compilationCacheHit, "A source change must recompile the application build");
-  await writeFile(changedSource, original);
-  await build("production", "production-restore");
-  await imageMetrics("production");
-  const production = await composeConfig("production");
-  for (let index = 0; index < samples; index++) {
-    console.log(`Stack: production runtime sample ${index + 1}/${samples}`);
-    const ready = await launch(production);
-    const idleRssBytes = await rss(ready.id, "production");
-    const latency = await load(production.origin);
-    report.images.production.samples.push({
-      ...ready,
-      idleRssBytes,
-      loadedRssBytes: await rss(ready.id, "production"),
-      latency,
-    });
+  if (runs("builds")) {
+    await docker(["buildx", "create", "--name", builder, "--driver", "docker-container"]);
+    builderCreated = true;
+    await build("production", "production-cold");
+    const cached = await build("production", "production-unchanged");
+    assert(cached.dependencyCacheHit, "Unchanged build must reuse dependency installation");
+    assert(cached.compilationCacheHit, "Unchanged build must reuse Next.js compilation");
+    const changedSource = path.join(context, "apps/web/src/components/animation-examples.tsx");
+    const original = await readFile(changedSource, "utf8");
+    await writeFile(changedSource, `${original}\n// isolated stack source-cache probe\n`);
+    const changed = await build("production", "production-source-change");
+    assert(changed.dependencyCacheHit, "Source changes must reuse dependency installation");
+    assert(!changed.compilationCacheHit, "A source change must recompile the application build");
+    await writeFile(changedSource, original);
+    await build("production", "production-restore");
+    await imageSize("production");
+  }
+  if (runs("runtime")) {
+    // A full run reuses the restored image from the builds part. On its own, this part builds
+    // with the selected builder, whose cache may be warm, so it makes no cache assertions.
+    if (!runs("builds")) await build("production", "production-runtime", await selectedBuilder());
+    await runtimeFacts("production");
+    const production = await composeConfig("production");
+    for (let index = 0; index < samples; index++) {
+      console.log(`Stack: production runtime sample ${index + 1}/${samples}`);
+      const ready = await launch(production);
+      const idleRssBytes = await rss(ready.id, "production");
+      const latency = await load(production.origin);
+      report.images.production.samples.push({
+        ...ready,
+        idleRssBytes,
+        loadedRssBytes: await rss(ready.id, "production"),
+        latency,
+      });
+      await checkpoint();
+      if (index === 0) {
+        await browserChecks(production, "production", ready.id);
+        report.acceptance.production = "passed";
+        await checkpoint();
+      }
+      await stopStack(production);
+    }
+    const disabled = await composeConfig("production", { MCP_ENABLED: "false" });
+    await launch(disabled);
+    assert.equal((await fetch(`${disabled.origin}/api/mcp`)).status, 404);
+    assert.equal((await fetch(`${disabled.origin}/api/health`)).status, 200);
+    assert.equal((await fetch(`${disabled.origin}/api/openapi.json`)).status, 200);
+    // demo:start
+    // A REST procedure still runs while MCP is off.
+    assert.equal((await fetch(`${disabled.origin}/api/v1/tasks?status=all`)).status, 200);
+    // demo:end
+    disabled.env.MCP_ENABLED = "true";
+    await launch(disabled);
+    assert.equal((await fetch(`${disabled.origin}/api/mcp`)).status, 405);
+    report.acceptance.runtimeMcpToggleWithoutBuild = "passed";
     await checkpoint();
-    if (index === 0) {
-      await browserChecks(production, "production", ready.id);
-      report.acceptance.production = "passed";
+    await stopStack(disabled);
+  }
+  if (runs("development") || runs("rebuild")) {
+    await build("development", "development", await selectedBuilder());
+    const development = await composeConfig("development");
+    const ready = await launch(development);
+    watch = spawn("docker", [...development.args, "watch", "--no-up", "web"], {
+      env: { ...process.env, ...development.env },
+      // Absolute -f paths keep Compose rooted in the copy without a Windows cwd lock.
+      cwd: root,
+      windowsHide: true,
+      shell: false,
+      detached: process.platform !== "win32",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    watchDone = new Promise((resolve) => {
+      watch.once("exit", resolve);
+      watch.once("error", (error) => {
+        watchError = error;
+        resolve();
+      });
+    });
+    watch.stdout.on("data", (chunk) => {
+      watchOutput += chunk;
+    });
+    watch.stderr.on("data", (chunk) => {
+      watchOutput += chunk;
+    });
+    // Compose Watch reacts to file changes only after its initial sync, when it prints this.
+    const watchStarted = performance.now();
+    while (!watchOutput.includes("Watch enabled")) {
+      controller.signal.throwIfAborted();
+      if (watchError) throw watchError;
+      assert.equal(watch.exitCode, null, `Compose watch failed to start:\n${watchOutput}`);
+      assert(performance.now() - watchStarted < 120_000, "Compose watch did not start in 120 s");
+      await delay(250);
+    }
+    if (runs("development")) {
+      await browserChecks(development, "development", ready.id);
+      if (shard) {
+        // Each shard runs only some of the checks below.
+        report.acceptance.developmentBrowserShard = { shard, status: "passed" };
+      } else {
+        report.acceptance.developmentInspectorAndHmr = "passed";
+        // demo:start
+        report.acceptance.developmentMcpAppSandbox = {
+          status: "passed",
+          appPort: development.port,
+          inspectorPort: development.inspectorPort,
+          sandboxPort: development.sandboxPort,
+        };
+        // demo:end
+      }
       await checkpoint();
     }
-    await stopStack(production);
-  }
-  const disabled = await composeConfig("production", { MCP_ENABLED: "false" });
-  await launch(disabled);
-  assert.equal((await fetch(`${disabled.origin}/api/mcp`)).status, 404);
-  assert.equal((await fetch(`${disabled.origin}/api/v1/tasks?status=all`)).status, 200);
-  disabled.env.MCP_ENABLED = "true";
-  await launch(disabled);
-  assert.equal((await fetch(`${disabled.origin}/api/mcp`)).status, 405);
-  report.acceptance.runtimeMcpToggleWithoutBuild = "passed";
-  await checkpoint();
-  await stopStack(disabled);
-  await build("development", "development");
-  const development = await composeConfig("development");
-  const ready = await launch(development);
-  watch = spawn("docker", [...development.args, "watch", "--no-up", "web"], {
-    env: { ...process.env, ...development.env, BUILDX_BUILDER: builder },
-    // Absolute -f paths keep Compose rooted in the copy without a Windows cwd lock.
-    cwd: root,
-    windowsHide: true,
-    shell: false,
-    detached: process.platform !== "win32",
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  watchDone = new Promise((resolve) => {
-    watch.once("exit", resolve);
-    watch.once("error", (error) => {
-      watchError = error;
-      resolve();
-    });
-  });
-  watch.stdout.on("data", (chunk) => {
-    watchOutput += chunk;
-  });
-  watch.stderr.on("data", (chunk) => {
-    watchOutput += chunk;
-  });
-  await delay(2000);
-  if (watchError) throw watchError;
-  assert.equal(watch.exitCode, null, "Compose watch failed to start");
-  await browserChecks(development, "development", ready.id);
-  report.acceptance.developmentInspectorAndHmr = "passed";
-  report.acceptance.developmentMcpAppSandbox = {
-    status: "passed",
-    appPort: development.port,
-    inspectorPort: development.inspectorPort,
-    sandboxPort: development.sandboxPort,
-  };
-  await checkpoint();
-  const manifestPath = path.join(context, "package.json");
-  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
-  await writeFile(
-    manifestPath,
-    `${JSON.stringify({ ...manifest, description: `Isolated manifest rebuild ${project}` }, null, 2)}\n`,
-  );
-  const rebuildStarted = performance.now();
-  let replacement;
-  while (performance.now() - rebuildStarted < 180_000) {
-    controller.signal.throwIfAborted();
-    assert.equal(watch.exitCode, null, "Compose watch stopped during rebuild");
-    try {
-      replacement = await containerId(development);
-    } catch {
-      /* Recreate briefly removes the old container. */
+    if (runs("rebuild")) {
+      const manifestPath = path.join(context, "package.json");
+      const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+      await writeFile(
+        manifestPath,
+        `${JSON.stringify({ ...manifest, description: `Isolated manifest rebuild ${project}` }, null, 2)}\n`,
+      );
+      const rebuildStarted = performance.now();
+      let replacement;
+      while (performance.now() - rebuildStarted < 180_000) {
+        controller.signal.throwIfAborted();
+        assert.equal(watch.exitCode, null, "Compose watch stopped during rebuild");
+        try {
+          replacement = await containerId(development);
+        } catch {
+          /* Recreate briefly removes the old container. */
+        }
+        if (replacement && replacement !== ready.id) break;
+        await delay(1000);
+      }
+      assert(
+        replacement && replacement !== ready.id,
+        "Manifest change did not rebuild the development container",
+      );
+      await waitReady(development.origin);
+      ownedImageIds.add(JSON.parse((await docker(["inspect", replacement])).output)[0].Image);
+      report.acceptance.manifestWatchRebuild = {
+        status: "passed",
+        ms: performance.now() - rebuildStarted,
+      };
+      await checkpoint();
     }
-    if (replacement && replacement !== ready.id) break;
-    await delay(1000);
+    await stopWatch();
+    await stopStack(development);
   }
-  assert(
-    replacement && replacement !== ready.id,
-    "Manifest change did not rebuild the development container",
-  );
-  await waitReady(development.origin);
-  ownedImageIds.add(JSON.parse((await docker(["inspect", replacement])).output)[0].Image);
-  report.acceptance.manifestWatchRebuild = {
-    status: "passed",
-    ms: performance.now() - rebuildStarted,
-  };
-  await checkpoint();
-  await stopWatch();
-  assert.equal(
-    await sourceDigest(files),
-    report.source.sha256,
-    "Stack checks changed host source files",
-  );
-  report.acceptance.hostSourceUnchanged = "passed";
-  await stopStack(development);
+  // The builds, the development browser checks, and the manifest rebuild edit only the copy.
+  if (!parts.every((part) => part === "runtime")) {
+    assert.equal(
+      await sourceDigest(files),
+      report.source.sha256,
+      "Stack checks changed host source files",
+    );
+    report.acceptance.hostSourceUnchanged = "passed";
+    await checkpoint();
+  }
+  if (runs("rebuild")) {
+    // The development healthcheck drops the Inspector and sandbox probes when MCP is disabled.
+    const developmentWithoutMcp = await composeConfig("development", { MCP_ENABLED: "false" });
+    await launch(developmentWithoutMcp);
+    assert.equal((await fetch(`${developmentWithoutMcp.origin}/api/mcp`)).status, 404);
+    assert.equal((await fetch(`${developmentWithoutMcp.origin}/api/mcp/inspector`)).status, 404);
+    report.acceptance.developmentHealthyWithoutMcp = "passed";
+    await checkpoint();
+    await stopStack(developmentWithoutMcp);
+  }
   report.status = "passed";
 } catch (error) {
   report.status = "failed";

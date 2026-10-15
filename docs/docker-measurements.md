@@ -1,6 +1,8 @@
 # Docker measurement baseline
 
-The first sections preserve the historical baseline **before the dedicated `/playground` page and MCP App resource/build pipeline were added**. The [Playground and MCP App run](#playground-and-mcp-app-run) records the subsequent widget-containing image separately.
+The first sections preserve the historical baseline **before the dedicated `/playground` page and MCP App resource/build pipeline were added**.
+
+All runs recorded here used the task list API as their readiness probe and sampled `/` and that API. The harness now probes `/api/health` and samples `/`, `/api/health`, and the task API, so compare new reports with these figures only roughly. The [Playground and MCP App run](#playground-and-mcp-app-run) records the subsequent widget-containing image separately.
 
 The Node slim baseline was a measurement-only Dockerfile target. It was removed after these runs; `pnpm test:stack` now builds and samples only the Distroless production image.
 

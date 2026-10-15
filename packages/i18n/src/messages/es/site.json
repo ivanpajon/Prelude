@@ -13,8 +13,8 @@
     "newTab": "(se abre en una pestaña nueva)",
     "skip": "Saltar al contenido",
     "footer": "Hecho con ❤️ por Ivan Pajon",
-    "github": "Prelude en GitHub (se abre en una pestaña nueva)",
-    "loading": "Preparando tu espacio de trabajo…"
+    "repository": "Código fuente de {name} (se abre en una pestaña nueva)",
+    "loading": "Cargando…"
   },
   "Home": {
     "metaTitle": "Prelude — Menos configuración. Más creación.",
@@ -81,11 +81,12 @@
   "Errors": {
     "eyebrow": "Una pequeña interrupción",
     "title": "Vamos a intentarlo de nuevo.",
-    "description": "No hemos podido cargar esta página. Inténtalo de nuevo para volver a tu espacio de trabajo.",
+    "description": "No hemos podido cargar esta página. Inténtalo de nuevo.",
     "retry": "Reintentar",
+    "reference": "Referencia: {digest}",
     "notFoundEyebrow": "404 / PÁGINA NO ENCONTRADA",
     "notFoundTitle": "Un nuevo rumbo.",
-    "notFoundDescription": "No hay nada en esta dirección. Tu espacio de trabajo es un buen punto de partida.",
-    "home": "Volver al espacio de trabajo"
+    "notFoundDescription": "No hay nada en esta dirección. La página de inicio es un buen punto de partida.",
+    "home": "Volver al inicio"
   }
 }

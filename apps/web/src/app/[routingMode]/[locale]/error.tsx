@@ -4,10 +4,11 @@ import { Button } from "@repo/ui/components/button";
 import { useTranslations } from "next-intl";
 
 export default function ErrorPage({
-  reset,
+  error,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   const t = useTranslations("Errors");
   return (
@@ -20,7 +21,14 @@ export default function ErrorPage({
       </p>
       <h1 className="mt-4 text-4xl font-medium tracking-tight">{t("title")}</h1>
       <p className="mt-4 text-base leading-relaxed text-muted-foreground">{t("description")}</p>
-      <Button className="mt-8" onClick={reset}>
+      {/* The digest matches the server log entry for this error, without exposing its cause. */}
+      {error.digest ? (
+        <p className="mt-4 font-mono text-xs text-muted-foreground">
+          {t("reference", { digest: error.digest })}
+        </p>
+      ) : null}
+      {/* retry() fetches the segment again from the server; reset() would only re-render it. */}
+      <Button className="mt-8" onClick={() => retry()}>
         {t("retry")}
       </Button>
     </main>

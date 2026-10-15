@@ -3,25 +3,13 @@ import { createRequire } from "node:module";
 import { createServer } from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
-import {
-  type CallToolResult,
-  Client,
-  StreamableHTTPClientTransport,
-} from "@modelcontextprotocol/client";
+import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { expect, test } from "@playwright/test";
-import { expectTaskAppResource } from "../mcp-apps";
-
-function toolText(result: CallToolResult): unknown {
-  expect(result.isError).not.toBe(true);
-  const block = result.content.find((content) => content.type === "text");
-  if (block?.type !== "text") throw new Error("Expected JSON text in the MCP result");
-  return JSON.parse(block.text);
-}
+import { expectedToolNames } from "../../apps/web/src/testing/mcp-tool-names";
 
 for (const mode of ["modern", "legacy"] as const) {
-  test(`serves generated tools through a real ${mode} MCP client and shares writes with REST/RPC`, async ({
+  test(`connects a real ${mode} MCP client statelessly and lists every generated tool`, async ({
     baseURL,
-    page,
     request,
   }) => {
     const exchanges: {
@@ -49,120 +37,22 @@ for (const mode of ["modern", "legacy"] as const) {
 
     try {
       await client.connect(transport);
-      await expectTaskAppResource(client);
-      const { tools } = await client.listTools();
-      expect(tools.map((tool) => tool.name).sort()).toEqual([
-        "createTask",
-        "deleteTask",
-        "listTasks",
-        "setTaskCompleted",
-        "updateTaskTitle",
-      ]);
-      const listTool = tools.find((tool) => tool.name === "listTasks");
-      expect(listTool).toMatchObject({
-        inputSchema: {
-          type: "object",
-          required: ["status"],
-          properties: {
-            status: { enum: expect.arrayContaining(["all", "active", "completed"]) },
-          },
-        },
-        annotations: { readOnlyHint: true },
-      });
-      expect(listTool?.outputSchema).toMatchObject(
-        mode === "modern"
-          ? { type: "array" }
-          : { type: "object", properties: { result: { type: "array" } } },
-      );
-      expect(tools.find((tool) => tool.name === "setTaskCompleted")).toMatchObject({
-        inputSchema: {
-          type: "object",
-          required: expect.arrayContaining(["id", "completed"]),
-          properties: { id: { type: "string" }, completed: { type: "boolean" } },
-        },
-      });
-      expect(tools.find((tool) => tool.name === "deleteTask")).toMatchObject({
-        inputSchema: { type: "object", required: ["id"], properties: { id: { type: "string" } } },
-        annotations: { destructiveHint: true },
-      });
-      expect(tools.find((tool) => tool.name === "updateTaskTitle")).toMatchObject({
-        inputSchema: {
-          type: "object",
-          required: expect.arrayContaining(["id", "title"]),
-          properties: { id: { type: "string" }, title: { type: "string" } },
-        },
-      });
       const specification = await (await request.get("/api/openapi.json")).json();
-      expect(specification.paths["/v1/tasks"].get.operationId).toBe(listTool?.name);
-
-      let title = `MCP ${mode} ${crypto.randomUUID()}`;
-      const createdResult = await client.callTool({
-        name: "createTask",
-        arguments: { title: `  ${title}  ` },
-      });
-      const created = toolText(createdResult) as { id: string; title: string; completed: boolean };
-      expect(created).toMatchObject({ id: expect.any(String), title, completed: false });
-      const completed = await client.callTool({
-        name: "setTaskCompleted",
-        arguments: { id: created.id, completed: true },
-      });
-      expect(toolText(completed)).toEqual({ ...created, completed: true });
-      title = `Edited ${title}`;
-      const edited = await client.callTool({
-        name: "updateTaskTitle",
-        arguments: { id: created.id, title: `  ${title}  ` },
-      });
-      expect(toolText(edited)).toEqual({ ...created, title, completed: true });
-      created.title = title;
-      const listed = await client.callTool({
-        name: "listTasks",
-        arguments: { status: "completed" },
-      });
-      const tasks = toolText(listed);
-      expect(tasks).toEqual(expect.arrayContaining([{ ...created, completed: true }]));
-      expect(listed.structuredContent).toEqual(mode === "modern" ? tasks : { result: tasks });
-
-      const rest = await request.get("/api/v1/tasks?status=completed");
-      expect(rest.ok()).toBe(true);
-      expect(await rest.json()).toEqual(expect.arrayContaining([{ ...created, completed: true }]));
-      await page.goto("/playground");
-      await expect(
-        page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
-      ).toBeVisible();
-      const rpc = page.waitForResponse((response) =>
-        new URL(response.url()).pathname.startsWith("/api/rpc/"),
-      );
-      await page.getByRole("button", { name: "Completed", exact: true }).click();
-      expect((await rpc).ok()).toBe(true);
-      await expect(
-        page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
-      ).toBeVisible();
-
-      const deleted = await client.callTool({ name: "deleteTask", arguments: { id: created.id } });
-      expect(toolText(deleted)).toEqual({ ...created, completed: true });
-      expect(await (await request.get("/api/v1/tasks?status=all")).json()).not.toEqual(
-        expect.arrayContaining([expect.objectContaining({ id: created.id })]),
-      );
-      await page.reload();
-      await expect(
-        page.getByRole("list", { name: "Tasks" }).getByText(title, { exact: true }),
-      ).toHaveCount(0);
-      const missing = await client.callTool({ name: "deleteTask", arguments: { id: created.id } });
-      expect(missing.isError).toBe(true);
-      expect(JSON.stringify(missing.content)).toContain("NOT_FOUND");
-      const missingEdit = await client.callTool({
-        name: "updateTaskTitle",
-        arguments: { id: created.id, title: "Cannot edit a deleted task" },
-      });
-      expect(missingEdit.isError).toBe(true);
-      expect(JSON.stringify(missingEdit.content)).toContain("NOT_FOUND");
+      const expected = await expectedToolNames(specification);
+      // Tools are advertised even before the API has operations; the list is then empty.
+      expect(client.getServerCapabilities()?.tools).toBeDefined();
+      const { tools } = await client.listTools();
+      expect(tools.map((tool) => tool.name).sort()).toEqual(expected);
+      for (const tool of tools) {
+        expect(tool.inputSchema).toMatchObject({ type: "object" });
+        expect(tool.description ?? tool.title).toBeTruthy();
+      }
 
       expect(exchanges.map((exchange) => exchange.method)).toContain(
         mode === "modern" ? "server/discover" : "initialize",
       );
       if (mode === "modern")
         expect(exchanges.map((exchange) => exchange.method)).not.toContain("initialize");
-      expect(exchanges.length).toBeGreaterThan(3);
       for (const exchange of exchanges) {
         expect(exchange.cacheControl).toBe("no-store");
         expect(exchange.sessionId).toBeNull();
@@ -254,11 +144,8 @@ test("disables MCP at production runtime without rebuilding or disabling REST", 
           if (child.exitCode !== null)
             throw new Error(`Disabled MCP server exited: ${child.exitCode}`);
           try {
-            return (
-              await fetch(`${origin}/api/v1/tasks?status=all`, {
-                signal: AbortSignal.timeout(1000),
-              })
-            ).status;
+            return (await fetch(`${origin}/api/health`, { signal: AbortSignal.timeout(1000) }))
+              .status;
           } catch {
             return 0;
           }
@@ -266,6 +153,7 @@ test("disables MCP at production runtime without rebuilding or disabling REST", 
         { timeout: 30_000 },
       )
       .toBe(200);
+    expect((await fetch(`${origin}/api/openapi.json`)).status).toBe(200);
     const disabled = await fetch(`${origin}/api/mcp`, {
       method: "POST",
       headers: {
@@ -277,11 +165,19 @@ test("disables MCP at production runtime without rebuilding or disabling REST", 
     expect(disabled.status).toBe(404);
     expect(disabled.headers.get("Cache-Control")).toBe("no-store");
     expect((await fetch(`${origin}/api/mcp/inspector`)).status).toBe(404);
+    await page.goto(new URL("/", origin).href);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      /Less setup\.\s*More building\./,
+    );
+    // demo:start
+    // A REST procedure still runs while MCP is off.
+    expect((await fetch(`${origin}/api/v1/tasks?status=all`)).status).toBe(200);
     await page.goto(new URL("/playground", origin).href);
     const widget = page.getByRole("region", { name: "A little input. Real action.", exact: true });
     await widget.getByRole("button", { name: "Discover tools", exact: true }).click();
     await expect(widget.getByRole("alert")).toContainText("MCP is disabled for this application.");
     await expect(widget.getByRole("button", { name: "Run tool", exact: true })).toHaveCount(0);
+    // demo:end
   } finally {
     if (child.pid && child.exitCode === null && child.signalCode === null) {
       if (process.platform === "win32") {

@@ -1,12 +1,8 @@
 import "server-only";
 
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
-import {
-  handleMcpRequest,
-  type McpEnvironment,
-  rejectMcpRequest,
-  rejectNonLocalRequest,
-} from "./mcp-access";
+import type { RuntimeEnvironment } from "@/env";
+import { handleMcpRequest, rejectMcpRequest, rejectNonLocalRequest } from "./mcp-access";
 import { mcpEndpoint } from "./mcp-endpoint";
 import {
   type McpPlaygroundDiscovery,
@@ -15,16 +11,17 @@ import {
   type McpPlaygroundResponse,
   type McpPlaygroundTool,
 } from "./mcp-playground-types";
+import { logServerError } from "./server-log";
 
 const endpointUrl = new URL("http://prelude.internal/api/mcp");
 
 interface PlaygroundOptions {
   endpoint?: { fetch: (request: Request) => Promise<Response> };
-  environment?: () => McpEnvironment;
+  environment?: () => RuntimeEnvironment;
   timeoutMs?: number;
 }
 
-function validatePageOrigin(headers: Headers, environment: McpEnvironment) {
+function validatePageOrigin(headers: Headers, environment: RuntimeEnvironment) {
   const supplied = headers.get("origin");
   const host = headers.get("host");
   let origin: URL;
@@ -120,7 +117,7 @@ export function createMcpPlayground({
       if (controller.signal.aborted) {
         return { ok: false, error: "errorTimeout" };
       }
-      console.error("MCP playground request failed:", error);
+      logServerError("MCP playground request failed", error);
       return { ok: false, error: "errorRequestFailed" };
     } finally {
       clearTimeout(timeout);

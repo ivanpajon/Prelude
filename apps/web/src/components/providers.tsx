@@ -1,6 +1,5 @@
 "use client";
 
-import { MotionProvider } from "@repo/ui/components/motion-provider";
 import { isServer, type QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import type { ReactNode } from "react";
@@ -14,12 +13,12 @@ function getQueryClient() {
   return browserQueryClient;
 }
 
+// Keep these context values the same after hydration. A change here makes React drop the server
+// HTML of any streamed Suspense boundary it has not revealed yet and render it again on the client.
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <NuqsAdapter>
-      <QueryClientProvider client={getQueryClient()}>
-        <MotionProvider>{children}</MotionProvider>
-      </QueryClientProvider>
+      <QueryClientProvider client={getQueryClient()}>{children}</QueryClientProvider>
     </NuqsAdapter>
   );
 }

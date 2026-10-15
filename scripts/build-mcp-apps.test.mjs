@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, open, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -7,6 +7,7 @@ import {
   atomicWrite,
   bundledScript,
   bundleOptions,
+  replaceFile,
   watchMcpApps,
 } from "./build-mcp-apps.mjs";
 
@@ -97,6 +98,35 @@ describe("self-contained MCP App output", () => {
     await atomicWrite(output, "second");
     expect(await readFile(output, "utf8")).toBe("second");
     expect(await readdir(path.dirname(output))).toEqual(["tasks.html"]);
+  });
+  it("replaces HTML that a reader holds open, as Next.js does while serving the widget", async () => {
+    const root = await directory();
+    const output = path.join(root, "tasks.html");
+    await atomicWrite(output, "first");
+    // Windows rejects the replacement with EPERM until the reader closes the file.
+    const reader = await open(output, "r");
+    const writing = atomicWrite(output, "second");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await reader.close();
+    await writing;
+    expect(await readFile(output, "utf8")).toBe("second");
+    expect(await readdir(root)).toEqual(["tasks.html"]);
+  });
+  it("retries only short-lived replacement errors", async () => {
+    const failure = (code) => Object.assign(new Error(code), { code });
+    const move = vi
+      .fn()
+      .mockRejectedValueOnce(failure("EPERM"))
+      .mockRejectedValueOnce(failure("EBUSY"))
+      .mockResolvedValueOnce(undefined);
+    await replaceFile("from", "to", move);
+    expect(move).toHaveBeenCalledTimes(3);
+    const missing = vi.fn().mockRejectedValue(failure("ENOENT"));
+    await expect(replaceFile("from", "to", missing)).rejects.toThrow("ENOENT");
+    expect(missing).toHaveBeenCalledOnce();
+    const locked = vi.fn().mockRejectedValue(failure("EACCES"));
+    await expect(replaceFile("from", "to", locked, 3)).rejects.toThrow("EACCES");
+    expect(locked).toHaveBeenCalledTimes(3);
   });
 });
 

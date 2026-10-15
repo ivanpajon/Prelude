@@ -1,48 +1,25 @@
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
-import { type Context, createDemoRepository, type TaskRepository } from "@repo/api";
-import type { Task } from "@repo/contracts";
+import { implement } from "@orpc/server";
 import { OpenAPIToolGenerator } from "mcp-from-openapi";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { site } from "@/site";
+import {
+  createNoteStore,
+  type FixtureContext,
+  fixtureRouter,
+  fixtureSpecOptions,
+  type Note,
+  type NoteStore,
+} from "@/testing/fixture-api";
+import { expectedToolNames } from "@/testing/mcp-tool-names";
 import { createMcpEndpoint, generateMcpCatalog, type McpEndpointOptions } from "./mcp";
-import { mcpAppResourceUri } from "./mcp-app-resource";
-import { generateOpenApiSpec, handleOpenApiRequest } from "./openapi";
+import { createOpenApi } from "./openapi";
 
 type Endpoint = ReturnType<typeof createMcpEndpoint>;
 const endpoints: Endpoint[] = [];
 const clients: Client[] = [];
-
-const expectedTaskAnnotations = {
-  listTasks: {
-    readOnlyHint: true,
-    destructiveHint: false,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
-  createTask: {
-    readOnlyHint: false,
-    destructiveHint: false,
-    idempotentHint: false,
-    openWorldHint: false,
-  },
-  setTaskCompleted: {
-    readOnlyHint: false,
-    destructiveHint: true,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
-  updateTaskTitle: {
-    readOnlyHint: false,
-    destructiveHint: true,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
-  deleteTask: {
-    readOnlyHint: false,
-    destructiveHint: true,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
-};
+const openApi = createOpenApi(fixtureRouter, fixtureSpecOptions);
+const seed: readonly Note[] = [{ id: "first", text: "First", pinned: false }];
 
 afterEach(async () => {
   for (const client of clients.splice(0)) await client.close();
@@ -50,10 +27,19 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 
-function endpoint(options: McpEndpointOptions) {
-  const result = createMcpEndpoint(options);
+function endpoint(options: Partial<McpEndpointOptions<FixtureContext>> = {}) {
+  const result = createMcpEndpoint({
+    getContext: () => ({ store: createNoteStore() }),
+    getSpec: openApi.generateSpec,
+    dispatch: openApi.handle,
+    ...options,
+  });
   endpoints.push(result);
   return result;
+}
+
+function fixtureContext(store = createNoteStore(seed)) {
+  return { store, onChanged: vi.fn() } satisfies FixtureContext;
 }
 
 async function connect(
@@ -92,89 +78,34 @@ function operation(operationId: string, schema: unknown = { type: "object" }) {
 }
 
 describe("generated MCP catalog", () => {
-  it("generates task schemas and descriptions without mutating the OpenAPI document", async () => {
-    const spec = await generateOpenApiSpec();
+  it("generates schemas and annotations without mutating the OpenAPI document", async () => {
+    const spec = await openApi.generateSpec();
     const before = structuredClone(spec);
     const catalog = await generateMcpCatalog(spec);
 
-    // Require explicit contract hints, independent of the generator's HTTP-method defaults.
-    const operations = Object.values(spec.paths ?? {}).flatMap((path) =>
-      [path?.get, path?.post, path?.patch, path?.delete].filter(
-        (operation) => operation !== undefined,
-      ),
-    );
-    expect(
-      Object.fromEntries(
-        operations.map((operation) => [
-          operation.operationId,
-          "x-mcp" in operation ? operation["x-mcp"] : undefined,
-        ]),
-      ),
-    ).toEqual(
-      Object.fromEntries(
-        Object.entries(expectedTaskAnnotations).map(([name, annotations]) => [
-          name,
-          { annotations },
-        ]),
-      ),
-    );
-    expect(Object.fromEntries(catalog.map((tool) => [tool.name, tool.annotations]))).toEqual(
-      expectedTaskAnnotations,
-    );
-
     expect(catalog.map((tool) => tool.name).sort()).toEqual([
-      "createTask",
-      "deleteTask",
-      "listTasks",
-      "setTaskCompleted",
-      "updateTaskTitle",
+      "createNote",
+      "deleteNote",
+      "listNotes",
+      "updateNote",
     ]);
-    expect(catalog.find((tool) => tool.name === "listTasks")).toMatchObject({
-      inputSchema: { type: "object", required: ["status"] },
+    expect(catalog.find((tool) => tool.name === "listNotes")).toMatchObject({
+      inputSchema: { type: "object", required: ["filter"] },
       outputSchema: { type: "array" },
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
     });
-    expect(catalog.find((tool) => tool.name === "setTaskCompleted")).toMatchObject({
-      inputSchema: {
-        properties: { id: { type: "string" }, completed: { type: "boolean" } },
-      },
-      outputSchema: {
-        type: "object",
-        required: expect.arrayContaining(["id", "title", "completed"]),
-      },
-    });
-    expect(catalog.find((tool) => tool.name === "deleteTask")).toMatchObject({
+    expect(catalog.find((tool) => tool.name === "updateNote")).toMatchObject({
       inputSchema: {
         type: "object",
-        properties: { id: { type: "string", minLength: 1 } },
+        properties: { id: { type: "string" }, text: { type: "string" }, pinned: {} },
         required: ["id"],
       },
-      outputSchema: {
-        type: "object",
-        required: expect.arrayContaining(["id", "title", "completed"]),
-      },
-      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
-      metadata: { operationId: "deleteTask", method: "delete", path: "/v1/tasks/{id}" },
-      description: expect.stringContaining("NOT_FOUND"),
+      outputSchema: { type: "object", required: expect.arrayContaining(["id", "text"]) },
+      metadata: { operationId: "updateNote", method: "patch", path: "/notes/{id}" },
     });
-    // Only the descriptions state the normalized title limit; input schemas omit it on purpose.
-    expect(catalog.find((tool) => tool.name === "createTask")?.description).toContain(
-      "1–120 characters",
-    );
-    expect(catalog.find((tool) => tool.name === "updateTaskTitle")).toMatchObject({
-      inputSchema: {
-        type: "object",
-        properties: { id: { type: "string", minLength: 1 }, title: { type: "string" } },
-        required: expect.arrayContaining(["id", "title"]),
-      },
-      outputSchema: {
-        type: "object",
-        properties: { title: { type: "string", minLength: 1, maxLength: 120 } },
-        required: expect.arrayContaining(["id", "title", "completed"]),
-      },
-      annotations: { readOnlyHint: false, destructiveHint: true },
-      metadata: { operationId: "updateTaskTitle", method: "patch", path: "/v1/tasks/{id}/title" },
-      description: expect.stringMatching(/1–120 characters[\s\S]*NOT_FOUND/),
+    expect(catalog.find((tool) => tool.name === "deleteNote")).toMatchObject({
+      inputSchema: { type: "object", required: ["id"] },
+      metadata: { operationId: "deleteNote", method: "delete", path: "/notes/{id}" },
     });
     expect(spec).toEqual(before);
     expect(Object.isFrozen(catalog)).toBe(true);
@@ -196,6 +127,38 @@ describe("generated MCP catalog", () => {
     });
     const tools = await generateMcpCatalog({ ...spec, "x-mcp": false });
     expect(tools.map((tool) => tool.name)).toEqual(["enabled", "operationOverride"]);
+  });
+
+  it("matches the tool names the browser suites expect, with renames and opt-outs", async () => {
+    const spec = {
+      ...fixtureSpec({
+        "/renamed": { get: { ...operation("original"), "x-mcp": { name: "renamed" } } },
+        "/hidden": { get: { ...operation("hidden"), "x-mcp": { enabled: false } } },
+        // Operation objects without `enabled` inherit the path, then the root setting.
+        "/enabled": {
+          "x-mcp": true,
+          get: { ...operation("deprecated"), deprecated: true },
+          post: { ...operation("inherited"), "x-mcp": { annotations: { idempotentHint: true } } },
+        },
+        "/root": {
+          get: { ...operation("annotated"), "x-mcp": { annotations: { readOnlyHint: true } } },
+        },
+      }),
+      "x-mcp": false,
+    };
+    const catalog = await generateMcpCatalog({ ...spec, "x-mcp": true });
+    expect(await expectedToolNames({ ...spec, "x-mcp": true })).toEqual(
+      catalog.map((tool) => tool.name).sort(),
+    );
+    expect(catalog.map((tool) => tool.name).sort()).toEqual([
+      "annotated",
+      "deprecated",
+      "inherited",
+      "renamed",
+    ]);
+    const optedOut = (await generateMcpCatalog(spec)).map((tool) => tool.name).sort();
+    expect(await expectedToolNames(spec)).toEqual(optedOut);
+    expect(optedOut).toEqual(["deprecated", "inherited"]);
   });
 
   it("retains explicit operation annotation overrides and client-visible metadata", async () => {
@@ -256,144 +219,101 @@ describe.each(["modern", "legacy"] as const)("MCP %s HTTP compatibility", (era) 
     const networkFetch = vi
       .spyOn(globalThis, "fetch")
       .mockRejectedValue(new Error("Unexpected network request"));
-    const context: Context = { repository: createDemoRepository([]), onTasksChanged: vi.fn() };
-    const dispatch = vi.fn(async (request: Request, requestContext: Context) => {
-      if (new URL(request.url).pathname.endsWith("/title")) {
-        expect(await request.clone().json()).toEqual({ title: "  Edited task  " });
-      }
-      return handleOpenApiRequest(request, requestContext);
+    const context = fixtureContext(createNoteStore([]));
+    const bodies: unknown[] = [];
+    const dispatch = vi.fn(async (request: Request, requestContext: FixtureContext) => {
+      bodies.push(request.body === null ? null : await request.clone().json());
+      return openApi.handle(request, requestContext);
     });
-    const handler = endpoint({ getContext: () => context, dispatch });
-    const client = await connect(handler, era);
+    const client = await connect(endpoint({ getContext: () => context, dispatch }), era);
+    expect(client.getServerVersion()?.name).toBe(site.slug);
     const { tools } = await client.listTools();
-    expect(Object.fromEntries(tools.map((tool) => [tool.name, tool.annotations]))).toEqual(
-      expectedTaskAnnotations,
-    );
     expect(tools.map((tool) => tool.name).sort()).toEqual([
-      "createTask",
-      "deleteTask",
-      "listTasks",
-      "setTaskCompleted",
-      "updateTaskTitle",
+      "createNote",
+      "deleteNote",
+      "listNotes",
+      "updateNote",
     ]);
-    expect(tools.find((tool) => tool.name === "listTasks")?.outputSchema).toMatchObject(
+    expect(tools.find((tool) => tool.name === "listNotes")?.outputSchema).toMatchObject(
       era === "modern"
         ? { type: "array" }
         : { type: "object", properties: { result: { type: "array" } }, required: ["result"] },
     );
 
-    const title = "x".repeat(120);
-    const created = await client.callTool({
-      name: "createTask",
-      arguments: { title: `  ${title}  ` },
-    });
+    const created = await client.callTool({ name: "createNote", arguments: { text: "  Pad  " } });
     expect(created.isError).not.toBe(true);
-    expect(created.structuredContent).toMatchObject({ title, completed: false });
-    const task = created.structuredContent as Task;
+    expect(created.structuredContent).toMatchObject({ text: "Pad", pinned: false });
+    const note = created.structuredContent as Note;
     const updated = await client.callTool({
-      name: "setTaskCompleted",
-      arguments: { id: task.id, completed: true },
+      name: "updateNote",
+      arguments: { id: note.id, pinned: true },
     });
-    expect(updated.structuredContent).toEqual({ ...task, completed: true });
-    const edited = await client.callTool({
-      name: "updateTaskTitle",
-      arguments: { id: task.id, title: "  Edited task  " },
-    });
-    const editedTask = { ...task, title: "Edited task", completed: true };
-    expect(edited.isError).not.toBe(true);
-    expect(edited.structuredContent).toEqual(editedTask);
-    expect(edited.content).toContainEqual({ type: "text", text: JSON.stringify(editedTask) });
-    const listed = await client.callTool({ name: "listTasks", arguments: { status: "completed" } });
-    const expected = [editedTask];
-    expect(listed.structuredContent).toEqual(era === "modern" ? expected : { result: expected });
-    expect(listed.content).toContainEqual({ type: "text", text: JSON.stringify(expected) });
-    const deleted = await client.callTool({ name: "deleteTask", arguments: { id: task.id } });
-    expect(deleted.isError).not.toBe(true);
-    expect(deleted.structuredContent).toEqual(editedTask);
-    expect(context.repository.list("all")).toEqual([]);
-    const repeated = await client.callTool({ name: "deleteTask", arguments: { id: task.id } });
+    const pinnedNote = { ...note, pinned: true };
+    expect(updated.structuredContent).toEqual(pinnedNote);
+    expect(updated.content).toContainEqual({ type: "text", text: JSON.stringify(pinnedNote) });
+    const listed = await client.callTool({ name: "listNotes", arguments: { filter: "pinned" } });
+    expect(listed.structuredContent).toEqual(
+      era === "modern" ? [pinnedNote] : { result: [pinnedNote] },
+    );
+    expect(listed.content).toContainEqual({ type: "text", text: JSON.stringify([pinnedNote]) });
+    const deleted = await client.callTool({ name: "deleteNote", arguments: { id: note.id } });
+    expect(deleted.structuredContent).toEqual(pinnedNote);
+    expect(context.store.list("all")).toEqual([]);
+    const repeated = await client.callTool({ name: "deleteNote", arguments: { id: note.id } });
     expect(repeated.isError).toBe(true);
     expect(JSON.stringify(repeated.content)).toContain("NOT_FOUND");
-    expect(context.onTasksChanged).toHaveBeenCalledTimes(4);
-    expect(dispatch.mock.calls.map(([request]) => request.url)).toEqual([
-      "http://prelude.internal/api/v1/tasks",
-      `http://prelude.internal/api/v1/tasks/${task.id}`,
-      `http://prelude.internal/api/v1/tasks/${task.id}/title`,
-      "http://prelude.internal/api/v1/tasks?status=completed",
-      `http://prelude.internal/api/v1/tasks/${task.id}`,
-      `http://prelude.internal/api/v1/tasks/${task.id}`,
+    expect(context.onChanged).toHaveBeenCalledTimes(3);
+    expect(dispatch.mock.calls.map(([request]) => `${request.method} ${request.url}`)).toEqual([
+      "POST http://prelude.internal/api/notes",
+      `PATCH http://prelude.internal/api/notes/${note.id}`,
+      "GET http://prelude.internal/api/notes?filter=pinned",
+      `DELETE http://prelude.internal/api/notes/${note.id}`,
+      `DELETE http://prelude.internal/api/notes/${note.id}`,
     ]);
-    const patch = dispatch.mock.calls[1]?.[0];
-    expect(patch?.method).toBe("PATCH");
-    const titlePatch = dispatch.mock.calls[2]?.[0];
-    expect(titlePatch?.method).toBe("PATCH");
-    const deletion = dispatch.mock.calls[4]?.[0];
-    expect(deletion?.method).toBe("DELETE");
-    expect(deletion?.body).toBeNull();
+    // Path parameters stay in the URL, so the path-parameter guard accepts MCP calls.
+    expect(bodies).toEqual([{ text: "  Pad  " }, { pinned: true }, null, null, null]);
     expect(networkFetch).not.toHaveBeenCalled();
   });
 
-  it("rejects invalid inputs without writes and returns missing-task errors", async () => {
-    const context = { repository: createDemoRepository([]), onTasksChanged: vi.fn() };
+  it("rejects invalid inputs without writes and returns typed missing-record errors", async () => {
+    const context = fixtureContext();
     const client = await connect(endpoint({ getContext: () => context }), era);
-    for (const args of [{}, { title: 42 }, { title: "   " }, { title: "x".repeat(121) }]) {
-      const result = await client.callTool({ name: "createTask", arguments: args });
-      expect(result.isError).toBe(true);
+    for (const args of [{}, { text: 42 }, { text: "   " }, { text: "x".repeat(21) }]) {
+      expect((await client.callTool({ name: "createNote", arguments: args })).isError).toBe(true);
     }
-    const invalidFilter = await client.callTool({
-      name: "listTasks",
-      arguments: { status: "bad" },
-    });
+    const invalidFilter = await client.callTool({ name: "listNotes", arguments: { filter: "x" } });
     expect(invalidFilter.isError).toBe(true);
-    const missing = await client.callTool({
-      name: "setTaskCompleted",
-      arguments: { id: "missing", completed: true },
-    });
-    expect(missing.isError).toBe(true);
-    expect(JSON.stringify(missing.content)).toContain("NOT_FOUND");
-    expect(missing.structuredContent).toBeUndefined();
     for (const args of [{}, { id: "" }, { id: 42 }, { id: "missing" }]) {
-      const deleted = await client.callTool({ name: "deleteTask", arguments: args });
+      const deleted = await client.callTool({ name: "deleteNote", arguments: args });
       expect(deleted.isError).toBe(true);
       expect(deleted.structuredContent).toBeUndefined();
       if (args.id === "missing") expect(JSON.stringify(deleted.content)).toContain("NOT_FOUND");
     }
-    for (const args of [
-      {},
-      { id: "missing", title: "Valid title" },
-      { id: "missing", title: "   " },
-      { id: "missing", title: "x".repeat(121) },
-      { id: "missing", title: 42 },
-      { id: "", title: "Valid title" },
-      { id: 42, title: "Valid title" },
-    ]) {
-      const edited = await client.callTool({ name: "updateTaskTitle", arguments: args });
-      expect(edited.isError).toBe(true);
-      expect(edited.structuredContent).toBeUndefined();
-      if (args.id === "missing" && args.title === "Valid title") {
-        expect(JSON.stringify(edited.content)).toContain("NOT_FOUND");
-      }
-    }
-    expect(context.repository.list("all")).toEqual([]);
-    expect(context.onTasksChanged).not.toHaveBeenCalled();
+    const missing = await client.callTool({
+      name: "updateNote",
+      arguments: { id: "missing", pinned: true },
+    });
+    expect(missing.isError).toBe(true);
+    expect(JSON.stringify(missing.content)).toContain("NOT_FOUND");
+    expect(context.store.list("all")).toEqual(seed);
+    expect(context.onChanged).not.toHaveBeenCalled();
   });
 
-  it("returns safe tool errors for invalid repository output and unexpected failures", async () => {
-    const repository: TaskRepository = {
-      ...createDemoRepository([]),
-      list: () => [{ id: "broken", title: 42, completed: false } as unknown as Task],
+  it("returns safe tool errors for invalid output and unexpected failures", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const store = {
+      ...createNoteStore(seed),
+      list: () => [{ id: "broken", text: 42 }],
       create: () => {
         throw new Error("PRIVATE_DATABASE_PASSWORD");
       },
-      delete: () => ({ id: "broken", title: 42, completed: false }) as unknown as Task,
-      updateTitle: () => ({ id: "broken", title: 42, completed: false }) as unknown as Task,
-    };
-    const client = await connect(endpoint({ getContext: () => ({ repository }) }), era);
+      delete: () => ({ id: "broken" }),
+    } as unknown as NoteStore;
+    const client = await connect(endpoint({ getContext: () => ({ store }) }), era);
     for (const request of [
-      { name: "listTasks", arguments: { status: "all" } },
-      { name: "createTask", arguments: { title: "Safe error" } },
-      { name: "deleteTask", arguments: { id: "broken" } },
-      { name: "updateTaskTitle", arguments: { id: "broken", title: "Edited" } },
+      { name: "listNotes", arguments: { filter: "all" } },
+      { name: "createNote", arguments: { text: "Safe error" } },
+      { name: "deleteNote", arguments: { id: "first" } },
     ]) {
       const result = await client.callTool(request);
       expect(result.isError).toBe(true);
@@ -409,14 +329,13 @@ describe.each(["modern", "legacy"] as const)("MCP %s HTTP compatibility", (era) 
         },
       ]);
     }
+    // One server-side entry per failed call; the cause stays in the log, not the result.
+    expect(logged).toHaveBeenCalledTimes(3);
   });
 
   it("rejects unknown tools and malformed protocol input", async () => {
-    const dispatch = vi.fn(handleOpenApiRequest);
-    const handler = endpoint({
-      getContext: () => ({ repository: createDemoRepository([]) }),
-      dispatch,
-    });
+    const dispatch = vi.fn(openApi.handle);
+    const handler = endpoint({ dispatch });
     const client = await connect(handler, era);
     await expect(client.callTool({ name: "notATool", arguments: {} })).rejects.toThrow();
     const malformed = await handler.fetch(
@@ -434,268 +353,72 @@ describe.each(["modern", "legacy"] as const)("MCP %s HTTP compatibility", (era) 
   });
 });
 
-describe.each(["modern", "legacy"] as const)("MCP %s App resources", (era) => {
-  const appHtml =
-    "<!doctype html><html><head><!--PRELUDE_MCP_APP_CONFIG--></head><body>Task widget</body></html>";
+describe.each(["modern", "legacy"] as const)("MCP %s endpoint without operations", (era) => {
+  // An API without procedures, as in a new project before its first feature.
+  const empty = createOpenApi(
+    implement({}).$context<FixtureContext>().router({}),
+    fixtureSpecOptions,
+  );
 
-  it("associates only listTasks and serves a lazy resource with a restrictive CSP", async () => {
-    const getAppHtml = vi.fn(() => appHtml);
+  it("advertises tools and lists none, so clients and Inspector can connect", async () => {
     const client = await connect(
-      endpoint({
-        getContext: () => ({ repository: createDemoRepository([]) }),
-        getAppHtml,
-      }),
+      endpoint({ getSpec: empty.generateSpec, dispatch: empty.handle }),
       era,
     );
-    const { tools } = await client.listTools();
-    expect(tools).toHaveLength(5);
-    expect(tools.find((tool) => tool.name === "listTasks")).toMatchObject({
-      _meta: {
-        ui: { resourceUri: mcpAppResourceUri },
-        "ui/resourceUri": mcpAppResourceUri,
-      },
-    });
-    for (const tool of tools.filter((entry) => entry.name !== "listTasks")) {
-      expect(tool._meta?.ui).toBeUndefined();
-    }
-    const { resources } = await client.listResources();
-    expect(resources).toHaveLength(1);
-    expect(resources[0]).toMatchObject({
-      uri: mcpAppResourceUri,
-      mimeType: "text/html;profile=mcp-app",
-    });
-    expect(getAppHtml).not.toHaveBeenCalled();
-    const { contents } = await client.readResource({ uri: mcpAppResourceUri });
-    expect(contents).toHaveLength(1);
-    expect(contents[0]).toMatchObject({
-      uri: mcpAppResourceUri,
-      mimeType: "text/html;profile=mcp-app",
-      _meta: { ui: { csp: { connectDomains: [], resourceDomains: [], frameDomains: [] } } },
-    });
-    expect(contents[0]?._meta).toEqual(resources[0]?._meta);
-    const result = contents[0];
-    expect(result && "text" in result ? result.text : "").toContain(
-      JSON.stringify({
-        tools: {
-          listTasks: "listTasks",
-          createTask: "createTask",
-          setTaskCompleted: "setTaskCompleted",
-          updateTaskTitle: "updateTaskTitle",
-          deleteTask: "deleteTask",
-        },
-      }),
-    );
-    expect(getAppHtml).toHaveBeenCalledOnce();
-    await expect(client.readResource({ uri: "ui://prelude/missing.html" })).rejects.toThrow();
-    expect(getAppHtml).toHaveBeenCalledOnce();
+    expect(client.getServerCapabilities()?.tools).toBeDefined();
+    await expect(client.listTools()).resolves.toMatchObject({ tools: [] });
+    await expect(client.callTool({ name: "listNotes", arguments: {} })).rejects.toThrow();
   });
 
-  it("follows operation IDs through renames and preserves unrelated metadata and annotations", async () => {
-    const spec = fixtureSpec({
-      "/tasks": {
-        get: {
-          ...operation("listTasks", { type: "array", items: { type: "string" } }),
-          "x-mcp": {
-            name: "renamedList",
-            annotations: { readOnlyHint: true, idempotentHint: false },
-            meta: {
-              "example.com/category": "tasks",
-              "ui/resourceUri": "ui://old/resource.html",
-              ui: { resourceUri: "ui://old/resource.html", visibility: ["model", "app"] },
-            },
-          },
-        },
-        post: { ...operation("createTask"), "x-mcp": { name: "renamedCreate" } },
-      },
-      "/tasks/completion": {
-        patch: { ...operation("setTaskCompleted"), "x-mcp": { name: "renamedCompletion" } },
-        delete: { ...operation("deleteTask"), "x-mcp": { name: "renamedDelete" } },
-      },
-      "/tasks/title": {
-        patch: { ...operation("updateTaskTitle"), "x-mcp": { name: "renamedTitle" } },
-      },
-    });
-    const before = structuredClone(spec);
+  it("does not advertise resources, so resources/list is an unknown method", async () => {
     const client = await connect(
-      endpoint({
-        getContext: () => ({ repository: createDemoRepository([]) }),
-        getSpec: () => spec,
-        getAppHtml: () => appHtml,
-        dispatch: async () => Response.json(["unchanged output"]),
-      }),
+      endpoint({ getSpec: empty.generateSpec, dispatch: empty.handle }),
       era,
     );
-    const { tools } = await client.listTools();
-    expect(tools.find((tool) => tool.name === "renamedList")).toMatchObject({
-      annotations: { readOnlyHint: true, idempotentHint: false },
-      _meta: {
-        "example.com/category": "tasks",
-        "ui/resourceUri": mcpAppResourceUri,
-        ui: { resourceUri: mcpAppResourceUri, visibility: ["model", "app"] },
-      },
-    });
-    const { contents } = await client.readResource({ uri: mcpAppResourceUri });
-    expect(contents[0] && "text" in contents[0] ? contents[0].text : "").toContain(
-      JSON.stringify({
-        tools: {
-          listTasks: "renamedList",
-          createTask: "renamedCreate",
-          setTaskCompleted: "renamedCompletion",
-          updateTaskTitle: "renamedTitle",
-          deleteTask: "renamedDelete",
-        },
-      }),
-    );
-    const output = await client.callTool({ name: "renamedList", arguments: {} });
-    expect(output.structuredContent).toEqual(
-      era === "modern" ? ["unchanged output"] : { result: ["unchanged output"] },
-    );
-    expect(spec).toEqual(before);
-  });
-
-  it("omits excluded mutations from the widget configuration", async () => {
-    const client = await connect(
-      endpoint({
-        getContext: () => ({ repository: createDemoRepository([]) }),
-        getSpec: () => ({
-          ...fixtureSpec({
-            "/tasks": {
-              get: { ...operation("listTasks"), "x-mcp": true },
-              post: operation("createTask"),
-            },
-            "/tasks/completion": {
-              "x-mcp": true,
-              patch: { ...operation("setTaskCompleted"), "x-mcp": false },
-              delete: { ...operation("deleteTask"), "x-mcp": false },
-            },
-            "/tasks/title": {
-              patch: { ...operation("updateTaskTitle"), "x-mcp": false },
-            },
-          }),
-          "x-mcp": false,
-        }),
-        getAppHtml: () => appHtml,
-      }),
-      era,
-    );
-    const { tools } = await client.listTools();
-    expect(tools.map((tool) => tool.name)).toEqual(["listTasks"]);
-    const { contents } = await client.readResource({ uri: mcpAppResourceUri });
-    expect(contents[0] && "text" in contents[0] ? contents[0].text : "").toContain(
-      JSON.stringify({ tools: { listTasks: "listTasks" } }),
-    );
-  });
-
-  it("does not publish the App resource when the list operation is excluded", async () => {
-    const getAppHtml = vi.fn(() => appHtml);
-    const client = await connect(
-      endpoint({
-        getContext: () => ({ repository: createDemoRepository([]) }),
-        getSpec: () =>
-          fixtureSpec({
-            "/tasks": {
-              "x-mcp": false,
-              get: operation("listTasks"),
-              post: { ...operation("createTask"), "x-mcp": true },
-            },
-          }),
-        getAppHtml,
-      }),
-      era,
-    );
-    expect((await client.listTools()).tools.map((tool) => tool.name)).toEqual(["createTask"]);
-    await expect(client.readResource({ uri: mcpAppResourceUri })).rejects.toThrow();
-    expect(getAppHtml).not.toHaveBeenCalled();
-  });
-
-  it("masks missing asset errors without breaking JSON tools and can recover", async () => {
-    const getAppHtml = vi
-      .fn(async () => appHtml)
-      .mockRejectedValueOnce(new Error("ENOENT /private/deployment/secrets/path"));
-    const client = await connect(
-      endpoint({
-        getContext: () => ({ repository: createDemoRepository([]) }),
-        getAppHtml,
-      }),
-      era,
-    );
-    const error = await client
-      .readResource({ uri: mcpAppResourceUri })
-      .catch((error: unknown) => error);
-    expect(error).toBeInstanceOf(Error);
-    expect(String(error)).toContain("The MCP App is unavailable.");
-    expect(String(error)).not.toContain("private");
-    expect(
-      await client.callTool({ name: "listTasks", arguments: { status: "all" } }),
-    ).toMatchObject({
-      structuredContent: era === "modern" ? [] : { result: [] },
-    });
-    await expect(client.readResource({ uri: mcpAppResourceUri })).resolves.toMatchObject({
-      contents: [{ uri: mcpAppResourceUri }],
-    });
-  });
-
-  it("masks malformed HTML assets as resource errors", async () => {
-    const client = await connect(
-      endpoint({
-        getContext: () => ({ repository: createDemoRepository([]) }),
-        getAppHtml: () => "<html>Missing configuration</html>",
-      }),
-      era,
-    );
-    await expect(client.readResource({ uri: mcpAppResourceUri })).rejects.toThrow(
-      "The MCP App is unavailable.",
-    );
+    expect(client.getServerCapabilities()?.resources).toBeUndefined();
+    const listed = client.request({ method: "resources/list", params: {} });
+    // Modern HTTP answers an unknown method with 404 and the JSON-RPC error as the body.
+    if (era === "modern") await expect(listed).rejects.toThrow(/"code":-32601/);
+    else await expect(listed).rejects.toMatchObject({ code: -32601 });
   });
 });
 
 describe("MCP endpoint lifecycle", () => {
-  it.each(["createTask", "deleteTask", "updateTaskTitle"])(
-    "awaits asynchronous invalidation for %s before returning success",
-    async (name) => {
-      let finishInvalidation: (() => void) | undefined;
-      const invalidation = new Promise<void>((resolve) => {
-        finishInvalidation = resolve;
-      });
-      let signalInvalidationStarted: (() => void) | undefined;
-      const invalidationStarted = new Promise<void>((resolve) => {
-        signalInvalidationStarted = resolve;
-      });
-      const onTasksChanged = vi.fn(async () => {
-        signalInvalidationStarted?.();
-        await invalidation;
-      });
-      const client = await connect(
-        endpoint({ getContext: () => ({ repository: createDemoRepository(), onTasksChanged }) }),
-      );
-      let returned = false;
-      const call = client
-        .callTool({
-          name,
-          arguments:
-            name === "createTask"
-              ? { title: "Await invalidation" }
-              : name === "updateTaskTitle"
-                ? { id: "explore", title: "Await invalidation" }
-                : { id: "explore" },
-        })
-        .then((result) => {
-          returned = true;
-          return result;
-        });
+  it.each([
+    ["createNote", { text: "Await side effects" }],
+    ["updateNote", { id: "first", text: "Await side effects" }],
+    ["deleteNote", { id: "first" }],
+  ] as const)("awaits asynchronous side effects for %s before returning", async (name, args) => {
+    let finish: (() => void) | undefined;
+    const done = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    let signalStarted: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      signalStarted = resolve;
+    });
+    const onChanged = vi.fn(async () => {
+      signalStarted?.();
+      await done;
+    });
+    const client = await connect(
+      endpoint({ getContext: () => ({ store: createNoteStore(seed), onChanged }) }),
+    );
+    let returned = false;
+    const call = client.callTool({ name, arguments: args }).then((result) => {
+      returned = true;
+      return result;
+    });
 
-      await invalidationStarted;
-      await new Promise<void>((resolve) => setImmediate(resolve));
-      expect(returned).toBe(false);
-      finishInvalidation?.();
-      await expect(call).resolves.toMatchObject({
-        structuredContent: {
-          title: name === "deleteTask" ? "Explore the workspace" : "Await invalidation",
-        },
-      });
-      expect(onTasksChanged).toHaveBeenCalledOnce();
-    },
-  );
+    await started;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(returned).toBe(false);
+    finish?.();
+    await expect(call).resolves.toMatchObject({
+      structuredContent: { text: name === "deleteNote" ? "First" : "Await side effects" },
+    });
+    expect(onChanged).toHaveBeenCalledOnce();
+  });
 
   it("validates constraints on newly generated tools, including local references and output", async () => {
     const schema = {
@@ -720,7 +443,6 @@ describe("MCP endpoint lifecycle", () => {
     const dispatch = vi.fn(async () => Response.json({ label: "abc" }));
     const client = await connect(
       endpoint({
-        getContext: () => ({ repository: createDemoRepository([]) }),
         getSpec: () => spec,
         dispatch,
       }),
@@ -741,24 +463,29 @@ describe("MCP endpoint lifecycle", () => {
     ).toMatchObject({ isError: true });
   });
 
-  it("does not expose unexpected adapter exceptions", async () => {
+  it("does not expose unexpected adapter exceptions, but logs them once", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const client = await connect(
       endpoint({
-        getContext: () => ({ repository: createDemoRepository([]) }),
         dispatch: async () => {
           throw new Error("PRIVATE_ADAPTER_DETAILS");
         },
       }),
     );
-    const result = await client.callTool({ name: "listTasks", arguments: { status: "all" } });
+    const result = await client.callTool({ name: "listNotes", arguments: { filter: "all" } });
     expect(result.isError).toBe(true);
     expect(JSON.stringify(result)).not.toContain("PRIVATE_ADAPTER_DETAILS");
+    expect(logged).toHaveBeenCalledOnce();
+    expect(JSON.parse(String(logged.mock.calls[0]?.[0]))).toMatchObject({
+      message: "MCP tool call failed",
+      tool: "listNotes",
+      error: { message: "PRIVATE_ADAPTER_DETAILS" },
+    });
   });
 
   it.each([200, 204])("supports generated operations with an empty %i response", async (status) => {
     const client = await connect(
       endpoint({
-        getContext: () => ({ repository: createDemoRepository([]) }),
         getSpec: () =>
           fixtureSpec({
             "/empty": {
@@ -777,9 +504,9 @@ describe("MCP endpoint lifecycle", () => {
   });
 
   it("isolates concurrent request contexts while sharing only immutable tool definitions", async () => {
-    const first = { repository: createDemoRepository([]), onTasksChanged: vi.fn() };
-    const second = { repository: createDemoRepository([]), onTasksChanged: vi.fn() };
-    const getSpec = vi.fn(generateOpenApiSpec);
+    const first = fixtureContext(createNoteStore([]));
+    const second = fixtureContext(createNoteStore([]));
+    const getSpec = vi.fn(openApi.generateSpec);
     const getContext = vi.fn((request: Request) =>
       request.headers.get("x-test-context") === "first" ? first : second,
     );
@@ -789,45 +516,28 @@ describe("MCP endpoint lifecycle", () => {
       connect(handler, "modern", { "x-test-context": "second" }),
     ]);
     await Promise.all([
-      firstClient.callTool({ name: "createTask", arguments: { title: "First context" } }),
-      secondClient.callTool({ name: "createTask", arguments: { title: "Second context" } }),
+      firstClient.callTool({ name: "createNote", arguments: { text: "First context" } }),
+      secondClient.callTool({ name: "createNote", arguments: { text: "Second context" } }),
     ]);
-    expect(first.repository.list("all").map((task) => task.title)).toEqual(["First context"]);
-    expect(second.repository.list("all").map((task) => task.title)).toEqual(["Second context"]);
-    expect(first.onTasksChanged).toHaveBeenCalledOnce();
-    expect(second.onTasksChanged).toHaveBeenCalledOnce();
-    const firstTask = first.repository.list("all")[0];
-    expect(firstTask).toBeDefined();
+    expect(first.store.list("all").map((note) => note.text)).toEqual(["First context"]);
+    expect(second.store.list("all").map((note) => note.text)).toEqual(["Second context"]);
+    const firstNote = first.store.list("all")[0];
     await expect(
-      firstClient.callTool({
-        name: "updateTaskTitle",
-        arguments: { id: firstTask?.id, title: "Edited first context" },
-      }),
-    ).resolves.toMatchObject({
-      structuredContent: { ...firstTask, title: "Edited first context" },
-    });
-    expect(second.repository.list("all").map((task) => task.title)).toEqual(["Second context"]);
-    await expect(
-      firstClient.callTool({ name: "deleteTask", arguments: { id: firstTask?.id } }),
-    ).resolves.toMatchObject({
-      structuredContent: { ...firstTask, title: "Edited first context" },
-    });
-    expect(first.repository.list("all")).toEqual([]);
-    expect(second.repository.list("all").map((task) => task.title)).toEqual(["Second context"]);
-    expect(first.onTasksChanged).toHaveBeenCalledTimes(3);
-    expect(second.onTasksChanged).toHaveBeenCalledOnce();
+      firstClient.callTool({ name: "deleteNote", arguments: { id: firstNote?.id } }),
+    ).resolves.toMatchObject({ structuredContent: firstNote });
+    expect(first.store.list("all")).toEqual([]);
+    expect(second.store.list("all").map((note) => note.text)).toEqual(["Second context"]);
+    expect(first.onChanged).toHaveBeenCalledTimes(2);
+    expect(second.onChanged).toHaveBeenCalledOnce();
     expect(getSpec).toHaveBeenCalledOnce();
-    expect(getContext).toHaveBeenCalledTimes(6);
+    expect(getContext).toHaveBeenCalledTimes(5);
   });
 
   it("retries failed specification generation instead of caching a failed catalog", async () => {
     const getSpec = vi
-      .fn(generateOpenApiSpec)
+      .fn(openApi.generateSpec)
       .mockRejectedValueOnce(new Error("Temporary failure"));
-    const handler = endpoint({
-      getContext: () => ({ repository: createDemoRepository([]) }),
-      getSpec,
-    });
+    const handler = endpoint({ getSpec });
     await expect(connect(handler)).rejects.toThrow();
     const client = await connect(handler);
     await expect(client.listTools()).resolves.toMatchObject({ tools: expect.any(Array) });
@@ -835,7 +545,7 @@ describe("MCP endpoint lifecycle", () => {
   });
 
   it("returns 405 for legacy session GET and DELETE without creating request context", async () => {
-    const getContext = vi.fn(() => ({ repository: createDemoRepository([]) }));
+    const getContext = vi.fn(() => ({ store: createNoteStore() }));
     const handler = endpoint({ getContext });
     for (const method of ["GET", "DELETE"]) {
       const response = await handler.fetch(new Request("http://localhost/api/mcp", { method }));

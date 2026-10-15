@@ -12,18 +12,16 @@ vi.mock("next/navigation", async (importOriginal) => ({
 }));
 
 it.each([
-  ["always", "en", "/en/playground?status=active"],
-  ["always", "es", "/es/playground?status=active"],
-  ["never", "es", "/playground?status=active"],
+  ["always", "en", "/en/about?status=active"],
+  ["always", "es", "/es/about?status=active"],
+  ["never", "es", "/about?status=active"],
 ] as const)("generates request-independent %s/%s server URLs", (mode, locale, expected) => {
   expect(
-    getPathname(mode, { locale, href: { pathname: "/playground", query: { status: "active" } } }),
+    getPathname(mode, { locale, href: { pathname: "/about", query: { status: "active" } } }),
   ).toBe(expected);
 });
 
 it("redirects hidden-mode server navigation without forcing a locale prefix", () => {
-  expect(() => redirect("never", { locale: "es", href: "/playground" })).toThrow(
-    "Redirect:/playground",
-  );
-  expect(redirectMock).toHaveBeenCalledWith("/playground", undefined);
+  expect(() => redirect("never", { locale: "es", href: "/about" })).toThrow("Redirect:/about");
+  expect(redirectMock).toHaveBeenCalledWith("/about", undefined);
 });

@@ -6,19 +6,32 @@ Use compatible stable releases, with React 19.x, Next.js 16.x, and Tailwind 4.x.
 
 TypeScript remains pinned to the verified 6.0.3 baseline; compiler upgrades are separate from linting changes. oRPC packages share stable version 1.15.4; follow the [v1 documentation](https://v1.orpc.dev/docs/getting-started), rather than mixing newer prerelease APIs into this implementation.
 
+### Dependency updates
+
+`renovate.json` configures [Renovate](https://docs.renovatebot.com/). Install the free [Renovate GitHub App](https://github.com/apps/renovate) on your repository to enable it. Every Monday it opens one pull request for non-major npm updates, with separate groups for Next.js and React, oRPC, the MCP SDK, Serwist, and Vitest. Each major update gets its own pull request. Security fixes are labeled `security` and are not held for the schedule. It keeps exact versions, the SHA pins in `.github/workflows`, and the Dockerfile image digests. It also keeps TypeScript on 6.0.x and Node on 26.x. Node updates `.node-version`, `engines`, `@types/node`, and both Dockerfile images in one pull request, and pnpm updates `packageManager`, `engines.pnpm`, and the Dockerfile's pnpm version together. It also tracks the pinned Scalar renderer URL. Update the Docker Compose release that CI installs by hand, with its checksum. Once a month it refreshes the lockfile so indirect dependencies pick up patched releases.
+
+Renovate is used instead of Dependabot because Dependabot cannot yet read pnpm 12 lockfiles. Either way, the CI **Audit** job checks production dependencies for known advisories on every run and once a week.
+
+`pnpm-workspace.yaml` overrides the `browserslist` version that `@serwist/next` 9.5.12 pins, because that version has known advisories. The override stops applying when Serwist is updated.
+
 ## Stack
 
-- React 19.3.0, Next.js 16.3.6 App Router, Turbopack development/production builds, and Cache Components.
-- shadcn 4.21.0 with Base UI 1.8.0, Tailwind 4.3.3 CSS-first tokens, and `cn` 0.4.0 for class composition.
+- React 19.3.0, Next.js 16.4.0 App Router, Turbopack development/production builds, and Cache Components with Partial Prefetching.
+- shadcn 4.21.4 with Base UI 1.8.0, Tailwind 4.3.3 CSS-first tokens, and `cn` 0.4.0 for class composition.
 - Contract-first oRPC 1.15.4 with ArkType 2.2.5 inputs, outputs, and inferred TypeScript types.
-- Public REST access through the same procedures, automatic OpenAPI 3.1.1 at `/api/openapi.json`, and Scalar at `/api/docs`. Scalar's standalone renderer is pinned to 1.72.1 on jsDelivr; it is not an installed application dependency.
-- Native stateless Streamable HTTP MCP at `/api/mcp`, generated from OpenAPI using `mcp-from-openapi` 2.8.0 and MCP SDK server/client 2.2.0. The public demo exposes its list/create/edit/complete/delete operations by default; `MCP_ENABLED=false` disables the endpoint.
-- MCP Inspector 2.8.0 as a root development tool, managed by `pnpm dev` and embedded at the development-only `/api/mcp/inspector` route. Inspector authentication remains enabled; no agent configuration is installed automatically.
+- Public REST access through the same procedures, automatic OpenAPI 3.1.1 at `/api/openapi.json`, and Scalar at `/api/docs`. Scalar's standalone renderer is pinned to `@scalar/api-reference@1.72.1` on jsDelivr; it is not an installed application dependency.
+- Native stateless Streamable HTTP MCP at `/api/mcp`, generated from OpenAPI using `mcp-from-openapi` 2.8.0 and MCP SDK server/client 2.2.0. Every API operation becomes a tool by default; `MCP_ENABLED=false` disables the endpoint.
+- MCP Inspector 2.10.1 as a root development tool, managed by `pnpm dev` and embedded at the development-only `/api/mcp/inspector` route. Inspector authentication remains enabled; no agent configuration is installed automatically.
+<!-- demo:start -->
 - A dedicated `/playground` with the task workbench, URL filters, local density state, and JSON MCP explorer. Discovery is on demand, arguments are editable, schemas are generated, and calls execute against the real endpoint. Same-origin Server Actions use a request-scoped SDK client in process; `MCP_ENABLED=false` disables these actions too. Successful calls refresh the workbench. The homepage retains Motion and Morphicons previews.
 - A removable task MCP App using official `ext-apps` 2.0.3 with SDK 2.2.0. The `listTasks` tool references a self-contained HTML resource; the widget uses the shared list/create/edit/complete/delete tool schemas and JSON outputs. Preview uses the local Inspector, with browser-reachable sandbox port `6275` by default; there is no custom website MCP Apps host.
 - Widget-only bundling with tsdown 0.23.0 and Tailwind CLI 4.3.3. Its generated HTML is traced into standalone output and restored by Turbo. Next.js retains Turbopack and its Tailwind PostCSS setup; Biome remains the sole linter/formatter.
+<!-- demo:end -->
 - TanStack Query 5.103.2 for client server data, nuqs 2.10.1 for URL state, and Zustand 5.0.15 for shared local UI state.
-- next-intl 4.14.8 and use-intl 4.14.8 with shared `@repo/i18n` catalogs. English and Spanish cover website, PWA, and standalone MCP App presentation. Explicit language URLs are the default; a visitor-specific homepage switch demonstrates unprefixed URLs. Consumers can disable the demo and select either fixed policy. Both policies prerender localized documents without document-level Suspense. Explicit prefixes win over preferences; unprefixed entries use saved/browser language with English fallback. API identifiers, schemas, descriptions, JSON outputs, task content, and third-party interfaces retain their original language.
+- next-intl 4.14.8 with shared `@repo/i18n` catalogs. English and Spanish cover the website and PWA. Explicit language URLs are the default; a visitor-specific homepage switch demonstrates unprefixed URLs. Consumers can disable the demo and select either fixed policy. Both policies prerender localized documents without document-level Suspense. Explicit prefixes win over preferences; unprefixed entries use saved/browser language with English fallback. API identifiers, schemas, descriptions, JSON outputs, stored content, and third-party interfaces retain their original language.
+<!-- demo:start -->
+- use-intl 4.14.8 translates the standalone MCP App into English and Spanish.
+<!-- demo:end -->
 - Serwist 9.5.12 for installability, static assets, an offline fallback, and user-controlled updates through a responsive, dismissible Base UI toast using the existing UI dependency.
 - pnpm workspaces, Turborepo, and strict TypeScript.
 - Biome as the sole linter, formatter, and import organizer.
@@ -32,21 +45,25 @@ TypeScript remains pinned to the verified 6.0.3 baseline; compiler upgrades are 
 
 ## Acceptance
 
-Reproducible installation; passing formatting, linting, type checking, tests, and production builds; compatible Base UI components; runtime API validation across RPC and REST; generated schemas and documented endpoint behavior; desktop/mobile Scalar navigation and requests using its pinned renderer; SSR hydration without an immediate duplicate fetch; request isolation; mutation invalidation; navigable URL state; SSR-safe local state; production PWA fallback and updates; exclusion of API/docs responses from service-worker caches; restoration of service-worker and MCP App artifacts from Turbo cache; and hooks that preserve partial staging.
+Reproducible installation; passing formatting, linting, type checking, tests, and production builds; compatible Base UI components; runtime API validation across RPC and REST; generated schemas and documented endpoint behavior; desktop/mobile Scalar navigation and requests using its pinned renderer; SSR hydration without an immediate duplicate fetch; request isolation; mutation invalidation; navigable URL state; SSR-safe local state; production PWA fallback and updates; exclusion of API/docs responses from service-worker caches; restoration of generated artifacts, such as the service worker, from Turbo cache; and hooks that preserve partial staging.
 
 PWA updates register only in production and use browser-default update checks. First installation is silent. A waiting worker offers **Update now**, supports keyboard use and dismissal per worker, and waits for approval while existing clients remain open. Activation reloads only the approving tab; other tabs retain their drafts and offer **Reload now** separately. Notifications fit narrow viewports, avoid duplicate activation/reloads, and offer retry after an activation failure or a 15-second timeout. A newer worker can show a notification after an earlier one was dismissed.
 
 MCP acceptance includes automatic tool discovery, SDK protocol compatibility, correct request/response mapping, shared REST/RPC data, validation and request isolation, awaited invalidation, no-store responses, disabled-endpoint 404, production Inspector 404, and real development Inspector calls. Development access is restricted to loopback. Production accepts native clients without Origin; a supplied Origin must exactly match `MCP_ALLOWED_ORIGINS` or receive 403. These origin checks do not provide authentication or authorization.
 
-MCP App acceptance includes metadata/resource discovery, operation-ID association through renamed and excluded tools, native and legacy array output, initial rendering without duplicate fetches, host-mediated mutations and filter refresh, cancellation/error recovery, instance isolation, and restrictive CSP without external assets or direct network calls. Build checks cover a self-contained asset, development rebuilds, Turbo restoration, and standalone Docker packaging. The actual Inspector preview must work natively and through Compose's loopback-published sandbox.
+<!-- demo:start -->
+MCP App acceptance includes metadata/resource discovery, operation-ID association through renamed and excluded tools, native and legacy array output, initial rendering without duplicate fetches, host-mediated mutations and filter refresh, cancellation/error recovery, instance isolation, and restrictive CSP without external assets or direct network calls. Build checks cover a self-contained asset, development rebuilds, Turbo restoration, and standalone Docker packaging. The actual Inspector preview must work natively and through Compose's loopback-published sandbox. Its localization covers host-context changes without reconnecting or refetching initial data.
+<!-- demo:end -->
 
-Localization acceptance covers catalog parity and ICU counts; browser detection and validated overrides; both live URL policies, queries, hashes, and history; correct links and document language before hydration; translated errors retaining drafts and protocol results; deterministic prefixed responses versus private unprefixed responses; PWA manifest/toasts and static offline fallback; and MCP App host-context changes without reconnecting or refetching initial data. Native and Docker builds must include bundled translations and preserve API/PWA exclusions. See [localization](i18n.md) for implementation boundaries.
+Localization acceptance covers catalog parity and ICU counts; browser detection and validated overrides; both live URL policies, queries, hashes, and history; correct links and document language before hydration; translated errors retaining drafts and protocol results; deterministic prefixed responses versus private unprefixed responses; and PWA manifest/toasts and static offline fallback. Native and Docker builds must include bundled translations and preserve API/PWA exclusions. See [localization](i18n.md) for implementation boundaries.
 
 ## Development workflow
 
 Biome owns linting, import organization, and formatting, with Tailwind CSS directive parsing enabled. Its opt-in `noTailwindArbitraryValue` rule rejects arbitrary values in application JSX/TSX, including `cn(...)`; generated shared UI components retain their required arbitrary values. This is a nursery rule in the pinned Biome release, so review its behavior during upgrades.
 
+<!-- demo:start -->
 tsdown's internal Rolldown/Oxc compilation does not add a separate Oxc tool or lint workflow. Tailwind CLI's internal Lightning CSS processing applies only to the standalone widget stylesheet. The main application's Tailwind PostCSS configuration is unchanged.
+<!-- demo:end -->
 
 `@shadcn/lint` was removed to keep one linter: it requires an ESLint or Oxlint host and cannot run inside Biome. There is no equivalent configured check for unknown Tailwind utilities, raw palette colors, or dynamically constructed classes. Prefer semantic tokens and complete literal class names; these remaining conventions require code review. See the [plugin's supported hosts](https://github.com/shadcn-ui/lint) and [Biome's arbitrary-value rule](https://biomejs.dev/linter/rules/no-tailwind-arbitrary-value/).
 
@@ -54,4 +71,8 @@ Husky runs Biome safe fixes on staged files through lint-staged. Full checks, un
 
 ## Deferred
 
-Authentication, production persistence/ORM, deployment provider, cross-origin API configuration, generated client SDKs, offline documentation/data reading/writing, and push notifications remain project decisions. Vitest and Playwright are the selected verification tools; GitHub Actions runs them and the Docker stack checks. The removable example uses an explicitly nonpersistent, public demo repository; exposing REST does not add a database or backend platform requirement.
+Authentication, production persistence/ORM, deployment provider, cross-origin API configuration, generated client SDKs, offline documentation/data reading/writing, and push notifications remain project decisions. Vitest and Playwright are the selected verification tools; GitHub Actions runs them and the Docker stack checks. Exposing REST does not add a database or backend platform requirement.
+
+<!-- demo:start -->
+The removable example uses an explicitly nonpersistent, public demo repository.
+<!-- demo:end -->

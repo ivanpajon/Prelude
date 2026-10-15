@@ -2,10 +2,16 @@ import "server-only";
 
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { RESOURCE_MIME_TYPE, registerAppResource } from "@modelcontextprotocol/ext-apps/server";
+import {
+  RESOURCE_MIME_TYPE,
+  RESOURCE_URI_META_KEY,
+  registerAppResource,
+  registerAppTool,
+} from "@modelcontextprotocol/ext-apps/server";
 import { INTERNAL_ERROR, type McpServer, ProtocolError } from "@modelcontextprotocol/server";
 import type { McpOpenAPITool } from "mcp-from-openapi";
 import type { TaskAppTools } from "@/mcp-apps/tasks/model";
+import type { McpToolCallback, McpToolConfig } from "./mcp";
 
 export const mcpAppResourceUri = "ui://prelude/tasks.html";
 const configPlaceholder = "<!--PRELUDE_MCP_APP_CONFIG-->";
@@ -101,4 +107,39 @@ export function registerTaskAppResource(
       }
     },
   );
+}
+
+/**
+ * Registers the task MCP App when the catalog includes `listTasks`. The returned function
+ * registers `listTasks` as the App's tool and returns false for every other tool.
+ */
+export function registerTaskApp(
+  server: McpServer,
+  catalog: readonly McpOpenAPITool[],
+  getAppHtml: McpAppHtmlLoader,
+) {
+  const tools = getTaskAppTools(catalog);
+  if (!tools) return undefined;
+  registerTaskAppResource(server, tools, getAppHtml);
+  return (tool: McpOpenAPITool, config: McpToolConfig, execute: McpToolCallback) => {
+    if (tool.metadata.operationId !== "listTasks") return false;
+    const existingUi = tool._meta?.ui;
+    registerAppTool(
+      server,
+      tool.name,
+      {
+        ...config,
+        _meta: {
+          ...tool._meta,
+          [RESOURCE_URI_META_KEY]: mcpAppResourceUri,
+          ui: {
+            ...(existingUi !== null && typeof existingUi === "object" ? existingUi : {}),
+            resourceUri: mcpAppResourceUri,
+          },
+        },
+      },
+      execute,
+    );
+    return true;
+  };
 }

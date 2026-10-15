@@ -1,0 +1,54 @@
+name: Set up the workspace
+description: Install pnpm, Node from .node-version, and the dependencies; optionally Chromium for Playwright.
+
+inputs:
+  browsers:
+    description: Also install Chromium's headless shell for the Playwright suites.
+    default: "false"
+  compose:
+    description: Also install the pinned Docker Compose plugin for the Docker suites.
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    # Reads the pnpm version from packageManager in package.json.
+    - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version-file: .node-version
+        cache: pnpm
+    - run: pnpm install --frozen-lockfile
+      shell: bash
+    - if: inputs.browsers == 'true'
+      id: playwright
+      run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      shell: bash
+    - if: inputs.browsers == 'true'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}
+    # Headless tests without a browser channel use the headless shell, not full Chromium.
+    # The runner image usually has its system libraries already (it ships Google Chrome),
+    # so install them only when the binary reports missing ones.
+    - if: inputs.browsers == 'true'
+      run: |
+        pnpm exec playwright install --only-shell chromium
+        shell=$(find ~/.cache/ms-playwright -type f -name chrome-headless-shell | head -n 1)
+        test -n "$shell"
+        if ldd "$shell" | grep 'not found'; then
+          pnpm exec playwright install-deps chromium
+        fi
+      shell: bash
+    # The runner image ships an older Compose plugin; docs/docker.md lists the minimum.
+    - if: inputs.compose == 'true'
+      name: Install Docker Compose 5.6.0
+      run: |
+        mkdir -p ~/.docker/cli-plugins
+        curl -fsSL --retry 3 -o ~/.docker/cli-plugins/docker-compose \
+          https://github.com/docker/compose/releases/download/v5.6.0/docker-compose-linux-x86_64
+        echo "40343e21ca777173e69cff5dbafeb37c6f81f3b0d57d9e597f036e95eb63e76a  $HOME/.docker/cli-plugins/docker-compose" | sha256sum --check
+        chmod +x ~/.docker/cli-plugins/docker-compose
+        docker compose version
+      shell: bash

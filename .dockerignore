@@ -11,6 +11,7 @@
 **/next-env.d.ts
 .git
 .github
+renovate.json
 .agents
 .claude
 .codex

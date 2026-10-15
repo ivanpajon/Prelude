@@ -18,23 +18,23 @@ describe("locale proxy", () => {
 
   it("negotiates an explicit language URL by default, preserving search parameters", () => {
     const response = proxy(
-      request("/playground?status=active", { "accept-language": "es-ES,es;q=0.9,en;q=0.8" }),
+      request("/about?status=active", { "accept-language": "es-ES,es;q=0.9,en;q=0.8" }),
     );
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("http://localhost/es/playground?status=active");
+    expect(response.headers.get("location")).toBe("http://localhost/es/about?status=active");
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(response.headers.has("x-middleware-rewrite")).toBe(false);
   });
 
   it("rewrites canonical prefixed URLs without writing cookies or forcing private caching", () => {
     const response = proxy(
-      request("/es/playground?status=active", {
+      request("/es/about?status=active", {
         cookie: `PRELUDE_LOCALE=en; ${ROUTING_MODE_COOKIE}=never`,
         "accept-language": "en",
       }),
     );
     expect(response.headers.get("x-middleware-rewrite")).toBe(
-      "http://localhost/always/es/playground?status=active",
+      "http://localhost/always/es/about?status=active",
     );
     expect(response.headers.has("x-middleware-next")).toBe(false);
     expect(response.headers.get("x-middleware-request-x-next-intl-locale")).toBe("es");
@@ -49,14 +49,14 @@ describe("locale proxy", () => {
 
   it("uses the hidden-URL override with locale negotiation, private caching, and noindex", () => {
     const response = proxy(
-      request("/playground?status=active", {
+      request("/about?status=active", {
         cookie: `${ROUTING_MODE_COOKIE}=never; PRELUDE_LOCALE=invalid`,
         "accept-language": "es",
         "x-request-id": "kept-through-rewrite",
       }),
     );
     expect(response.headers.get("x-middleware-rewrite")).toBe(
-      "http://localhost/never/es/playground?status=active",
+      "http://localhost/never/es/about?status=active",
     );
     expect(response.headers.get("x-middleware-request-x-next-intl-locale")).toBe("es");
     expect(response.headers.get("x-middleware-request-x-request-id")).toBe("kept-through-rewrite");
@@ -99,8 +99,8 @@ describe("locale proxy", () => {
       ["http://127.0.0.1:3000", "prelude.example"],
     ] as const) {
       for (const [pathname, cookie, expected] of [
-        ["/es/playground", "", "/always/es/playground"],
-        ["/playground", `${ROUTING_MODE_COOKIE}=never`, "/never/es/playground"],
+        ["/es/about", "", "/always/es/about"],
+        ["/about", `${ROUTING_MODE_COOKIE}=never`, "/never/es/about"],
       ] as const) {
         const response = proxy(
           new NextRequest(`${origin}${pathname}?status=active`, {
@@ -123,35 +123,35 @@ describe("locale proxy", () => {
   it("uses fixed always mode when the demo is disabled, ignoring visitor overrides", () => {
     const fixed = createLocaleProxy({ defaultMode: "always", demoEnabled: false });
     const response = fixed(
-      request("/playground", {
+      request("/about", {
         cookie: `${ROUTING_MODE_COOKIE}=never; PRELUDE_LOCALE=es`,
       }),
     );
-    expect(response.headers.get("location")).toBe("http://localhost/es/playground");
+    expect(response.headers.get("location")).toBe("http://localhost/es/about");
   });
 
   it("uses fixed never mode without demo noindex and removes incoming language prefixes", () => {
     const fixed = createLocaleProxy({ defaultMode: "never", demoEnabled: false });
     const headers = { cookie: `${ROUTING_MODE_COOKIE}=always; PRELUDE_LOCALE=es` };
-    const page = fixed(request("/playground", headers));
-    expect(page.headers.get("x-middleware-rewrite")).toBe("http://localhost/never/es/playground");
+    const page = fixed(request("/about", headers));
+    expect(page.headers.get("x-middleware-rewrite")).toBe("http://localhost/never/es/about");
     expect(page.headers.get("cache-control")).toBe("private, no-store");
     expect(page.headers.has("x-robots-tag")).toBe(false);
     expect(page.headers.has("link")).toBe(false);
-    const redirect = fixed(request("/es/playground?status=active", headers));
+    const redirect = fixed(request("/es/about?status=active", headers));
     expect(redirect.status).toBe(307);
-    expect(redirect.headers.get("location")).toBe("http://localhost/playground?status=active");
+    expect(redirect.headers.get("location")).toBe("http://localhost/about?status=active");
     expect(redirect.headers.get("cache-control")).toBe("private, no-store");
   });
 
   it("keeps fixed-mode redirects on the server origin for Next.js to relativize", () => {
     const fixed = createLocaleProxy({ defaultMode: "never", demoEnabled: false });
     const response = fixed(
-      new NextRequest("http://0.0.0.0:3000/es/playground?status=active", {
+      new NextRequest("http://0.0.0.0:3000/es/about?status=active", {
         headers: { host: "127.0.0.1:3001", cookie: "PRELUDE_LOCALE=es" },
       }),
     );
-    expect(response.headers.get("location")).toBe("http://0.0.0.0:3000/playground?status=active");
+    expect(response.headers.get("location")).toBe("http://0.0.0.0:3000/about?status=active");
   });
 
   it("supports never as the demo default and an explicit always override", () => {
@@ -167,7 +167,7 @@ describe("locale proxy", () => {
     expect(sharedLink.headers.get("x-middleware-rewrite")).toBe("http://localhost/always/es");
   });
 
-  it.each(["/always/en", "/never/es/playground"])(
+  it.each(["/always/en", "/never/es/about"])(
     "rejects direct internal routing paths (%s)",
     (pathname) => {
       const response = proxy(request(pathname));
@@ -180,12 +180,13 @@ describe("locale proxy", () => {
 
   it.each([
     ["/", true],
-    ["/es/playground", true],
+    ["/es/about", true],
     ["/apiary", true],
     ["/offline-guide", true],
     ["/api/docs", false],
     ["/api/openapi.json", false],
     ["/api/mcp/inspector", false],
+    ["/api/health", false],
     ["/offline", false],
     ["/_next/static/chunk.js", false],
     ["/manifest.webmanifest", false],

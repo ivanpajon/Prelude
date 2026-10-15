@@ -1,5 +1,15 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// Patterns match file names in any folder, so specs in tests/e2e/demo/ join the same projects.
+const browserSpecs = [
+  "app.spec.ts",
+  "openapi.spec.ts",
+  "i18n.spec.ts",
+  // demo:start
+  "mcp-playground.spec.ts",
+  // demo:end
+];
+
 export default defineConfig({
   testDir: "./tests/e2e",
   outputDir: "./test-results/production",
@@ -22,12 +32,12 @@ export default defineConfig({
     },
     {
       name: "desktop",
-      testMatch: ["app.spec.ts", "openapi.spec.ts", "mcp-playground.spec.ts", "i18n.spec.ts"],
+      testMatch: browserSpecs,
       use: { ...devices["Desktop Chrome"], serviceWorkers: "block" },
     },
     {
       name: "mobile",
-      testMatch: ["app.spec.ts", "openapi.spec.ts", "mcp-playground.spec.ts", "i18n.spec.ts"],
+      testMatch: browserSpecs,
       use: { ...devices["Pixel 7"], serviceWorkers: "block" },
     },
     {

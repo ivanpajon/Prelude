@@ -1,0 +1,157 @@
+name: Docker
+
+# The full Docker suites run outside the pull request path: on pushes, weekly, by hand, and on
+# pull requests that change how the images or the development stack are built. Every pull request
+# still gets the Docker smoke job in ci.yml.
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - "compose*.yaml"
+      - .node-version
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - "**/package.json"
+      - "**/tsconfig*.json"
+      - "apps/*/next.config.*"
+      - "apps/*/postcss.config.*"
+      - "scripts/dev-*.mjs"
+      - scripts/stack-image-size.mjs
+      - scripts/test-stack.mjs
+      - playwright.stack.config.ts
+      - "tests/stack/**"
+      # The stack test edits these files to check rebuild caching and live reload.
+      - apps/web/src/components/animation-examples.tsx
+      - apps/web/src/components/site-footer.tsx
+      - packages/ui/src/styles/globals.css
+      # demo:start
+      - apps/web/src/components/task-workbench.tsx
+      - packages/ui/src/styles/theme.css
+      - packages/i18n/src/messages/en/widget.json
+      - scripts/build-mcp-apps.mjs
+      - scripts/remove-demo.mjs
+      # Demo removal runs the browser suites, which the quick job in ci.yml skips.
+      - "tests/e2e/**"
+      - "tests/dev/**"
+      - "tests/*.ts"
+      - playwright.config.ts
+      - playwright.dev.config.ts
+      # demo:end
+      - ".github/actions/**"
+      - .github/workflows/docker.yml
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  HUSKY: "0"
+
+# Each job runs one part of pnpm test:stack in parallel; together they run all of it.
+jobs:
+  stack:
+    name: Docker stack (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: builds
+            id: builds
+            args: --part builds
+          - name: runtime
+            id: runtime
+            args: --part runtime
+          # Split by single tests in list order, so the halves take about the same time and neither
+          # is empty without the demo (see docs/verification.md#continuous-integration).
+          - name: development 1/2
+            id: development-1
+            args: --part development --shard 1/2
+          - name: development 2/2
+            id: development-2
+            args: --part development --shard 2/2
+          - name: rebuild
+            id: rebuild
+            args: --part rebuild
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          browsers: true
+          compose: true
+      - run: pnpm test:stack ${{ matrix.args }}
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stack-${{ matrix.id }}-results
+          path: test-results/stack
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # demo:start
+  # Proves that a project without the demo stays green, browsers and Docker included. Each job
+  # removes the demo and then runs one slice of pnpm verify and pnpm test:stack. One job lets
+  # pnpm remove-demo also check and unit-test the result; the others skip that (--skip-checks).
+  # pnpm remove-demo deletes this job together with the demo.
+  demo-removal:
+    name: Demo removal (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: browsers
+            id: browsers
+            run: pnpm test:dev && pnpm test:e2e && pnpm test:cache
+          - name: stack builds
+            id: stack-builds
+            run: pnpm test:stack --part builds
+          # Its part is the shortest, so this job also checks and unit-tests the project.
+          - name: stack runtime
+            id: stack-runtime
+            checks: true
+            run: pnpm test:stack --part runtime
+          # Without the demo, the development browser checks are short enough for one job.
+          - name: stack development
+            id: stack-development
+            run: pnpm test:stack --part development
+          - name: stack rebuild
+            id: stack-rebuild
+            run: pnpm test:stack --part rebuild
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          browsers: true
+          compose: true
+      # The command does not commit, so the job needs no Git identity.
+      - if: matrix.checks
+        run: pnpm remove-demo
+      - if: ${{ !matrix.checks }}
+        run: pnpm remove-demo --skip-checks
+      - run: ${{ matrix.run }}
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: demo-removal-${{ matrix.id }}-results
+          path: |
+            test-results
+            playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
+  # demo:end

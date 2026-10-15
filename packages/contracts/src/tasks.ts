@@ -1,0 +1,171 @@
+import { type OpenAPI, oc } from "@orpc/contract";
+import { type } from "arktype";
+import { titleMaxLength } from "./limits";
+
+export const taskStatuses = ["all", "active", "completed"] as const;
+export const taskStatusSchema = type.enumerated(...taskStatuses);
+export type TaskStatus = typeof taskStatusSchema.infer;
+
+// Normalize at the API boundary, then validate the title the application stores.
+export const titleSchema = type("string.trim").to(`1 <= string <= ${titleMaxLength}`);
+
+export const taskSchema = type({
+  id: "string > 0",
+  title: titleSchema,
+  completed: "boolean",
+});
+export type Task = typeof taskSchema.infer;
+
+export const listTasksInput = type({ status: taskStatusSchema });
+export const createTaskInput = type({ title: titleSchema });
+export const setCompletedInput = type({ id: "string > 0", completed: "boolean" });
+export const updateTaskTitleInput = type({ id: "string > 0", title: titleSchema });
+export const deleteTaskInput = type({ id: "string > 0" });
+
+// Extend the generated body without replacing its schema or validation constraints.
+function jsonExample(example: Record<string, unknown>) {
+  return (operation: OpenAPI.OperationObject): OpenAPI.OperationObject => {
+    const body = operation.requestBody;
+    if (!body || "$ref" in body) return operation;
+    return {
+      ...operation,
+      requestBody: {
+        ...body,
+        content: {
+          ...body.content,
+          "application/json": { ...body.content["application/json"], example },
+        },
+      },
+    };
+  };
+}
+
+/** The task demo operations, mounted as `contract.tasks`. */
+export const tasksContract = {
+  list: oc
+    .route({
+      method: "GET",
+      path: "/v1/tasks",
+      operationId: "listTasks",
+      tags: ["Tasks"],
+      summary: "List tasks",
+      description: "Filter the shared demo list by status. For example: /api/v1/tasks?status=all.",
+      spec: (operation) => ({
+        ...operation,
+        "x-mcp": {
+          annotations: {
+            readOnlyHint: true,
+            destructiveHint: false,
+            idempotentHint: true,
+            openWorldHint: false,
+          },
+        },
+        parameters: (operation.parameters ?? []).map((parameter) =>
+          "$ref" in parameter || parameter.name !== "status"
+            ? parameter
+            : { ...parameter, example: "all" },
+        ),
+      }),
+    })
+    .input(listTasksInput)
+    .output(taskSchema.array()),
+  create: oc
+    .route({
+      method: "POST",
+      path: "/v1/tasks",
+      operationId: "createTask",
+      tags: ["Tasks"],
+      summary: "Create a task",
+      description: `Add a task to the shared demo list. Titles are trimmed before validation; the normalized title must contain 1–${titleMaxLength} characters.`,
+      successStatus: 201,
+      successDescription: "Task created",
+      spec: (operation) => ({
+        ...jsonExample({ title: "Build a feature" })(operation),
+        "x-mcp": {
+          annotations: {
+            readOnlyHint: false,
+            destructiveHint: false,
+            idempotentHint: false,
+            openWorldHint: false,
+          },
+        },
+      }),
+    })
+    .input(createTaskInput)
+    .output(taskSchema),
+  setCompleted: oc
+    .route({
+      method: "PATCH",
+      path: "/v1/tasks/{id}",
+      operationId: "setTaskCompleted",
+      tags: ["Tasks"],
+      summary: "Set task completion",
+      description:
+        "Mark a task as completed or active. Returns NOT_FOUND if the task does not exist.",
+      spec: (operation) => ({
+        ...jsonExample({ completed: true })(operation),
+        "x-mcp": {
+          annotations: {
+            readOnlyHint: false,
+            destructiveHint: true,
+            idempotentHint: true,
+            openWorldHint: false,
+          },
+        },
+      }),
+    })
+    .input(setCompletedInput)
+    .output(taskSchema)
+    .errors({ NOT_FOUND: { message: "Task not found" } }),
+  updateTitle: oc
+    .route({
+      method: "PATCH",
+      path: "/v1/tasks/{id}/title",
+      operationId: "updateTaskTitle",
+      tags: ["Tasks"],
+      summary: "Edit a task title",
+      description: `Edit a task title without changing its completion status. Titles are trimmed before validation; the normalized title must contain 1–${titleMaxLength} characters. Returns NOT_FOUND if the task does not exist.`,
+      successStatus: 200,
+      successDescription: "Task title updated",
+      spec: (operation) => ({
+        ...jsonExample({ title: "Polish a feature" })(operation),
+        "x-mcp": {
+          annotations: {
+            readOnlyHint: false,
+            destructiveHint: true,
+            idempotentHint: true,
+            openWorldHint: false,
+          },
+        },
+      }),
+    })
+    .input(updateTaskTitleInput)
+    .output(taskSchema)
+    .errors({ NOT_FOUND: { message: "Task not found" } }),
+  delete: oc
+    .route({
+      method: "DELETE",
+      path: "/v1/tasks/{id}",
+      operationId: "deleteTask",
+      tags: ["Tasks"],
+      summary: "Delete a task",
+      description:
+        "Remove a task from the shared demo list and return the deleted task. Returns NOT_FOUND if the task does not exist or has already been deleted.",
+      successStatus: 200,
+      successDescription: "Task deleted",
+      spec: (operation) => ({
+        ...operation,
+        "x-mcp": {
+          annotations: {
+            readOnlyHint: false,
+            destructiveHint: true,
+            idempotentHint: true,
+            openWorldHint: false,
+          },
+        },
+      }),
+    })
+    .input(deleteTaskInput)
+    .output(taskSchema)
+    .errors({ NOT_FOUND: { message: "Task not found" } }),
+};

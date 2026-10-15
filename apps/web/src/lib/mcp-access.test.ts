@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { handleMcpRequest, type McpEnvironment } from "./mcp-access";
+import type { RuntimeEnvironment } from "@/env";
+import { site } from "@/site";
+import { handleMcpRequest } from "./mcp-access";
 import { handleInspectorRequest } from "./mcp-inspector";
 
 function request(headers: Record<string, string> = {}, method = "POST") {
@@ -82,7 +84,7 @@ describe("MCP request access", () => {
     }
   });
 
-  it.each<McpEnvironment>([
+  it.each<RuntimeEnvironment>([
     { MCP_ENABLED: "yes" },
     { MCP_ALLOWED_ORIGINS: "*" },
     { MCP_ALLOWED_ORIGINS: "https://*.example.com" },
@@ -161,7 +163,7 @@ describe("local Inspector wrapper", () => {
     expect(response.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
     const html = await response.text();
     expect(html).toContain('src="http://127.0.0.1:6284/"');
-    expect(html).toContain('title="Prelude MCP Inspector"');
+    expect(html).toContain(`title="${site.name} MCP Inspector"`);
     expect(html).not.toMatch(/token|autoConnect/i);
   });
 
@@ -179,6 +181,17 @@ describe("local Inspector wrapper", () => {
       }
     },
   );
+
+  it("returns 404 in development when MCP is disabled, because no Inspector runs", () => {
+    for (const method of ["GET", "HEAD"]) {
+      const response = handleInspectorRequest(request({}, method), {
+        NODE_ENV: "development",
+        MCP_ENABLED: "false",
+      });
+      expect(response.status).toBe(404);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+    }
+  });
 
   it("blocks nonlocal headers even if development was exposed through a proxy", () => {
     expect(

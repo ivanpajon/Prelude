@@ -8,6 +8,7 @@ import {
   devCommands,
   inspectorEnvironment,
   parseDevOptions,
+  readyMessage,
   resolvePackageBin,
   supervise,
   workspaceRoot,
@@ -17,6 +18,12 @@ import { checkCommand, parseCheckOptions } from "./mcp-check.mjs";
 const directories = [];
 const runs = [];
 const servers = [];
+
+function commandNamed(commands, name) {
+  const found = commands.find((candidate) => candidate.name === name);
+  if (!found) throw new Error(`Missing ${name} command`);
+  return found;
+}
 
 function temporaryDirectory() {
   const directory = mkdtempSync(path.join(tmpdir(), "prelude-dev-"));
@@ -201,6 +208,41 @@ describe("development options and isolation", () => {
     );
   });
 
+  it("skips the Inspector and its sandbox on request or when MCP is disabled", () => {
+    expect(parseDevOptions(["--no-inspector"], {}).skipInspector).toBe("--no-inspector");
+    expect(parseDevOptions([], { MCP_ENABLED: " FALSE " }).skipInspector).toBe("MCP_ENABLED=false");
+    expect(parseDevOptions([], { MCP_ENABLED: "true" })).not.toHaveProperty("skipInspector");
+    // Unused helper ports may overlap the app port, but every port must still be valid.
+    expect(parseDevOptions(["--no-inspector", "-p", "6274"], {}).port).toBe(6274);
+    expect(() => parseDevOptions(["--no-inspector"], { MCP_SANDBOX_PORT: "0" })).toThrow();
+
+    const commands = devCommands(
+      workspaceRoot,
+      parseDevOptions(["--no-inspector", "-p", "3102"], {}),
+      {},
+      { next: "next.js", inspector: "inspector.js" },
+    );
+    expect(commands.map((command) => command.name)).toEqual([
+      // demo:start
+      "MCP App builder",
+      // demo:end
+      "Next.js",
+    ]);
+    expect(commandNamed(commands, "Next.js").args).toContain("3102");
+  });
+
+  it("prints a ready line that names the skipped Inspector", () => {
+    expect(readyMessage(parseDevOptions(["-p", "3102"], {}))).toBe(
+      "MCP Inspector: http://127.0.0.1:3102/api/mcp/inspector",
+    );
+    expect(readyMessage(parseDevOptions(["--no-inspector", "-p", "3102"], {}))).toBe(
+      "Next.js: http://127.0.0.1:3102 (MCP Inspector skipped: --no-inspector)",
+    );
+    expect(readyMessage(parseDevOptions([], { MCP_ENABLED: "false" }))).toBe(
+      "Next.js: http://127.0.0.1:3000 (MCP Inspector skipped: MCP_ENABLED=false)",
+    );
+  });
+
   it("only binds wildcard interfaces after an explicit container option", () => {
     const inherited = { HOST: "0.0.0.0", DANGEROUSLY_BIND_ALL_INTERFACES: "true" };
     expect(parseDevOptions([], inherited).hostname).toBe("127.0.0.1");
@@ -279,18 +321,21 @@ describe("development options and isolation", () => {
       { MCP_INSPECTOR_API_TOKEN: "secret" },
       { next: "next.js", inspector: "inspector.js" },
     );
-    expect(commands[0]).toMatchObject({
-      name: "MCP App builder",
+    // demo:start
+    expect(commandNamed(commands, "MCP App builder")).toMatchObject({
       args: ["--watch"],
       readyMessage: "mcp-apps-ready",
       beforeServers: true,
     });
+    // demo:end
     expect(commands.map((command) => command.name)).toEqual([
+      // demo:start
       "MCP App builder",
+      // demo:end
       "Next.js",
       "MCP Inspector",
     ]);
-    expect(commands[2].args).toEqual([
+    expect(commandNamed(commands, "MCP Inspector").args).toEqual([
       "--web",
       "--server-url",
       "http://127.0.0.1:3102/api/mcp",
@@ -299,7 +344,7 @@ describe("development options and isolation", () => {
       "--protocol-era",
       "auto",
     ]);
-    expect(commands[1].args).toEqual([
+    expect(commandNamed(commands, "Next.js").args).toEqual([
       "dev",
       "--turbopack",
       "--hostname",
@@ -307,8 +352,8 @@ describe("development options and isolation", () => {
       "--port",
       "3102",
     ]);
-    expect(commands[1].beforeServers).toBe(true);
-    expect(commands[1].env).toEqual({
+    expect(commandNamed(commands, "Next.js").beforeServers).toBe(true);
+    expect(commandNamed(commands, "Next.js").env).toEqual({
       PORT: "3102",
       MCP_INSPECTOR_PORT: "6280",
       MCP_SANDBOX_PORT: "6275",
@@ -327,7 +372,7 @@ describe("development options and isolation", () => {
       },
       { next: "next.js", inspector: "inspector.js" },
     );
-    const inspector = commands[2];
+    const inspector = commandNamed(commands, "MCP Inspector");
     expect(inspector.hostname).toBe("0.0.0.0");
     expect(inspector.args).toContain("http://127.0.0.1:3102/api/mcp");
     expect(inspector.env).toMatchObject({
@@ -343,7 +388,7 @@ describe("development options and isolation", () => {
     });
     expect(inspector.env.DANGEROUSLY_OMIT_AUTH).toBeUndefined();
     expect(inspector.env.MCP_INSPECTOR_API_TOKEN).toBeUndefined();
-    expect(commands[1].args).toEqual([
+    expect(commandNamed(commands, "Next.js").args).toEqual([
       "dev",
       "--turbopack",
       "--hostname",
@@ -351,8 +396,8 @@ describe("development options and isolation", () => {
       "--port",
       "3102",
     ]);
-    expect(commands[1].hostname).toBe("0.0.0.0");
-    expect(commands[1].env.MCP_INSPECTOR_API_TOKEN).toBeUndefined();
+    expect(commandNamed(commands, "Next.js").hostname).toBe("0.0.0.0");
+    expect(commandNamed(commands, "Next.js").env.MCP_INSPECTOR_API_TOKEN).toBeUndefined();
   });
 
   it("loads Next development dotenv precedence before resolving helper options", () => {
@@ -403,7 +448,9 @@ describe("owned development process lifecycle", () => {
       {},
       { next: "next.js", inspector: "inspector.js" },
     );
-    const commands = definitions.slice(1).map((definition) => ({
+    const servers = definitions.filter((definition) => definition.port !== undefined);
+    expect(servers.map(({ name }) => name)).toEqual(["Next.js", "MCP Inspector"]);
+    const commands = servers.map((definition) => ({
       ...fixtureCommand(
         definition.port,
         "ready",

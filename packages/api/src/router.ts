@@ -2,43 +2,30 @@ import "server-only";
 
 import { createRouterClient, implement } from "@orpc/server";
 import { type ApiClient, contract } from "@repo/contracts";
-import type { TaskRepository } from "./repository";
+// demo:start
 
-export interface Context {
+import type { TaskRepository } from "./repository";
+import { tasksRouter } from "./tasks";
+
+// demo:end
+
+/** Dependencies that every procedure receives for one request. */
+export interface Context extends Record<never, never> {
+  // Add request-scoped dependencies here, such as the session or a database client.
+  // demo:start
   repository: TaskRepository;
   // Apps that cache task data can provide their server cache invalidation here.
   onTasksChanged?: () => void | Promise<void>;
+  // demo:end
 }
 
 const api = implement(contract).$context<Context>();
 
 export const router = api.router({
-  tasks: {
-    list: api.tasks.list.handler(({ input, context }) => context.repository.list(input.status)),
-    create: api.tasks.create.handler(async ({ input, context }) => {
-      const task = context.repository.create(input.title);
-      await context.onTasksChanged?.();
-      return task;
-    }),
-    setCompleted: api.tasks.setCompleted.handler(async ({ input, context, errors }) => {
-      const task = context.repository.setCompleted(input.id, input.completed);
-      if (!task) throw errors.NOT_FOUND();
-      await context.onTasksChanged?.();
-      return task;
-    }),
-    updateTitle: api.tasks.updateTitle.handler(async ({ input, context, errors }) => {
-      const task = context.repository.updateTitle(input.id, input.title);
-      if (!task) throw errors.NOT_FOUND();
-      await context.onTasksChanged?.();
-      return task;
-    }),
-    delete: api.tasks.delete.handler(async ({ input, context, errors }) => {
-      const task = context.repository.delete(input.id);
-      if (!task) throw errors.NOT_FOUND();
-      await context.onTasksChanged?.();
-      return task;
-    }),
-  },
+  // Add each feature's router here.
+  // demo:start
+  tasks: tasksRouter,
+  // demo:end
 });
 
 /** Each caller supplies its own context; no request-specific data is stored globally. */
