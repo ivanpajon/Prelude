@@ -14,7 +14,7 @@ This repository is a Next.js 16 starter in a pnpm and Turborepo workspace. One o
 
 ## Commands
 
-Run from the repository root with Node 26 (`.node-version`) and pnpm 12.6.0.
+Run from the repository root with the Node version in `.node-version` and the pnpm version in `packageManager` (`package.json`).
 
 - `pnpm dev`: Next.js on port 3000 with the MCP Inspector on 6274 and 6275. `pnpm dev:app` skips the Inspector.
 - `pnpm check`: Biome and strict TypeScript. `pnpm fix` applies Biome's formatting and safe fixes.
@@ -38,7 +38,7 @@ CI has a fast lane (`.github/workflows/ci.yml`, parallel jobs of about 2 minutes
 - Dependencies use exact versions (`saveExact` in `pnpm-workspace.yaml`). Commit `pnpm-lock.yaml` and install with `pnpm install --frozen-lockfile`. Renovate opens the update pull requests (`renovate.json`).
 - pnpm comes from `packageManager` in `package.json`; use pnpm only, never npm or yarn.
 - Workspace packages share one private scope (`@repo` in the template; `pnpm customize` renames it). Import across packages by package name, such as `@repo/ui/components/button`.
-- Put user-facing text in both catalogs of `@repo/i18n`, in natural English and Spanish.
+- Put user-facing text in every catalog of `@repo/i18n` (English and Spanish in the template), in natural language for each locale. Do not add a language that `locales` in `packages/i18n/src/index.ts` does not list.
 - Add an API feature as a contract in `@repo/contracts` and a procedure in `@repo/api`; OpenAPI and MCP pick it up. See [OpenAPI](docs/openapi.md#add-or-change-a-procedure).
 
 ## Generated files

@@ -17,23 +17,23 @@ Start with React best practices, shadcn, and accessibility review. Add the Next.
 
 ## Project-local installation commands
 
-Run selected commands from the repository root. The flags were checked against Skills CLI 1.7.0 help and its [Codex adapter](https://github.com/vercel-labs/skills/blob/main/src/agents.ts): project scope is the default, `--agent codex` selects Codex, `--skill` selects named skills, and `--copy` avoids Windows symlink requirements. Omitting `--global` keeps these in this repository's `.agents/skills/`. Review and commit installed skill files and the generated `skills-lock.json` alongside the project.
+Run selected commands from the repository root. The flags were checked against Skills CLI 1.7.0 help and its [agent list](https://github.com/vercel-labs/skills/blob/main/src/agents.ts): project scope is the default, `--skill` selects named skills, and `--copy` avoids Windows symlink requirements. `--agent` picks the coding agents that get the skills. The commands below name two: `claude-code` installs to `.claude/skills/` for Claude Code, and `codex` installs to `.agents/skills/` for Codex. Keep only the agents you use. Without `--agent`, the CLI looks for the agents installed on your computer, and asks you to pick if it finds none. Omitting `--global` keeps the skills in this repository. Review and commit installed skill files and the generated `skills-lock.json` alongside the project.
 
 ```powershell
 # React, accessibility, and optional component architecture.
-pnpm dlx skills@1.7.0 add vercel-labs/agent-skills --skill vercel-react-best-practices web-design-guidelines vercel-composition-patterns --agent codex --copy --yes
+pnpm dlx skills@1.7.0 add vercel-labs/agent-skills --skill vercel-react-best-practices web-design-guidelines vercel-composition-patterns --agent claude-code codex --copy --yes
 
 # Official shadcn skill, including Base UI guidance.
-pnpm dlx skills@1.7.0 add shadcn-ui/ui --skill shadcn --agent codex --copy --yes
+pnpm dlx skills@1.7.0 add shadcn-ui/ui --skill shadcn --agent claude-code codex --copy --yes
 
 # Next.js runtime verification and Cache Components optimization.
-pnpm dlx skills@1.7.0 add https://github.com/vercel/next.js/tree/canary/skills --skill next-dev-loop next-cache-components-optimizer --agent codex --copy --yes
+pnpm dlx skills@1.7.0 add https://github.com/vercel/next.js/tree/canary/skills --skill next-dev-loop next-cache-components-optimizer --agent claude-code codex --copy --yes
 
 # Unit/component testing reference.
-pnpm dlx skills@1.7.0 add antfu/skills --skill vitest --agent codex --copy --yes
+pnpm dlx skills@1.7.0 add antfu/skills --skill vitest --agent claude-code codex --copy --yes
 
 # Optional animation review.
-pnpm dlx skills@1.7.0 add emilkowalski/skills --skill review-animations --agent codex --copy --yes
+pnpm dlx skills@1.7.0 add emilkowalski/skills --skill review-animations --agent claude-code codex --copy --yes
 ```
 
 These are proposed installation commands; no skills were installed during the review. Discovery confirmed the official shadcn skill using `--list`. GitHub source files were verified for the remaining recommendations; the Next.js repository discovery attempt was too slow to use as an installation check. The `canary` path above selects the upstream skill source, not a request to upgrade this project's Next.js package to a prerelease. Keep its advice aligned with the installed stable framework and bundled `next/dist/docs`.

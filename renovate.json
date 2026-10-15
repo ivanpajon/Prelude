@@ -101,7 +101,7 @@
       "allowedVersions": "/^26\\./"
     },
     {
-      "description": "Update the Node runtime together: .node-version, engines, @types/node, and both images.",
+      "description": "Update the Node runtime together: @types/node and both images. .node-version follows once the line is LTS, and the engines range stays; see docs/requirements.md.",
       "matchPackageNames": ["node", "@types/node", "gcr.io/distroless/nodejs26-debian13"],
       "groupName": "Node.js"
     },

@@ -7,7 +7,7 @@ The same oRPC procedures serve the browser over RPC, direct Server Component cal
 | Endpoint | Input and behavior |
 | --- | --- |
 | `GET /api/docs` | Public, interactive Scalar reference; linked from the shared header and homepage. |
-| `GET /api/openapi.json` | Generated specification, titled **Prelude API** (the site name from `apps/web/src/site.ts`), version **1.0.0**. Both values are set in `apps/web/src/lib/api-info.ts`. |
+| `GET /api/openapi.json` | Generated specification, titled with the site name from `apps/web/src/site.ts` followed by **API**, version **1.0.0**. Both values are set in `apps/web/src/lib/api-info.ts`. |
 
 Each procedure adds its own endpoint under `/api`. Invalid inputs return 400; invalid procedure outputs return 500. REST and RPC request bodies larger than 64 KB are rejected with 413 before parsing. Path parameters belong only in the URL: on any route with a path parameter, such as `{id}`, and oRPC's default compact input, repeating that key in the query or body returns 400, even when the values match. This includes bracket keys such as `id[0]`. On those routes, a malformed body also returns 400 before any mutation. This guard in `createOpenApi` (`apps/web/src/lib/openapi.ts`) stops oRPC's compact input merge from replacing the path value. Routes with `inputStructure: "detailed"` keep path parameters and the query apart, so the guard skips them.
 
@@ -35,15 +35,26 @@ The browser workbench now lives at `/playground#tasks`. The separate [MCP App](m
 
 ## Add or change a procedure
 
+For a small, complete example, see `apps/web/src/testing/fixture-api.ts`. It holds a contract and its implementation in one file, with a query input, a JSON body, a path parameter, a custom success status, and a typed error. The tests use it, so copy from it rather than change it, and split the copy into `@repo/contracts` and `@repo/api`. After `pnpm remove-demo`, the larger task demo is still in Git history.
+
 1. Define browser-safe ArkType schemas and an `oc` contract in `@repo/contracts`. Add `.route({ method, path, operationId, tags, summary, description })`, stable unique operation IDs, declared errors, and the appropriate success status. Paths are relative to `/api`, such as `/v1/projects`; the generated document uses `/api` as its server URL.
 2. Add examples with a `.route({ spec: operation => ... })` callback that preserves generated schemas. Do not replace the operation with a hand-written schema that can drift from runtime validation.
 3. Implement the contract in `@repo/api`, using request context for data access and shared mutation invalidation. Adding the implementation to the router exposes it through RPC, REST, and generated MCP tools; no separate business logic is needed for each transport.
 4. Export any newly needed HTTP verb from `apps/web/src/app/api/[...rest]/route.ts` (currently GET, POST, PATCH, and DELETE). The REST adapter already rejects a query or body key that repeats a path parameter, so new routes need no guard of their own.
-5. Test specification mapping and real HTTP validation alongside the procedure. Review `/api/openapi.json` and exercise the endpoint in Scalar. Its operation ID also becomes the generated MCP tool name; check its arguments and behavior in the development Inspector. When customizing the template, update the API title and version in `apps/web/src/lib/api-info.ts`, which the tests read too, and the description and shared tags in `apps/web/src/lib/openapi.ts`.
+5. Test the specification mapping and real HTTP validation. Put these tests in `apps/web/src/lib`, like `openapi.test.ts` and `mcp.test.ts`: they build the REST handler and the MCP tools from the fixture router and send real requests to them. Review `/api/openapi.json` and exercise the endpoint in Scalar. Its operation ID also becomes the generated MCP tool name; check its arguments and behavior in the development Inspector.
+6. Describe the API. The title and version are in `apps/web/src/lib/api-info.ts`, which the tests read too. Add a description and the tag descriptions to the `createOpenApi` call at the end of `apps/web/src/lib/openapi.ts`. Use the same tag names as the contract's `.route({ tags })`; a tag that is not listed here still works, but has no description in Scalar:
 
-The converter in the web package adapts oRPC 1.15.4's ArkType integration: input schemas use `.in`, and response schemas use `.out`. For a trimmed string, the input JSON Schema describes a string while the output describes the normalized length bounds; endpoint descriptions explain the additional normalization rules. Arbitrary refinements that ArkType cannot represent, and defined non-ArkType schemas, fail generation instead of silently producing an empty schema. Procedures with no input or output schema remain supported.
+   ```ts
+   const openApi = createOpenApi(router, {
+     info: { ...apiInfo, description: "What this API does." },
+     servers: [{ url: "/api" }],
+     tags: [{ name: "Projects", description: "Create and list projects." }],
+   });
+   ```
 
-All oRPC packages are pinned to **1.15.4**. Use the matching [stable OpenAPI guide](https://v1.orpc.dev/docs/openapi/openapi-specification) and [reference-plugin documentation](https://v1.orpc.dev/docs/openapi/plugins/openapi-reference) when extending or upgrading the integration.
+The converter in the web package adapts oRPC's ArkType integration, as written for oRPC 1.15.4; recheck it after oRPC upgrades. Input schemas use `.in`, and response schemas use `.out`. For a trimmed string, the input JSON Schema describes a string while the output describes the normalized length bounds; endpoint descriptions explain the additional normalization rules. Arbitrary refinements that ArkType cannot represent, and defined non-ArkType schemas, fail generation instead of silently producing an empty schema. Procedures with no input or output schema remain supported.
+
+All oRPC packages are pinned to the same 1.x version (see `apps/web/package.json`). Use the matching [stable OpenAPI guide](https://v1.orpc.dev/docs/openapi/openapi-specification) and [reference-plugin documentation](https://v1.orpc.dev/docs/openapi/plugins/openapi-reference) when extending or upgrading the integration.
 
 ## Call a procedure from the app
 
@@ -100,15 +111,11 @@ To render the first data on the server and reuse it after hydration, fill `getSe
 
 ## Scalar renderer and caching
 
-`docsScriptUrl` pins this standalone browser bundle:
+`scalarScriptUrl` in `apps/web/src/lib/api-info.ts` pins Scalar's standalone browser bundle on jsDelivr by an exact `@scalar/api-reference` version. `createOpenApi` passes it to the reference plugin as `docsScriptUrl`.
 
-```text
-https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.72.1/dist/browser/standalone.js
-```
+There is no local `@scalar/api-reference` dependency, bundle-copy script, or generated Scalar asset. Loading the interactive reference requires access to jsDelivr; the JSON specification and REST API do not depend on that CDN. Upgrading oRPC does not change the renderer version. Renovate updates the version in `scalarScriptUrl`. To upgrade Scalar by hand, change the version there and run `pnpm verify`; the unit and browser tests import the URL, so they need no edits. Follow Scalar's [renderer-pinning guidance](https://scalar.com/products/api-references/integrations/nextjs#pin-the-browser-renderer).
 
-There is no local `@scalar/api-reference` dependency, bundle-copy script, or generated Scalar asset. Loading the interactive reference requires access to jsDelivr; the JSON specification and REST API do not depend on that CDN. Upgrading oRPC does not change the renderer version. To upgrade Scalar, change the explicit version in `docsScriptUrl`, update the matching unit and browser assertions, and run `pnpm verify`. Follow Scalar's [renderer-pinning guidance](https://scalar.com/products/api-references/integrations/nextjs#pin-the-browser-renderer).
-
-Scalar uses its responsive layout and hash navigation with the title **Prelude API Reference**. External fonts, telemetry, and Scalar Agent are disabled. Requests go directly to the application's origin; no request proxy or cross-origin API configuration is provided.
+Scalar uses its responsive layout and hash navigation with the API title followed by **Reference**, such as **My App API Reference**. External fonts, telemetry, and Scalar Agent are disabled. Requests go directly to the application's origin; no request proxy or cross-origin API configuration is provided.
 
 RPC, REST, documentation, and specification responses use `Cache-Control: no-store`. The service worker bypasses every `/api/` request and external resources, so it neither caches the documentation/API responses nor precaches Scalar. Offline documentation is not supported. The browser's ordinary HTTP caching of the CDN bundle is separate from the service worker.
 

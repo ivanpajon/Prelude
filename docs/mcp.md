@@ -1,10 +1,10 @@
 # Native MCP API
 
-Prelude exposes a Model Context Protocol server at **`/api/mcp`**. It derives tools from the same generated OpenAPI document used by Scalar; there is no second tool contract, generated tool source file, separate backend, or database. The endpoint uses stateless Streamable HTTP and runs inside the Next.js application.
+The app exposes a Model Context Protocol server at **`/api/mcp`**. It derives tools from the same generated OpenAPI document used by Scalar; there is no second tool contract, generated tool source file, separate backend, or database. The endpoint uses stateless Streamable HTTP and runs inside the Next.js application.
 
 ## Tools and data
 
-Each procedure in the router becomes one tool, named after its `operationId`. `mcp-from-openapi` **2.8.0** generates tool definitions and request mappings from `generateOpenApiSpec()`. The bridge dispatches mapped requests directly to the existing REST adapter with request-scoped context. It does not make an HTTP request back to itself or bypass ArkType validation, typed errors, the path-parameter guard, or awaited mutation callbacks. The MCP SDK server and client are pinned to **2.2.0**. Zod is infrastructure for the SDK/tooling; ArkType remains the application schema source.
+Each procedure in the router becomes one tool, named after its `operationId`. `mcp-from-openapi` generates tool definitions and request mappings from `generateOpenApiSpec()`. The bridge dispatches mapped requests directly to the existing REST adapter with request-scoped context. It does not make an HTTP request back to itself or bypass ArkType validation, typed errors, the path-parameter guard, or awaited mutation callbacks. The MCP SDK server and client are pinned to the same version. Zod is infrastructure for the SDK/tooling; ArkType remains the application schema source.
 
 <!-- demo:start -->
 The task demo exposes five tools:
@@ -54,7 +54,7 @@ The separate `listTasks` MCP App is published at `ui://prelude/tasks.html` for c
 pnpm dev
 ```
 
-The managed development command starts Next.js and the pinned **MCP Inspector 2.10.1** together. Open [the local Inspector page](http://localhost:3000/api/mcp/inspector). The page embeds the full Inspector interface from `http://127.0.0.1:6274`; set `MCP_INSPECTOR_PORT` to choose another UI port. Its browser-reachable App sandbox defaults to port `6275`, configurable through `MCP_SANDBOX_PORT`; the additional internal app-origin helper remains dynamically allocated. The Inspector has one predefined application target using the actual Next.js port rather than assuming port 3000.
+The managed development command starts Next.js and the pinned **MCP Inspector** together. Open [the local Inspector page](http://localhost:3000/api/mcp/inspector). The page embeds the full Inspector interface from `http://127.0.0.1:6274`; set `MCP_INSPECTOR_PORT` to choose another UI port. Its browser-reachable App sandbox defaults to port `6275`, configurable through `MCP_SANDBOX_PORT`; the additional internal app-origin helper remains dynamically allocated. The Inspector has one predefined application target using the actual Next.js port rather than assuming port 3000.
 
 Enable the connection switch, open **Tools**, and execute a query or mutation.
 

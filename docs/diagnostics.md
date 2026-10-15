@@ -22,7 +22,7 @@ For agents consuming JSON, inspect all of these:
 - `projects`: confirm both intended packages were scanned, and check each project's `complete`, `skippedChecks`, and any `skippedCheckReasons`.
 - `skippedProjects`, when present: a partial report must not be treated as a clean full scan.
 
-React Doctor 0.9.14 emits JSON schema version 3. Consumers should validate `schemaVersion` when upgrading. A successful scan (`ok: true`) describes scanner execution, not the absence of diagnostics; a project's `complete: false` means its analysis was incomplete.
+The JSON report has a `schemaVersion` field (version 3 when this guide was written). Consumers should validate it, because a React Doctor update can change it. A successful scan (`ok: true`) describes scanner execution, not the absence of diagnostics; a project's `complete: false` means its analysis was incomplete.
 
 Biome remains the source formatter and regular linter, through `pnpm check`, `pnpm fix`, and the pre-commit hook. React Doctor is not part of those commands or `pnpm verify`. Commitlint continues to own the separate commit-message check.
 
