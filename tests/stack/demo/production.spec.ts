@@ -4,7 +4,7 @@ import {
   StreamableHTTPClientTransport,
 } from "@modelcontextprotocol/client";
 import { expect, test } from "@playwright/test";
-import { apiInfo } from "../../../apps/web/src/lib/api-info";
+import { apiInfo, scalarScriptUrl } from "../../../apps/web/src/lib/api-info";
 import { demoLocalizationAcceptance } from "../../demo/i18n-scenarios";
 import { expectTaskAppResource } from "../../demo/mcp-apps";
 import { containerNode } from "../owned-context";
@@ -200,13 +200,11 @@ test("negotiates legacy MCP and executes every generated tool in the standalone 
 });
 
 test("executes a same-origin task read in the pinned Scalar reference", async ({ page }) => {
-  const script =
-    "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.72.1/dist/browser/standalone.js";
-  const renderer = page.waitForResponse(script);
+  const renderer = page.waitForResponse(scalarScriptUrl);
   await page.goto("/api/docs");
   expect((await renderer).ok()).toBe(true);
   await expect(page.getByRole("heading", { name: apiInfo.title, exact: true })).toBeVisible();
-  await expect(page.locator(`script[src="${script}"]`)).toHaveCount(1);
+  await expect(page.locator(`script[src="${scalarScriptUrl}"]`)).toHaveCount(1);
   await page.getByRole("button", { name: "Test Request (get /v1/tasks)", exact: true }).click();
   const client = page.getByRole("dialog", { name: "API Client", exact: true });
   const origin = new URL(page.url()).origin;

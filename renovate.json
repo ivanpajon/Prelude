@@ -26,14 +26,18 @@
     },
     {
       "customType": "regex",
-      "description": "Scalar's renderer loads from jsDelivr, so only its URL pins the version.",
-      "managerFilePatterns": [
-        "/^apps/web/src/lib/openapi[^/]*\\.ts$/",
-        "/^tests/.+\\.spec\\.ts$/",
-        "/^docs/(openapi|requirements)\\.md$/"
-      ],
+      "description": "Scalar's renderer loads from jsDelivr, so only its URL pins the version. The app and the tests import it from api-info.ts.",
+      "managerFilePatterns": ["/^apps/web/src/lib/api-info\\.ts$/"],
       "matchStrings": ["@scalar/api-reference@(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
       "depNameTemplate": "@scalar/api-reference",
+      "datasourceTemplate": "npm"
+    },
+    {
+      "customType": "regex",
+      "description": "biome.json names its schema by the Biome version.",
+      "managerFilePatterns": ["/^biome\\.json$/"],
+      "matchStrings": ["biomejs\\.dev/schemas/(?<currentValue>\\d+\\.\\d+\\.\\d+)/schema\\.json"],
+      "depNameTemplate": "@biomejs/biome",
       "datasourceTemplate": "npm"
     }
   ],
@@ -79,6 +83,11 @@
       "matchUpdateTypes": ["minor", "patch"],
       "matchPackageNames": ["vitest", "@vitest/**"],
       "groupName": "Vitest"
+    },
+    {
+      "description": "Biome patch releases can change nursery rules, so a lint failure must not hold back other updates.",
+      "matchPackageNames": ["@biomejs/biome"],
+      "groupName": "Biome"
     },
     {
       "description": "TypeScript stays on 6.0.x; see docs/requirements.md (Version policy).",
