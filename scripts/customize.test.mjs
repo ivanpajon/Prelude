@@ -210,6 +210,19 @@ describe("customization planning", () => {
     expect(changes.get("README.md")).toContain(`${scopes.product}/ui/components/button`);
   });
 
+  it("leaves the template's dated records as they were written", () => {
+    const root = fixture();
+    const record = `Ran \`pnpm --filter ${scopes.fixture}/web build\` on 2026-01-01.\n`;
+    const records = ["docs/docker-measurements.md", "docs/verification-history.md"];
+    for (const file of records) write(root, file, record);
+    const changed = planCustomization(root, { scope: "@product" }).changes.map(({ file }) => file);
+    for (const file of records) {
+      expect(changed, file).not.toContain(file);
+      expect(read(root, file), file).toBe(record);
+    }
+    expect(changed).toContain("README.md");
+  });
+
   it("includes untracked source while respecting package boundaries, ignored files, and binary content", () => {
     const root = fixture();
     write(
@@ -349,6 +362,32 @@ describe("customization execution", () => {
       ["check"],
       ["test"],
     ]);
+  });
+
+  it("renames the Docker cache ids with the project name, in the preview and on reruns", () => {
+    const root = fixture();
+    const dockerfile = (name) =>
+      [
+        `RUN --mount=type=cache,id=${name}-pnpm-\${TARGETARCH},target=/pnpm/store pnpm install`,
+        `RUN --mount=type=cache,id=${name}-next-\${TARGETARCH},target=/app/.next/cache pnpm build`,
+        "",
+      ].join("\n");
+    write(root, "Dockerfile", dockerfile("fixture-project"));
+    const scopeOnly = planCustomization(root, { scope: "@product" }).changes;
+    expect(scopeOnly.map(({ file }) => file)).not.toContain("Dockerfile");
+
+    const before = snapshot(root);
+    customize(root, { name: "new-project", "dry-run": true }, vi.fn());
+    expect(snapshot(root)).toEqual(before);
+    expect(console.log).toHaveBeenCalledWith(
+      "  Dockerfile: cache ids fixture-project-pnpm-* -> new-project-pnpm-*, fixture-project-next-* -> new-project-next-*",
+    );
+    customize(root, { name: "new-project" }, vi.fn());
+    expect(read(root, "Dockerfile")).toBe(dockerfile("new-project"));
+    // A later rename starts from the current name.
+    customize(root, { name: "final-project" }, vi.fn());
+    expect(read(root, "Dockerfile")).toBe(dockerfile("final-project"));
+    expect(planCustomization(root, { name: "final-project" }).changes).toEqual([]);
   });
 
   it("stops on a failed install, retains reviewable edits, and can retry the same command", () => {

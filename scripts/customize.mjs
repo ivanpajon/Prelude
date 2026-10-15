@@ -54,6 +54,14 @@ function git(root, args) {
   return result.stdout;
 }
 
+/** Files that keep their text: the lockfile, the guide to the default scope, and dated records. */
+const untouched = new Set([
+  "pnpm-lock.yaml",
+  "docs/customization.md",
+  "docs/docker-measurements.md",
+  "docs/verification-history.md",
+]);
+
 function regularFile(root, relative) {
   const absolute = path.resolve(root, relative);
   // Skip deleted files and symbolic links, including links in parent directories.
@@ -134,26 +142,41 @@ export function planCustomization(directory, options) {
     `(?<![a-zA-Z0-9@._/-])(?:${[...replacements.keys()].map(RegExp.escape).join("|")})(?![a-zA-Z0-9._-])`,
     "g",
   );
+  // BuildKit shares cache mounts by id across every project on a builder, so the ids carry the
+  // root package name.
+  const cacheIds = ["pnpm", "next"].map((kind) => [
+    `id=${manifest.name}-${kind}-`,
+    `id=${name}-${kind}-`,
+  ]);
   const changes = [];
   for (const file of files) {
     // pnpm owns its lockfile. Limit edits to source, configuration, and documentation.
-    // The customization guide explains the default scope, so its examples stay as written.
+    // The customization guide explains the default scope, so its examples stay as written,
+    // and the template's dated records describe the runs as they happened.
     if (
-      file === "pnpm-lock.yaml" ||
-      file === "docs/customization.md" ||
-      !/\.(?:[cm]?[jt]sx?|jsonc?|css|mdx?|ya?ml|html|txt|toml|sh|ps1)$/.test(file)
+      untouched.has(file) ||
+      (file !== "Dockerfile" &&
+        !/\.(?:[cm]?[jt]sx?|jsonc?|css|mdx?|ya?ml|html|txt|toml|sh|ps1)$/.test(file))
     )
       continue;
     const before = read(file);
     if (before.includes("\0")) continue;
     let after = before.replace(pattern, (match) => replacements.get(match));
+    let details;
     if (file === "package.json" && name !== manifest.name) {
       const updated = JSON.parse(after);
       updated.name = name;
       after = `${JSON.stringify(updated, null, 2)}\n`;
       if (before.includes("\r\n")) after = after.replaceAll("\n", "\r\n");
     }
-    if (after !== before) changes.push({ file, before, after });
+    if (file === "Dockerfile" && name !== manifest.name) {
+      const renamed = cacheIds.filter(([from]) => after.includes(from));
+      for (const [from, to] of renamed) after = after.replaceAll(from, to);
+      // "id=prelude-pnpm-" prints as "prelude-pnpm-*".
+      const ids = renamed.map((pair) => pair.map((id) => `${id.slice(3)}*`).join(" -> "));
+      if (ids.length > 0) details = `cache ids ${ids.join(", ")}`;
+    }
+    if (after !== before) changes.push({ file, before, after, details });
   }
   return { root, name, scope, changes };
 }
@@ -184,7 +207,9 @@ function pnpmRunner(root) {
 export function customize(directory, options, run) {
   const plan = planCustomization(directory, options);
   console.log(`Project: ${plan.name}\nWorkspace scope: ${plan.scope}`);
-  for (const { file } of plan.changes) console.log(`  ${file}`);
+  for (const { file, details } of plan.changes) {
+    console.log(`  ${file}${details ? `: ${details}` : ""}`);
+  }
   console.log(
     `${plan.changes.length} file(s) ${options["dry-run"] ? "would change" : "to update"}.`,
   );
