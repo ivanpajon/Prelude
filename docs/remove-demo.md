@@ -4,7 +4,7 @@ Prelude ships with a task demo: a shared in-memory task list, the `/playground` 
 
 ## Steps
 
-1. Finish the first installation (`pnpm install --frozen-lockfile`) and stop any running development server.
+1. Finish the first installation (`pnpm install --frozen-lockfile`) and stop `pnpm dev` or any other running development server.
 2. Commit or stash your work. The command refuses to start with uncommitted changes, so that `git diff` afterwards shows only what it changed.
 3. Preview the changes and the commands that follow them. Nothing is written or run:
 
@@ -39,6 +39,8 @@ The command uses Node built-ins only and works on Windows and Linux. It never co
 
 - **Marked blocks.** Shared files wrap demo-only lines between a `demo:start` and a `demo:end` comment, each on its own line: `// demo:start` in code, `{/* demo:start */}` in JSX, `# demo:start` in YAML, and `<!-- demo:start -->` in Markdown. The command deletes each block, markers included. Examples are the playground links in the header and on the home page, the task fields in the API context, the OpenAPI description and `Tasks` tag, the MCP App registration, the widget builder in the development launcher and Compose Watch, and demo paragraphs in the README, `AGENTS.md`, and the guides. An unbalanced or nested marker stops the command before it writes anything.
 - **JSON files.** It removes the `Common.playground`, `Home.openPlayground`, and `Playground` messages, the `./widget` and `./limits` package exports, and the `@modelcontextprotocol/ext-apps`, `@modelcontextprotocol/core`, `use-intl`, `tsdown`, and `@tailwindcss/cli` dependencies, which only the demo imports. It also drops the widget step from the web build script and the widget input and output from `turbo.json`.
+
+It also deletes `apps/web/.next/dev/types`, the route types that `pnpm dev` generated: they still name the deleted pages and would fail `pnpm check`, and `pnpm dev` writes them again when it starts.
 
 Then, like `pnpm customize`, it runs `pnpm install` to update the lockfile, `pnpm fix` to format, and `pnpm check` and `pnpm test` (unless you pass `--skip-checks`). When they pass, it removes its own tooling and prints the next steps.
 

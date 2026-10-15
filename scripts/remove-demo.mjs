@@ -9,8 +9,9 @@ const help = `Remove the task demo and keep the infrastructure.
   pnpm remove-demo --dry-run
   pnpm remove-demo
 
-Run from the project root, in a Git checkout without uncommitted changes, so
-you can review the result with git diff. The command deletes the demo, then
+Stop pnpm dev first. Run from the project root, in a Git checkout without
+uncommitted changes, so you can review the result with git diff. The command
+deletes the demo and the route types that pnpm dev generated, then
 reinstalls, formats, checks and tests the project. When the checks pass, it
 also removes itself. It does not commit.
 
@@ -142,6 +143,12 @@ export const demo = {
     { file: "turbo.json", pull: ["tasks", "build", "outputs"], item: ".generated/mcp-apps/**" },
   ],
 };
+
+/**
+ * Route types that `next dev` generated. They still name the deleted pages, and the web tsconfig
+ * includes them, so pnpm check would fail on them. `next dev` writes them again at startup.
+ */
+export const generated = ["apps/web/.next/dev/types"];
 
 /** The pnpm commands that run after the demo changes, in order. Install updates pnpm-lock.yaml. */
 export const commands = [["install", "--no-frozen-lockfile"], ["fix"], ["check"], ["test"]];
@@ -325,7 +332,7 @@ function printChanges(changes) {
   }
 }
 
-export function removeDemo(directory, options = {}, run, lists = { demo, tooling }) {
+export function removeDemo(directory, options = {}, run, lists = { demo, tooling, generated }) {
   const skipChecks = options["skip-checks"] === true;
   const steps = skipChecks ? commands.filter(([name]) => !checks.includes(name)) : commands;
   const skipped = `pnpm ${checks.join(" and pnpm ")}`;
@@ -338,7 +345,10 @@ export function removeDemo(directory, options = {}, run, lists = { demo, tooling
       `${plan.changes.length} path(s) ${options["dry-run"] ? "would change" : "to change"}.`,
     );
   }
+  // Ignored by Git, so they are neither listed as changes nor part of the clean-tree check.
+  const stale = (lists.generated ?? []).filter((file) => existsSync(path.join(plan.root, file)));
   if (options["dry-run"]) {
+    for (const file of stale) console.log(`It would delete generated route types ${file}.`);
     console.log("Then it would run these commands (install updates pnpm-lock.yaml):");
     for (const args of steps) console.log(`  pnpm ${args.join(" ")}`);
     if (skipChecks) console.log(`It would skip ${skipped} (--skip-checks).`);
@@ -357,6 +367,10 @@ export function removeDemo(directory, options = {}, run, lists = { demo, tooling
   }
   const execute = run ?? pnpmRunner(plan.root);
   applyChanges(plan.root, plan.changes);
+  for (const file of stale) {
+    console.log(`Deleting generated route types ${file}; pnpm dev writes them again.`);
+    rmSync(path.join(plan.root, file), { recursive: true, force: true });
+  }
   try {
     // Reinstall even on a rerun: a previous attempt may have stopped during installation.
     for (const args of steps) execute(args);
