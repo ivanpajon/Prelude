@@ -51,7 +51,7 @@ Update scenarios change only the generated worker and explicitly call `registrat
 
 The cache check saves the generated files listed in `scripts/verify-build-cache.mjs`, such as `apps/web/public/sw.js` and its map when present, removes only those explicit generated files, checks the restored hashes after a Turbo cache hit, and in `finally` writes the saved bytes back only for files that are still missing. Do not run it alongside a development/production server or another build. Source files, the lockfile, and directories are not its cleanup targets.
 
-Turbo replays a cached build when the hashed input files have not changed. Git ignores `apps/web/.env*` files, so Turbo would skip them; `inputs` in `turbo.json` adds them to the build hash. Changing a `NEXT_PUBLIC_*` value in `apps/web/.env.local` therefore rebuilds instead of restoring the old output.
+Turbo replays a cached build when the hashed input files have not changed. Git ignores the local `apps/web/.env*` files (all but `.env.example`), so Turbo would skip them; `inputs` in `turbo.json` adds them to the build hash. Changing a `NEXT_PUBLIC_*` value in `apps/web/.env.local` therefore rebuilds instead of restoring the old output.
 
 <!-- demo:start -->
 ## MCP App acceptance

@@ -41,7 +41,7 @@ docker compose down
 
 Rebuild after source or dependency changes. To recreate containers after changing runtime environment values, run `docker compose up --detach --wait` again; an ordinary `restart` retains the container's old environment.
 
-Both stacks use the same localization policy as native workflows: explicit `/en` and `/es` URLs by default, with the homepage switch enabling unprefixed URLs for a visitor. Changing `routingSettings.defaultMode` or `routingSettings.demoEnabled` is a source change and requires rebuilding the production image. These settings are not Compose environment variables. Development Watch synchronizes their source changes. See [localization](i18n.md) for fixed policies, cookie scope across ports, and cache behavior.
+Both stacks use the same localization policy as native workflows: explicit `/en` and `/es` URLs by default, with the header's **Language in URL** switch enabling unprefixed URLs for a visitor. Changing `routingSettings.defaultMode` or `routingSettings.demoEnabled` is a source change and requires rebuilding the production image. These settings are not Compose environment variables. Development Watch synchronizes their source changes. See [localization](i18n.md) for fixed policies, cookie scope across ports, and cache behavior.
 
 The healthcheck requests `/api/health` with Node's built-in HTTP client. The endpoint answers `{"status":"ok"}` per request with `Cache-Control: no-store`, reads no data, and is not part of the API contract (no OpenAPI operation or MCP tool). It is a liveness check, not a database or external-service check; extend the route if your project needs readiness checks. The development healthcheck uses the same endpoint, plus the Inspector and its sandbox.
 
@@ -167,7 +167,7 @@ docker compose down --rmi all
 docker compose -f compose.dev.yaml down --rmi all
 ```
 
-If you started a stack with `--project-name`, pass it here too. `docker compose build --no-cache` re-runs every build step, but it keeps the BuildKit cache mounts: the pnpm store and the Next.js cache (`prelude-pnpm-*` and `prelude-next-*` in the `Dockerfile`). To free that space, clear the cache mounts:
+If you started a stack with `--project-name`, pass it here too. `docker compose build --no-cache` re-runs every build step, but it keeps the BuildKit cache mounts: the pnpm store and the Next.js cache (`<name>-pnpm-*` and `<name>-next-*` in the `Dockerfile`, where `<name>` is the root package name). To free that space, clear the cache mounts:
 
 ```sh
 docker builder prune --filter type=exec.cachemount

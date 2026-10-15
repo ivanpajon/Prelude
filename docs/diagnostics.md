@@ -77,7 +77,7 @@ The scan reports these warnings and no errors. They stay visible on purpose: eac
 
 | Package/file | Rule | Why it stays, or how to fix it |
 | --- | --- | --- |
-| Web `src/app/[routingMode]/[locale]/layout.tsx` | `react-doctor/async-parallel` | The four awaits read the routing mode, the locale, and catalogs that next-intl already holds for the request; none of them waits on the network. The routing mode must also pass `notFound()` before the rest run. |
+| Web `src/app/[routingMode]/[locale]/layout.tsx` | `react-doctor/async-parallel` | The five awaits read the routing mode, the locale, and catalogs that next-intl already holds for the request; none of them waits on the network. The routing mode must also pass `notFound()` before the rest run. |
 | Web `src/lib/mcp.ts` | `react-doctor/server-sequential-independent-await` | The tool catalog is built once and then reused, and the default `getContext` is synchronous, so the second await costs nothing. If your context does slow work, such as reading a session, run both with `Promise.all`. |
 | Web `src/lib/openapi.ts` | `react-doctor/js-set-map-lookups` | The list holds a route's path parameters, usually one or two, so a `Set` would not be faster. |
 | Web `src/i18n/navigation.tsx` | `react-doctor/only-export-components` | `getPathname` sits next to the navigation hooks that use the same configuration. Editing this file reloads the page instead of keeping state with Fast Refresh. Move `getPathname` to its own `.ts` module if that gets in the way. |
