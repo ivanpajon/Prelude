@@ -1,5 +1,7 @@
 services:
   web:
+    # A separate name keeps this image from replacing the production image.
+    image: ${COMPOSE_PROJECT_NAME}-web-dev
     build:
       context: .
       target: development
