@@ -7,7 +7,7 @@ The same oRPC procedures serve the browser over RPC, direct Server Component cal
 | Endpoint | Input and behavior |
 | --- | --- |
 | `GET /api/docs` | Public, interactive Scalar reference; linked from the shared header and homepage. |
-| `GET /api/openapi.json` | Generated specification, titled **Prelude API** (the site name from `apps/web/src/site.ts`), version **1.0.0**. |
+| `GET /api/openapi.json` | Generated specification, titled **Prelude API** (the site name from `apps/web/src/site.ts`), version **1.0.0**. Both values are set in `apps/web/src/lib/api-info.ts`. |
 
 Each procedure adds its own endpoint under `/api`. Invalid inputs return 400; invalid procedure outputs return 500. REST and RPC request bodies larger than 64 KB are rejected with 413 before parsing. Path parameters belong only in the URL: on any route with a path parameter, such as `{id}`, and oRPC's default compact input, repeating that key in the query or body returns 400, even when the values match. This includes bracket keys such as `id[0]`. On those routes, a malformed body also returns 400 before any mutation. This guard in `createOpenApi` (`apps/web/src/lib/openapi.ts`) stops oRPC's compact input merge from replacing the path value. Routes with `inputStructure: "detailed"` keep path parameters and the query apart, so the guard skips them.
 
@@ -39,7 +39,7 @@ The browser workbench now lives at `/playground#tasks`. The separate [MCP App](m
 2. Add examples with a `.route({ spec: operation => ... })` callback that preserves generated schemas. Do not replace the operation with a hand-written schema that can drift from runtime validation.
 3. Implement the contract in `@repo/api`, using request context for data access and shared mutation invalidation. Adding the implementation to the router exposes it through RPC, REST, and generated MCP tools; no separate business logic is needed for each transport.
 4. Export any newly needed HTTP verb from `apps/web/src/app/api/[...rest]/route.ts` (currently GET, POST, PATCH, and DELETE). The REST adapter already rejects a query or body key that repeats a path parameter, so new routes need no guard of their own.
-5. Test specification mapping and real HTTP validation alongside the procedure. Review `/api/openapi.json` and exercise the endpoint in Scalar. Its operation ID also becomes the generated MCP tool name; check its arguments and behavior in the development Inspector. Update the API title, version, description, and shared tags in `apps/web/src/lib/openapi.ts` when customizing the template.
+5. Test specification mapping and real HTTP validation alongside the procedure. Review `/api/openapi.json` and exercise the endpoint in Scalar. Its operation ID also becomes the generated MCP tool name; check its arguments and behavior in the development Inspector. When customizing the template, update the API title and version in `apps/web/src/lib/api-info.ts`, which the tests read too, and the description and shared tags in `apps/web/src/lib/openapi.ts`.
 
 The converter in the web package adapts oRPC 1.15.4's ArkType integration: input schemas use `.in`, and response schemas use `.out`. For a trimmed string, the input JSON Schema describes a string while the output describes the normalized length bounds; endpoint descriptions explain the additional normalization rules. Arbitrary refinements that ArkType cannot represent, and defined non-ArkType schemas, fail generation instead of silently producing an empty schema. Procedures with no input or output schema remain supported.
 

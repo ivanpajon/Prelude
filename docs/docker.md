@@ -37,7 +37,7 @@ docker compose up --build --detach --wait
 docker compose down
 ```
 
-`pnpm stack:prod` builds and starts the container in the background, and returns once its healthcheck passes. Use `docker compose ps` to check it later.
+`pnpm stack:prod` builds and starts the container in the background, and returns once its healthcheck passes. Use `docker compose ps` to check it later. The container restarts with Docker (`restart: unless-stopped`) until `docker compose down`, and it keeps the `PROD_PORT` host port (3001 by default) meanwhile. Stop it before a native `pnpm start --port 3001`.
 
 Rebuild after source or dependency changes. To recreate containers after changing runtime environment values, run `docker compose up --detach --wait` again; an ordinary `restart` retains the container's old environment.
 
