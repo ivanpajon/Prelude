@@ -41,6 +41,7 @@ describe("production start launcher", () => {
     expect(exitCode({ code: 130, signal: null }, true)).toBe(0);
     expect(exitCode({ code: 143, signal: null }, true)).toBe(0);
     expect(exitCode({ code: null, signal: "SIGTERM" }, true)).toBe(0);
+    expect(exitCode({ code: 0xc000013a, signal: null }, true)).toBe(0);
     expect(exitCode({ code: 1, signal: null }, true)).toBe(1);
     expect(exitCode({ code: 130, signal: null }, false)).toBe(130);
     expect(exitCode({ code: null, signal: "SIGKILL" }, false)).toBe(1);
@@ -52,9 +53,12 @@ describe("production start launcher", () => {
     expect(signals.listenerCount("SIGINT")).toBe(0);
   });
 
-  it("waits for the server after Ctrl+C and then exits cleanly", async () => {
+  it("stops the server after Ctrl+C and then exits cleanly", async () => {
     const signals = new EventEmitter();
-    const started = startMain([], { command: fakeServer(130, 200), signals });
+    // Windows Ctrl+C reaches the server directly, so it stops on its own there. Elsewhere it
+    // would run for a minute, so the test passes only if the launcher forwards the signal.
+    const delay = process.platform === "win32" ? 200 : 60_000;
+    const started = startMain([], { command: fakeServer(130, delay), signals });
     signals.emit("SIGINT", "SIGINT");
     await expect(started).resolves.toBe(0);
     expect(signals.listenerCount("SIGTERM")).toBe(0);

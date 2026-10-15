@@ -1,6 +1,5 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { resolvePackageBin, workspaceRoot } from "./dev-web.mjs";
 
 // Serve the production build with Next.js started by Node directly. On Windows a nested
@@ -12,13 +11,17 @@ export function startCommand(args, root = workspaceRoot) {
   return { script: resolvePackageBin("next", "next", app), args: ["start", ...args], cwd: app };
 }
 
+// Exit codes of a clean stop: SIGINT and SIGTERM from Next.js, and Windows' STATUS_CONTROL_C_EXIT
+// when Ctrl+C arrives before Next.js has set up its own handlers.
+const stopCodes = [0, 130, 143, 0xc000013a];
+
 /** The launcher's exit code: a stop that Next.js finished cleanly is a success. */
 export function exitCode({ code, signal }, stopping) {
-  if (stopping && (signal !== null || [0, 130, 143].includes(code))) return 0;
+  if (stopping && (signal !== null || stopCodes.includes(code))) return 0;
   return code ?? 1;
 }
 
-export function startMain(
+export async function startMain(
   args = process.argv.slice(2),
   { command = startCommand(args), signals = process } = {},
 ) {
@@ -51,7 +54,7 @@ export function startMain(
   });
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (import.meta.main) {
   startMain().then(
     (code) => {
       process.exitCode = code;
