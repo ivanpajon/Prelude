@@ -171,10 +171,16 @@ describe("managed MCP App watcher", () => {
     content = "limited build";
     await writeFile(path.join(contracts, "limits.ts"), "export const titleMaxLength = 80;");
     await expect.poll(() => readFile(output, "utf8")).toBe("limited build");
+    content = "renamed build";
+    await writeFile(
+      path.join(root, "apps/web/src/site.ts"),
+      'export const site = { name: "Acme" };',
+    );
+    await expect.poll(() => readFile(output, "utf8")).toBe("renamed build");
     expect(onReady).toHaveBeenCalledOnce();
     controller.abort();
     await done;
-    expect(await readFile(output, "utf8")).toBe("limited build");
+    expect(await readFile(output, "utf8")).toBe("renamed build");
   });
   it("fails startup instead of announcing a stale artifact", async () => {
     const root = await directory();

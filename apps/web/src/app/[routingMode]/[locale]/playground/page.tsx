@@ -8,10 +8,14 @@ import { McpPlayground } from "@/components/mcp-playground";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { TaskWorkbenchServer } from "@/components/task-workbench-server";
+import { site } from "@/site";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Playground");
-  return { title: t("metaTitle"), description: t("metaDescription") };
+  return {
+    title: `${t("metaTitle")} — ${site.name}`,
+    description: t("metaDescription", { name: site.name }),
+  };
 }
 
 export default async function PlaygroundPage({

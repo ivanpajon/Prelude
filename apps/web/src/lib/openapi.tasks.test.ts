@@ -160,11 +160,12 @@ describe("task demo OpenAPI specification", () => {
         },
       },
     });
-    expect(Object.keys(spec.paths ?? {}).sort()).toEqual([
-      "/v1/tasks",
-      "/v1/tasks/{id}",
-      "/v1/tasks/{id}/title",
-    ]);
+    // Only the task paths count; other features may sit next to the demo.
+    expect(
+      Object.keys(spec.paths ?? {})
+        .filter((path) => path === "/v1/tasks" || path.startsWith("/v1/tasks/"))
+        .sort(),
+    ).toEqual(["/v1/tasks", "/v1/tasks/{id}", "/v1/tasks/{id}/title"]);
     expect(spec.paths?.["/v1/tasks/{id}"]?.delete?.requestBody).toBeUndefined();
   });
 

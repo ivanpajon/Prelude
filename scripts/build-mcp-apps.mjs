@@ -71,7 +71,7 @@ export function appHtml(script, css) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; font-src 'none'; base-uri 'none'; form-action 'none'">
-<title>Prelude tasks</title>
+<title>Tasks</title>
 <!--PRELUDE_MCP_APP_CONFIG-->
 <style>${css}</style>
 </head>
@@ -209,13 +209,19 @@ export async function watchMcpApps({
   };
   const watchers = [];
   try {
-    for (const directory of [
-      "apps/web/src/mcp-apps",
-      "packages/ui/src",
-      "packages/i18n/src",
-      "packages/contracts/src",
+    for (const [directory, only] of [
+      ["apps/web/src/mcp-apps"],
+      ["packages/ui/src"],
+      ["packages/i18n/src"],
+      ["packages/contracts/src"],
+      // The widget shows the site name, so watch site.ts but not the rest of the app.
+      ["apps/web/src", "site.ts"],
     ]) {
-      const watcher = watch(path.join(root, directory), { recursive: true }, changed);
+      const watcher = watch(
+        path.join(root, directory),
+        { recursive: !only },
+        (_event, file) => (!only || file === only) && changed(),
+      );
       watcher.on("error", onError);
       watchers.push(watcher);
     }

@@ -11,6 +11,14 @@ import { containerNode } from "../owned-context";
 
 demoLocalizationAcceptance();
 
+const taskToolNames = [
+  "createTask",
+  "deleteTask",
+  "listTasks",
+  "setTaskCompleted",
+  "updateTaskTitle",
+];
+
 function toolText(result: CallToolResult): unknown {
   expect(result.isError).not.toBe(true);
   const block = result.content.find((content) => content.type === "text");
@@ -45,13 +53,10 @@ test("serves the playground, REST, MCP tools, and the task App resource", async 
   try {
     await client.connect(new StreamableHTTPClientTransport(new URL("/api/mcp", baseURL)));
     await expectTaskAppResource(client);
-    expect((await client.listTools()).tools.map((tool) => tool.name).sort()).toEqual([
-      "createTask",
-      "deleteTask",
-      "listTasks",
-      "setTaskCompleted",
-      "updateTaskTitle",
-    ]);
+    // Other features may add tools next to the demo; check only the task tools here.
+    expect((await client.listTools()).tools.map((tool) => tool.name)).toEqual(
+      expect.arrayContaining(taskToolNames),
+    );
     const title = `Container ${crypto.randomUUID()}`;
     const created = await client.callTool({ name: "createTask", arguments: { title } });
     expect(created.isError).not.toBe(true);
@@ -149,13 +154,7 @@ test("negotiates legacy MCP and executes every generated tool in the standalone 
     await client.connect(transport);
     await expectTaskAppResource(client);
     const { tools } = await client.listTools();
-    expect(tools.map((tool) => tool.name).sort()).toEqual([
-      "createTask",
-      "deleteTask",
-      "listTasks",
-      "setTaskCompleted",
-      "updateTaskTitle",
-    ]);
+    expect(tools.map((tool) => tool.name)).toEqual(expect.arrayContaining(taskToolNames));
     expect(tools.find((tool) => tool.name === "listTasks")?.outputSchema).toMatchObject({
       type: "object",
       properties: { result: { type: "array" } },

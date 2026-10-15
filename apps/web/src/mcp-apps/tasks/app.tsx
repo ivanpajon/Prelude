@@ -17,6 +17,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { IntlProvider, useLocale, useTranslations } from "use-intl";
+import { site } from "../../site";
 import { callHostTool } from "./bridge";
 import { type TaskAppIssue, TaskAppSession, type TaskAppTools, taskKey } from "./model";
 
@@ -39,7 +40,7 @@ function WidgetDocument() {
   const t = useTranslations("Widget");
   useEffect(() => {
     document.documentElement.lang = locale;
-    document.title = t("documentTitle");
+    document.title = t("documentTitle", { name: site.name });
   }, [locale, t]);
   return null;
 }
@@ -215,10 +216,12 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
   }
 
   return (
-    <main className="mx-auto max-w-2xl p-4 sm:p-6" aria-label={t("appLabel")}>
+    <main className="mx-auto max-w-2xl p-4 sm:p-6" aria-label={t("appLabel", { name: site.name })}>
       <header className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs tracking-widest text-muted-foreground uppercase">{t("eyebrow")}</p>
+          <p className="text-xs tracking-widest text-muted-foreground uppercase">
+            {t("eyebrow", { name: site.name })}
+          </p>
           <h1 className="mt-1 text-xl font-semibold">{t("heading")}</h1>
         </div>
         <Button
@@ -388,7 +391,7 @@ export function TaskApp({ tools }: { tools: TaskAppTools }) {
   const [session] = useState(() => new TaskAppSession(tools));
   const [hostLocale, setHostLocale] = useState<string | undefined>();
   const { app, isConnected, error } = useApp({
-    appInfo: { name: "Prelude Tasks", version: "1.0.0" },
+    appInfo: { name: `${site.name} Tasks`, version: "1.0.0" },
     capabilities: {},
     autoResize: false,
     strict: true,

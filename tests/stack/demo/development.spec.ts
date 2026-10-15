@@ -3,6 +3,7 @@ import path from "node:path";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { expect, test } from "@playwright/test";
 import { site } from "../../../apps/web/src/site";
+import { expectedToolNames } from "../../../apps/web/src/testing/mcp-tool-names";
 import { demoLocalizationAcceptance } from "../../demo/i18n-scenarios";
 import { exerciseTaskApp } from "../../demo/mcp-apps";
 import { waitForHydration } from "../../hydration";
@@ -70,11 +71,18 @@ test("creates a task through the embedded development Inspector", async ({
   const connection = inspector.getByRole("switch", { name: /Connect or disconnect/ });
   await connection.press("Space");
   await expect(connection).toBeChecked();
+  // Count every tool the server lists, so features added next to the demo still pass.
+  const names = await expectedToolNames(await (await request.get("/api/openapi.json")).json());
+  expect(names).toEqual(expect.arrayContaining(["createTask", "listTasks"]));
   await inspector.getByText("Tools", { exact: true }).click();
   const tools = inspector.getByTestId("tools-screen");
-  await expect(tools).toHaveAttribute("data-tool-count", "5");
+  await expect(tools).toHaveAttribute("data-tool-count", String(names.length));
   const title = `Docker Inspector ${crypto.randomUUID()}`;
-  await tools.getByRole("button", { name: /createTask/ }).click();
+  // Match the exact name, so a user tool such as `createTaskTemplate` does not also match.
+  await tools
+    .getByRole("button")
+    .filter({ has: inspector.getByText("createTask", { exact: true }) })
+    .click();
   await tools.getByRole("textbox", { name: /^title/ }).fill(title);
   await tools.getByRole("button", { name: "Execute Tool", exact: true }).click();
   await expect(tools).toHaveAttribute("data-call-status", "ok");

@@ -40,8 +40,8 @@
     "apiDescription": "Business logic and data access have a home of their own. Build the product without coupling it to the page."
   },
   "Playground": {
-    "metaTitle": "Playground — Prelude",
-    "metaDescription": "Try Prelude’s task workspace, explore its live MCP tools, and preview an interactive MCP App.",
+    "metaTitle": "Playground",
+    "metaDescription": "Try the {name} task workspace, explore its live MCP tools, and preview an interactive MCP App.",
     "eyebrow": "The foundations in action",
     "heading": "A little room to experiment.",
     "intro": "Make a task, try an agent’s tool, and see how the pieces work together. These examples share the same demo data and are ready to make your own.",

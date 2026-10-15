@@ -40,8 +40,8 @@
     "apiDescription": "La lógica de negocio y el acceso a datos tienen su propio lugar. Construye tu producto sin acoplarlo a la página."
   },
   "Playground": {
-    "metaTitle": "Zona de pruebas — Prelude",
-    "metaDescription": "Prueba el espacio de tareas de Prelude, explora sus herramientas MCP y descubre una MCP App interactiva.",
+    "metaTitle": "Zona de pruebas",
+    "metaDescription": "Prueba el espacio de tareas de {name}, explora sus herramientas MCP y descubre una MCP App interactiva.",
     "eyebrow": "Los cimientos en acción",
     "heading": "Un espacio para experimentar.",
     "intro": "Crea una tarea, prueba una herramienta de agente y descubre cómo encajan las piezas. Estos ejemplos comparten los mismos datos de demostración y están listos para adaptarlos.",
