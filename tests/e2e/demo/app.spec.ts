@@ -122,6 +122,7 @@ test("hydrates without an immediate duplicate RPC or hydration errors", async ({
       get: () => {
         const run = reveal;
         if (typeof run !== "function") return run;
+        Object.assign(window, { revealHeld: true });
         return (...args: unknown[]) => setTimeout(() => run(...args), 1000);
       },
       set: (value) => {
@@ -147,6 +148,8 @@ test("hydrates without an immediate duplicate RPC or hydration errors", async ({
   expect(listRequests).toEqual([]);
   expect(pageErrors).toEqual([]);
   expect(hydrationErrors).toEqual([]);
+  // Fails if a React update renames `$RV` or stops reading it, which would drop the hold.
+  expect(await page.evaluate(() => Reflect.get(window, "revealHeld"))).toBe(true);
   expect(await page.evaluate(() => Reflect.get(window, "taskForms").size)).toBe(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
