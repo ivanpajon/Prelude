@@ -16,8 +16,8 @@ for (const locale of ["en", "es"] as const) {
       });
       try {
         await context.addCookies([
-          { name: "PRELUDE_LOCALE", value: locale, url: baseURL },
-          { name: "PRELUDE_LOCALE_ROUTING", value: "never", url: baseURL },
+          { name: "NEXT_LOCALE", value: locale, url: baseURL },
+          { name: "NEXT_LOCALE_ROUTING", value: "never", url: baseURL },
         ]);
         const page = await context.newPage();
         await page.goto(mode === "always" ? `/${locale}` : "/");

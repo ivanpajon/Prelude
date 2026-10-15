@@ -52,8 +52,8 @@ describe("locale selection", () => {
     for (const value of ["es-MX", "fr", "", "EN", undefined]) expect(isLocale(value)).toBe(false);
     expect(resolveLocale("fr", "es-MX", "en")).toBe("es");
     expect(resolveLocale("invalid_locale", "de")).toBe("en");
-    expect(browserLocale("other=en; PRELUDE_LOCALE=es", ["en-US"])).toBe("es");
-    expect(browserLocale("PRELUDE_LOCALE=invalid", ["es-ES"])).toBe("es");
+    expect(browserLocale("other=en; NEXT_LOCALE=es", ["en-US"])).toBe("es");
+    expect(browserLocale("NEXT_LOCALE=invalid", ["es-ES"])).toBe("es");
   });
 
   it("honors valid cookies, weighted languages, and the English fallback", () => {
