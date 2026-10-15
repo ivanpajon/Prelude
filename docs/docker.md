@@ -184,6 +184,8 @@ pnpm exec playwright install chromium
 pnpm test:stack
 ```
 
+On Debian or Ubuntu, add `--with-deps` to the first command to install Chromium's system libraries too.
+
 The command runs four parts: `builds`, `runtime`, `development`, and `rebuild`. `pnpm test:stack --part <name>` runs one of them alone, in 2–3 minutes; the [Docker stacks](verification.md#docker-stacks) guide lists what each part checks. For a faster check of the production image alone, run `pnpm test:stack:quick`, the `runtime` part with one sample: one build, the runtime facts, one runtime sample with the production browser checks, and the MCP toggle, in about 2 minutes. CI runs it on every pull request as the **Docker smoke** job and runs every part as a parallel job in its Docker workflow; see [continuous integration](verification.md#continuous-integration).
 
 The Docker acceptance workflow complements `pnpm verify`; it is separate so the ordinary native checks do not require Docker. It works in a temporary project copy with isolated Compose resources, leaving the checkout's source unchanged. Check `test-results/stack/report.json` for completed scenarios, platform information, image sizes, and timings. A completed native build alone does not verify the packaged container. It also starts each stack with `MCP_ENABLED=false`: production must keep serving the API and its documentation, and the development healthcheck must pass without the Inspector.

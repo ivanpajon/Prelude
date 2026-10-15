@@ -8,7 +8,7 @@ pnpm exec playwright install chromium
 pnpm verify
 ```
 
-On Linux, install the browser with `pnpm exec playwright install --with-deps chromium` instead. It also installs Chromium's system libraries and asks for `sudo`.
+On Debian or Ubuntu, install the browser with `pnpm exec playwright install --with-deps chromium` instead. It also installs Chromium's system libraries with `apt-get` and asks for `sudo`. On other Linux systems, install those libraries with your package manager.
 
 ## Checks and scenarios
 
