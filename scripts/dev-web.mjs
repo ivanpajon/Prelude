@@ -450,7 +450,7 @@ export async function devMain(args = process.argv.slice(2), env = loadDevEnviron
   }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (import.meta.main) {
   devMain().catch((error) => {
     console.error(error.message);
     process.exitCode = 1;

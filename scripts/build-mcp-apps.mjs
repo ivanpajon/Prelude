@@ -258,7 +258,7 @@ export async function buildMain(args = process.argv.slice(2)) {
   }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (import.meta.main) {
   buildMain().catch((error) => {
     console.error(error);
     process.exitCode = 1;
