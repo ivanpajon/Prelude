@@ -5,6 +5,7 @@
   "tasks": {
     "build": {
       "env": ["NEXT_OUTPUT_STANDALONE"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "dependsOn": ["^build"],
       "outputs": [
         ".next/**",
