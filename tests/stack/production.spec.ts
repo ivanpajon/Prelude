@@ -1,6 +1,6 @@
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { expect, test } from "@playwright/test";
-import { site } from "../../apps/web/src/site";
+import { apiInfo } from "../../apps/web/src/lib/api-info";
 import { expectedToolNames } from "../../apps/web/src/testing/mcp-tool-names";
 import { waitForHydration } from "../hydration";
 import { localizationAcceptance } from "../i18n-scenarios";
@@ -95,7 +95,7 @@ test("renders the pinned Scalar reference", async ({ page }) => {
   const renderer = page.waitForResponse(script);
   await page.goto("/api/docs");
   expect((await renderer).ok()).toBe(true);
-  await expect(page.getByRole("heading", { name: `${site.name} API`, exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: apiInfo.title, exact: true })).toBeVisible();
   await expect(page.locator(`script[src="${script}"]`)).toHaveCount(1);
 });
 

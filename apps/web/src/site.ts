@@ -14,6 +14,11 @@ export interface SiteIdentity {
   repositoryUrl?: string | undefined;
   /** Header logo under `apps/web/public`, with its intrinsic size in pixels. */
   logo: { src: string; width: number; height: number };
+  /**
+   * Browser colors: `theme` tints the browser and installed-app toolbars, and `background`
+   * fills the installed app's splash screen.
+   */
+  colors: { theme: string; background: string };
 }
 
 export const site: SiteIdentity = {
@@ -21,4 +26,5 @@ export const site: SiteIdentity = {
   slug: "prelude",
   repositoryUrl: "https://github.com/ivanpajon/Prelude",
   logo: { src: "/branding/logo.png", width: 2027, height: 776 },
+  colors: { theme: "#20382a", background: "#f8f8f4" },
 };

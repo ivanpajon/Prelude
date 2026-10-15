@@ -115,6 +115,7 @@ export const demo = {
     "playwright.stack.config.ts",
     "scripts/dev-web.mjs",
     "scripts/dev-web.test.mjs",
+    "scripts/docker-workflow.test.mjs",
     "scripts/test-stack.mjs",
     "scripts/verify-build-cache.mjs",
     "tests/e2e/mcp.spec.ts",

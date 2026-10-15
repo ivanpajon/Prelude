@@ -1,6 +1,4 @@
 import { spawnSync } from "node:child_process";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import {
   inspectorEnvironment,
@@ -73,7 +71,7 @@ The default endpoint uses PORT, or 3000. Start the application first.
   return result.status ?? 1;
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (import.meta.main) {
   try {
     process.exitCode = checkMain();
   } catch (error) {

@@ -37,7 +37,7 @@ docker compose up --build --detach --wait
 docker compose down
 ```
 
-`pnpm stack:prod` builds and starts the container in the background, and returns once its healthcheck passes. Use `docker compose ps` to check it later.
+`pnpm stack:prod` builds and starts the container in the background, and returns once its healthcheck passes. Use `docker compose ps` to check it later. The container restarts with Docker (`restart: unless-stopped`) until `docker compose down`, and it keeps the `PROD_PORT` host port (3001 by default) meanwhile. Stop it before a native `pnpm start --port 3001`.
 
 Rebuild after source or dependency changes. To recreate containers after changing runtime environment values, run `docker compose up --detach --wait` again; an ordinary `restart` retains the container's old environment.
 
@@ -183,6 +183,8 @@ With Docker running and the host test dependencies installed:
 pnpm exec playwright install chromium
 pnpm test:stack
 ```
+
+On Debian or Ubuntu, add `--with-deps` to the first command to install Chromium's system libraries too.
 
 The command runs four parts: `builds`, `runtime`, `development`, and `rebuild`. `pnpm test:stack --part <name>` runs one of them alone, in 2–3 minutes; the [Docker stacks](verification.md#docker-stacks) guide lists what each part checks. For a faster check of the production image alone, run `pnpm test:stack:quick`, the `runtime` part with one sample: one build, the runtime facts, one runtime sample with the production browser checks, and the MCP toggle, in about 2 minutes. CI runs it on every pull request as the **Docker smoke** job and runs every part as a parallel job in its Docker workflow; see [continuous integration](verification.md#continuous-integration).
 

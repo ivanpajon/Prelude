@@ -441,6 +441,7 @@ describe("development options and isolation", () => {
   it("starts from the root scripts without Turbo, so one Ctrl+C stops it on Windows", () => {
     // Turbo starts a package script through pnpm.cmd when npm installed pnpm. After
     // Ctrl+C, cmd.exe waits at a hidden "Terminate batch job (Y/N)?" and Turbo waits on it.
+    // Reported upstream as vercel/turborepo#14803.
     const { scripts } = JSON.parse(readFileSync(path.join(workspaceRoot, "package.json"), "utf8"));
     expect(scripts.dev).toBe("node scripts/dev-web.mjs");
     expect(scripts["dev:app"]).toBe("node scripts/dev-web.mjs --no-inspector");

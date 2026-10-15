@@ -26,7 +26,7 @@ The included task list connects the stack end to end. **It is public, shared, in
 
 You need Node.js **26.10.0 or later within 26.x** (`.node-version` records the baseline) and pnpm **12.6.0**, matching `packageManager`. Node 26 no longer includes Corepack, so install pnpm on its own, for example with `npm install --global pnpm@12.6.0` (see [pnpm installation](https://pnpm.io/installation)).
 
-`create-next-app` makes the first Git commit with your Git identity. If `user.name` or `user.email` is not set, that commit fails and `create-next-app` quietly deletes the new `.git` folder: Husky then installs no hooks, and `pnpm customize` and `pnpm remove-demo`, which need Git, fail. Set them first with `git config --global user.name "Your Name"` and `git config --global user.email "you@example.com"`.
+`create-next-app` makes the first Git commit with your Git identity. If `user.name` or `user.email` is not set, that commit fails and `create-next-app` quietly deletes the new `.git` folder: Husky then installs no hooks, and the repository commands that need Git, such as `pnpm customize`, fail. Set them first with `git config --global user.name "Your Name"` and `git config --global user.email "you@example.com"`.
 
 Create a new project from the public template:
 
@@ -50,7 +50,7 @@ Open [localhost:3000](http://localhost:3000). From there:
 
 To try the production build and PWA, run `pnpm build` and then `pnpm start --port 3001`. Keep development and production on separate ports: an installed production service worker keeps controlling its origin.
 
-With Docker running, `pnpm stack:prod` serves production at [localhost:3001](http://localhost:3001), and `pnpm stack:dev` runs development with Compose Watch at [localhost:3000](http://localhost:3000). See [Docker](docs/docker.md).
+With Docker running, `pnpm stack:prod` serves production at [localhost:3001](http://localhost:3001), and `pnpm stack:dev` runs development with Compose Watch at [localhost:3000](http://localhost:3000). In one checkout both commands share a Compose project, so starting one replaces the container of the other. The production container keeps running in the background, also after Docker restarts, until `docker compose down`; stop it before `pnpm start --port 3001`, which needs the same port. See [Docker](docs/docker.md), and [concurrent stacks](docs/docker.md#concurrent-stacks-and-projects) to run both.
 
 ## Commands
 
@@ -82,11 +82,11 @@ With Docker running, `pnpm stack:prod` serves production at [localhost:3001](htt
 `pnpm remove-demo` deletes the task demo and keeps the infrastructure; `--dry-run` previews the changes. It removes itself when it succeeds.
 <!-- demo:end -->
 
-Run `pnpm exec playwright install chromium` once before the browser checks. Husky runs Biome on staged files and Commitlint on commit messages (Conventional Commits, such as `feat: add profile settings`); hooks only see staged files, so run `pnpm check` and `pnpm test` too. On every pull request, GitHub Actions audits production dependencies and runs the same checks as `pnpm verify`, split into parallel jobs, plus a Docker smoke test, in about 2 minutes. The full `pnpm test:stack` runs as parallel jobs on pushes to `main` or `develop`, weekly, and on pull requests that change Docker or development files. See [verification](docs/verification.md) for what each check covers.
+Run `pnpm exec playwright install chromium` once before the browser checks. On Debian or Ubuntu, use `pnpm exec playwright install --with-deps chromium`, which also installs Chromium's system libraries with `apt-get` and asks for `sudo`; on other Linux systems, install those libraries with your package manager. Husky runs Biome on staged files and Commitlint on commit messages (Conventional Commits, such as `feat: add profile settings`); hooks only see staged files, so run `pnpm check` and `pnpm test` too. On every pull request, GitHub Actions audits production dependencies and runs the same checks as `pnpm verify`, split into parallel jobs, plus a Docker smoke test, in about 2 minutes. The full `pnpm test:stack` runs as parallel jobs on pushes to `main` or `develop`, weekly, and on pull requests that change Docker or development files. See [verification](docs/verification.md) for what each check covers.
 
 ## Make it yours
 
-1. **Site identity.** Set the display name, slug, repository URL, and header logo in `apps/web/src/site.ts`. They feed the metadata, manifest, API reference, offline page, MCP server name, the label of the header's home link, and the footer link (leave the URL unset to hide it). Tests read these values from `site.ts`. One translated text still contains the name: `Home.metaTitle` in `packages/i18n/src/messages/en/site.json` and `es/site.json`. Also replace the footer credit, `Common.footer` in `site.json` ("Made with ❤️ by Ivan Pajon"). Change other metadata in `apps/web/src/app/[routingMode]/[locale]/layout.tsx` and the manifest colors in `apps/web/src/app/manifest.ts`.
+1. **Site identity.** Set the display name, slug, repository URL, header logo, and browser colors in `apps/web/src/site.ts`. They feed the metadata, manifest, API reference, offline page, MCP server name, the label of the header's home link, and the footer link (leave the URL unset to hide it). Tests read these values from `site.ts`. One translated text still contains the name: `Home.metaTitle` in `packages/i18n/src/messages/en/site.json` and `es/site.json`. Also replace the footer credit, `Common.footer` in `site.json` ("Made with ❤️ by Ivan Pajon"), and the install description, `Pwa.manifestDescription` in `pwa.json`. Change other metadata in `apps/web/src/app/[routingMode]/[locale]/layout.tsx` and other manifest fields in `apps/web/src/app/manifest.ts`.
 
    <!-- demo:start -->
    The demo's texts contain the name too: `Playground` in `site.json` and the MCP App texts in `widget.json`. `pnpm remove-demo` deletes them.
@@ -108,7 +108,7 @@ Run `pnpm exec playwright install chromium` once before the browser checks. Husk
 
 <!-- demo:end -->
 4. **Home page.** Replace `apps/web/src/app/[routingMode]/[locale]/page.tsx` and its `Home` messages freely; the infrastructure tests don't depend on its text. Keep `Home.metaTitle` and `Home.metaDescription`, which the layout uses for the site metadata, or change the layout too. Keep `<SiteHeader />`: the localization tests use its language selector and **Language in URL** switch, and the Docker development test edits it to check live reload. Keep one level-1 heading, which the tests look for. The animation previews are optional; [animation](docs/motion.md) explains how to remove them with their tests.
-5. **Branding assets.** Replace the icons in `apps/web/public/icons`, the web logo `apps/web/public/branding/logo.png` (its path and size are `logo` in `apps/web/src/site.ts`), and the README banner in `docs/assets`, and adjust the theme in `packages/ui/src/styles/globals.css`.
+5. **Branding assets.** Replace the icons in `apps/web/public/icons`, the web logo `apps/web/public/branding/logo.png` (its path and size are `logo` in `apps/web/src/site.ts`), and the README banner in `docs/assets`, and adjust the theme colors, radius, and fonts in `packages/ui/src/styles/theme.css`.
 6. **License.** Prelude uses the [MIT License](LICENSE). Set your own copyright holder there, or choose another license and update `license` in `package.json`.
 7. **Docs.** Rewrite this README for your project. Delete `docs/verification-history.md` and `docs/docker-measurements.md`, the template's own records, and the sentences that link to them; see [template history](docs/customization.md#template-history). In `docs/requirements.md`, delete the sentence that starts "Delivery is organized into local commits" under **Development workflow**: it describes how the template was built. Review `docs/skills.md`, a dated shortlist of agent skills: install the ones you want, then update or delete it.
 8. **CI branches.** Both workflows run on pushes only to `main` and `develop`. If your default branch has another name, add it to `on.push.branches` in `.github/workflows/ci.yml` and `.github/workflows/docker.yml`. Private repositories spend Actions minutes; see [continuous integration](docs/verification.md#continuous-integration).
@@ -116,8 +116,8 @@ Run `pnpm exec playwright install chromium` once before the browser checks. Husk
 
 Then build on the starter:
 
-- Add components with the pinned CLI, such as `pnpm --filter @repo/ui exec shadcn add dialog`, and import them from `@repo/ui/components/*`.
-- Set the API version, tags, and descriptions in `apps/web/src/lib/openapi.ts`; MCP tools follow the same operations.
+- Add components with the pinned CLI, such as `pnpm --filter @repo/ui exec shadcn add dialog`, and import them from `@repo/ui/components/*`. Hooks that come with a component, such as `use-mobile` for `sidebar`, go to `@repo/ui/hooks/*`.
+- Set the API title and version in `apps/web/src/lib/api-info.ts`, and its tags and descriptions in `apps/web/src/lib/openapi.ts`; MCP tools follow the same operations.
 - Add origins to the Content Security Policy in `apps/web/next.config.ts` before loading scripts, images, or APIs from another host; see [security headers](docs/architecture.md#security-headers).
 - Import dates and times from `@repo/temporal` ([Temporal](docs/temporal.md)), and use the shared Motion provider for animations that honor reduced motion ([animation](docs/motion.md)).
 - Read [architecture](docs/architecture.md) for data access, state, and caching, and [requirements](docs/requirements.md) for the stack and deferred choices. [React diagnostics](docs/diagnostics.md) and [candidate skills](docs/skills.md) cover agent tooling.
@@ -128,7 +128,7 @@ Then build on the starter:
 Remove the demo first: its task list is public and lives in memory.
 
 <!-- demo:end -->
-Any host with Node.js 26 can run the app. From the repository root:
+Any host with Node.js 26.10.0 or later within 26.x and pnpm 12.6.0 can run the app; the install stops on an older Node.js. From the repository root:
 
 ```sh
 pnpm install --frozen-lockfile
