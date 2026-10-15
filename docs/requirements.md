@@ -28,7 +28,7 @@ Renovate is used instead of Dependabot because Dependabot cannot yet read pnpm 1
 - Widget-only bundling with tsdown 0.23.0 and Tailwind CLI 4.3.3. Its generated HTML is traced into standalone output and restored by Turbo. Next.js retains Turbopack and its Tailwind PostCSS setup; Biome remains the sole linter/formatter.
 <!-- demo:end -->
 - TanStack Query 5.103.2 for client server data, nuqs 2.10.1 for URL state, and Zustand 5.0.15 for shared local UI state.
-- next-intl 4.14.8 with shared `@repo/i18n` catalogs. English and Spanish cover the website and PWA. Explicit language URLs are the default; a visitor-specific homepage switch demonstrates unprefixed URLs. Consumers can disable the demo and select either fixed policy. Both policies prerender localized documents without document-level Suspense. Explicit prefixes win over preferences; unprefixed entries use saved/browser language with English fallback. API identifiers, schemas, descriptions, JSON outputs, stored content, and third-party interfaces retain their original language.
+- next-intl 4.14.8 with shared `@repo/i18n` catalogs. English and Spanish cover the website and PWA. Explicit language URLs are the default; a visitor-specific **Language in URL** switch in the header demonstrates unprefixed URLs. Consumers can disable the demo and select either fixed policy. Both policies prerender localized documents without document-level Suspense. Explicit prefixes win over preferences; unprefixed entries use saved/browser language with English fallback. API identifiers, schemas, descriptions, JSON outputs, stored content, and third-party interfaces retain their original language.
 <!-- demo:start -->
 - use-intl 4.14.8 translates the standalone MCP App into English and Spanish.
 <!-- demo:end -->

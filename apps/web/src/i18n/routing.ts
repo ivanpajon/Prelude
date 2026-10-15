@@ -9,7 +9,7 @@ export type RoutingSettings = { defaultMode: RoutingMode; demoEnabled: boolean }
 export const routingSettings: RoutingSettings = { defaultMode: "always", demoEnabled: true };
 export const DEFAULT_ROUTING_MODE = routingSettings.defaultMode;
 export const ROUTING_DEMO_ENABLED = routingSettings.demoEnabled;
-export const ROUTING_MODE_COOKIE = "PRELUDE_LOCALE_ROUTING";
+export const ROUTING_MODE_COOKIE = "NEXT_LOCALE_ROUTING";
 
 export function isRoutingMode(value: unknown): value is RoutingMode {
   return value === "always" || value === "never";

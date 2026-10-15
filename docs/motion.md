@@ -10,7 +10,15 @@ Keep animation decisions tied to existing application state rather than adding a
 The task-list example uses `m.li` with `layout="position"` to animate row positions when the user switches density or changes the list. `initial={false}` prevents an entrance animation during hydration. `TaskWorkbenchServer` wraps the workbench in its own provider inside the streamed Suspense boundary.
 <!-- demo:end -->
 
-The home page also has two independent previews in `apps/web/src/components/animation-examples.tsx`. **Move to end / Move to start** is a single button that changes a tile's flex alignment while Motion animates its position with a spring. **Save idea** toggles a large bookmark between Lucide's `Bookmark` and `BookmarkCheck` icon data through Morphicons. Both previews start with deterministic state, have keyboard-accessible controls and text feedback, and reset on reload. Their local state belongs to each component; no server data or shared state store is needed. Reduced motion removes the layout and icon morph transitions while keeping both controls functional. To remove these previews, delete the component file and, in the home page, the `<MotionProvider>` block around it and the `AnimationExamples` and `MotionProvider` imports. The Docker stack test also edits this file and clicks **Save idea**, so point `scripts/test-stack.mjs` and `tests/stack/development.spec.ts` at your own files at the same time.
+The home page also has two independent previews in `apps/web/src/components/animation-examples.tsx`. **Move to end / Move to start** is a single button that changes a tile's flex alignment while Motion animates its position with a spring. **Save idea** toggles a large bookmark between Lucide's `Bookmark` and `BookmarkCheck` icon data through Morphicons. Both previews start with deterministic state, have keyboard-accessible controls and text feedback, and reset on reload. Their local state belongs to each component; no server data or shared state store is needed. Reduced motion removes the layout and icon morph transitions while keeping both controls functional.
+
+To remove these previews:
+
+1. Delete `apps/web/src/components/animation-examples.tsx`, its `animation-examples.test.tsx`, and `tests/e2e/animation-examples.spec.ts`. Remove that spec from `browserSpecs` in `playwright.config.ts`.
+2. In the home page, remove the `<MotionProvider>` block and the `AnimationExamples` and `MotionProvider` imports.
+3. Remove the `Animation` messages from both catalogs, and from the messages that `apps/web/src/app/[routingMode]/[locale]/layout.tsx` passes to the client.
+
+No other browser test or Docker test uses the previews.
 
 `@repo/ui/components/morph-icon` wraps Morphicons with `reducedMotion="user"` by default. The library's own default is `"never"`, so use this shared wrapper for consistent accessibility. It accepts the native Morphicons props, including `"always"` for instant changes in screenshots or a local reduced-motion policy. Morphicons uses its own animation engine; Motion's provider does not configure it.
 

@@ -14,7 +14,7 @@ Times are rough figures from a Windows workstation; cold caches and CI runners t
 
 | Command | Coverage | Time |
 | --- | --- | --- |
-| `pnpm check` | Biome, strict TypeScript, and compile-only negative contract checks. | under 1 min |
+| `pnpm check` | Biome and strict TypeScript. | under 1 min |
 | `pnpm test` | RPC/REST validation and procedure behavior, generated OpenAPI schemas and MCP tools, request isolation, Temporal behavior, Testing Library component scenarios, and the repository scripts. | 15–30 s |
 | `pnpm test:coverage` | The same suite with V8 coverage reports in `coverage/`. | 15–30 s |
 | `pnpm test:ui` | Local Vitest watch UI on `127.0.0.1`; exit with Ctrl+C. | |
@@ -26,6 +26,10 @@ Times are rough figures from a Windows workstation; cold caches and CI runners t
 | `pnpm test:stack` | The Docker production and development stacks; see [Docker stacks](#docker-stacks). | 5–15 min |
 | `pnpm test:stack --part <name>` | One part of `pnpm test:stack`: `builds`, `runtime`, `development`, or `rebuild`. | 2–3 min |
 | `pnpm test:stack:quick` | Only the production stack: one build, one runtime sample, and its browser checks. | 2 min |
+
+<!-- demo:start -->
+In the demo, `pnpm check` also compiles `packages/api/src/contract-types.ts`. It is never run: its `@ts-expect-error` lines prove that the task contract rejects wrong input types.
+<!-- demo:end -->
 
 `pnpm test:e2e` builds automatically and starts its own production server at `http://127.0.0.1:3100`; leave that port free. Desktop and mobile app scenarios block service workers to isolate UI behavior, while the PWA project allows them. The tests detect hydration errors. Streamed Suspense content can wait in a hidden copy until React reveals it, so find elements by role, or filter ID and CSS locators to visible elements. Reports, traces, and failure screenshots go to ignored test output directories.
 
@@ -46,6 +50,8 @@ PWA scenarios inspect the manifest/icons, wait for a controlling worker, test a 
 Update scenarios change only the generated worker and explicitly call `registration.update()` to trigger a deterministic browser check; production code uses the browser's default timing without polling. They cover a quiet first installation, a waiting worker that stays inactive before approval, keyboard activation at desktop and 320px widths, reduced motion at 320px, one reload per approval, and pointer-swipe dismissal followed by notification for a newer worker. Both width checks save an `update-toast.png` screenshot in their test output directories. Two-tab scenarios leave unsaved state in the second tab (such as a saved animation idea): approval in the first tab activates the worker, while the second tab keeps its state until its own **Reload now** action. Each test restores the original worker in cleanup. These scenarios share one production worker file and run serially; do not run another build or worker-update suite concurrently.
 
 The cache check saves the generated files listed in `scripts/verify-build-cache.mjs`, such as `apps/web/public/sw.js` and its map when present, removes only those explicit generated files, checks the restored hashes after a Turbo cache hit, and in `finally` writes the saved bytes back only for files that are still missing. Do not run it alongside a development/production server or another build. Source files, the lockfile, and directories are not its cleanup targets.
+
+Turbo replays a cached build when the hashed input files have not changed. Git ignores the local `apps/web/.env*` files (all but `.env.example`), so Turbo would skip them; `inputs` in `turbo.json` adds them to the build hash. Changing a `NEXT_PUBLIC_*` value in `apps/web/.env.local` therefore rebuilds instead of restoring the old output.
 
 <!-- demo:start -->
 ## MCP App acceptance
@@ -69,7 +75,7 @@ Vitest's `node` project discovers `.test.ts` files under applications and packag
 
 Open the URL printed by `pnpm test:ui`, including its authentication token, to use the test explorer. The command stays in watch mode and binds its API to loopback.
 
-`pnpm verify` runs coverage rather than running the unit suite twice. Coverage includes all `.ts` and `.tsx` source under `apps/*/src` and `packages/*/src`, including untested files. New applications, packages, and source files enter the report automatically. Tests, declaration files, test-only `src/testing` fixtures, and the compile-only `contract-types.ts` fixture are excluded.
+`pnpm verify` runs coverage rather than running the unit suite twice. Coverage includes all `.ts` and `.tsx` source under `apps/*/src` and `packages/*/src`, including untested files. New applications, packages, and source files enter the report automatically. Tests, declaration files, test-only `src/testing` fixtures, and compile-only `contract-types.ts` files are excluded.
 
 Next.js pages, service-worker code, and shared UI components are included in that source inventory. Playwright checks integrated rendering and browser behavior separately; its execution does not contribute to Vitest coverage. Reports start without percentage gates so projects can set meaningful thresholds for their own code. Vitest, its UI, and its coverage provider are pinned to the same version.
 
@@ -105,7 +111,7 @@ All of these are ignored by Git. A new run replaces the previous output.
 
 ## Continuous integration
 
-GitHub Actions runs two workflows. Both use Ubuntu, the Node version in `.node-version`, the pinned pnpm from `packageManager`, and `HUSKY=0`, through the shared setup action in `.github/actions/setup`. A newer push to the same branch or pull request cancels the older run.
+GitHub Actions runs two workflows. Both use Ubuntu, the Node version in `.node-version`, the pinned pnpm from `packageManager`, and `HUSKY=0`, through the shared setup action in `.github/actions/setup`. A newer push to the same branch or pull request cancels the older run. Both run on pushes only to `main` and `develop`: if your default branch has another name, add it to `on.push.branches` in `ci.yml` and `docker.yml`.
 
 **CI** (`.github/workflows/ci.yml`) is the fast lane. It runs on pull requests, pushes to `main` or `develop`, manual dispatch, and a weekly schedule (Monday 06:00 UTC). Its jobs run in parallel, and each takes about 2 minutes:
 
@@ -119,7 +125,7 @@ GitHub Actions runs two workflows. Both use Ubuntu, the Node version in `.node-v
 
 Together, Check, E2E, and Dev run everything in `pnpm verify`. Each shard starts its own server and runs its tests one at a time, like the local commands, because the tests of a suite share one server. A shard is a contiguous slice of the test list. E2E shards take whole spec files, so a shard can end up slow or empty after you add or move many tests; to see the split, run `pnpm exec playwright test --list --shard=1/4`, and change the shard list in `ci.yml` if needed. The Dev shards take single tests (`--fully-parallel`), about the same number in each, so both stay non-empty. Their time depends on the order of the list, so a new slow test can unbalance them; to see the split, run `pnpm exec playwright test --config playwright.dev.config.ts --list --fully-parallel --shard=1/2`.
 
-The **Audit** job fails on high or critical advisories in production dependencies; run the same command locally. When it fails on an advisory with no fix and you have checked that it does not affect you, add the GHSA ID to `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml` with a comment saying why, and remove it when a fix ships. The braces entry there is an example. Do not use `pnpm audit --ignore-unfixable`: pnpm 12 writes every advisory without a fix into that list, without a reason.
+The **Audit** job fails on high or critical advisories in production dependencies; run the same command locally. When it fails on an advisory with no fix and you have checked that it does not affect you, add the GHSA ID to `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml` with a comment saying why, and remove it when a fix ships. The current entry is deliberate: `braces` has no patched release, and the comment there explains why it does not affect the app (only build and development tools reach it, and the production image does not ship it). Remove it when a patched `braces` release ships, or when your own production code starts to use it. Do not use `pnpm audit --ignore-unfixable`: pnpm 12 writes every advisory without a fix into that list, without a reason.
 
 **Docker** (`.github/workflows/docker.yml`) is the full lane. Its **Docker stack** jobs run the parts of `pnpm test:stack` in parallel, in about 2–2.5 minutes each: **Docker stack (builds)**, **Docker stack (runtime)**, **Docker stack (development 1/2)**, **Docker stack (development 2/2)**, and **Docker stack (rebuild)**. The development browser checks are split by single tests in list order, like the Dev shards, so both halves keep tests after `pnpm remove-demo` too; to see the split, run `pnpm exec playwright test --config playwright.stack.config.ts --list --fully-parallel --shard=1/2` with `PRELUDE_STACK_MODE=development` and any `PRELUDE_STACK_URL` set. Nobody waits for the Docker lane on an ordinary pull request. It runs on pushes to `main` or `develop`, the weekly schedule, manual dispatch, and pull requests that change how the images or the development stack are built: the Dockerfile, `.dockerignore`, the Compose files, `.node-version`, the lockfile, `pnpm-workspace.yaml`, any `package.json` or `tsconfig*.json`, the Next.js and PostCSS configuration, the development launcher, the stack test and its specs, the source files that the stack test edits to check rebuild caching and live reload, the setup action, or the workflow itself. The full list is the `paths` filter in `docker.yml`; extend it when you add a file that changes the images.
 
@@ -128,6 +134,12 @@ With the demo, `playwright.dev.config.ts` and `playwright.stack.config.ts` list 
 <!-- demo:end -->
 
 A GitHub Free account runs at most 20 jobs at a time, and further jobs wait for a free runner. Count the jobs of both workflows before you add one.
+
+GitHub Actions is free for public repositories on GitHub-hosted runners. Private repositories use the account's included minutes (2,000 per month on GitHub Free), and GitHub rounds each job up to a whole minute, so many short jobs cost more than their run time. In the template's own runs on `develop`, a CI run billed about 18 minutes (10 jobs of 1–3 minutes) and a Docker run about 28 (10 jobs of 2–3 minutes). A push to `main` or `develop` starts both, about 46 minutes. A pull request starts CI, plus Docker when it changes a file in the `paths` filter. The weekly schedule starts the Audit job (1 minute) and a Docker run. To use fewer minutes, remove the `push` or `schedule` trigger from `docker.yml` and start it by hand before a release (`workflow_dispatch`).
+
+<!-- demo:start -->
+The demo removal jobs count for about 15 of those minutes: 1 in CI and 14 in Docker. `pnpm remove-demo` deletes them.
+<!-- demo:end -->
 
 The setup action caches Playwright's browsers by runner system and Playwright version, and installs only Chromium's headless shell, which the headless tests use. It installs Chromium's system libraries only when the runner image lacks some. For the Docker jobs it also installs a pinned Docker Compose release and checks its SHA-256, because the runner's plugin is older than the minimum in [Docker workflows](docker.md); update the version and checksum together. Failed browser jobs upload Playwright traces, screenshots, and the HTML report, one artifact per shard; every **Docker stack** job and the **Docker smoke** job always upload their stack report. Actions are pinned to commit SHAs with the release in a comment; update both together.
 
@@ -145,6 +157,7 @@ Lint errors block the commit, and unstaged changes survive formatting. To check 
 
 - **A suite cannot start its server.** Free the ports above (3100 for production, 3102, 6284 and 6286 for development) and stop `pnpm dev`, which shares the development output directory.
 - **An interrupted worker-update or cache run.** Regenerate the artifacts with `pnpm build --force` before retrying.
+- **On Windows, a Turbo command such as `pnpm build` keeps printing `1 task shutting down...` after Ctrl+C.** When npm installed pnpm, Turbo starts each task through the `pnpm.cmd` batch file, and `cmd.exe` waits at a hidden "Terminate batch job (Y/N)?" question. Press Ctrl+C again to stop the task. `pnpm dev` and `pnpm dev:app` start the launcher without Turbo, so one Ctrl+C stops them.
 - **Development reports that `PlaceValidationBoundaryBelowThisLevel` is missing from the React Client Manifest.** This is stale development bundler state, usually after dependency or Node changes, not a missing component. Stop the development server before package/runtime upgrades, verify the shell's `node --version`, complete `pnpm install --frozen-lockfile`, start `pnpm dev`, and reload the browser. Runtime version files do not change existing processes. If a restart alone does not recover generated state, stop the server and remove only `apps/web/.next/dev` before retrying. Do not disable instant validation or Cache Components to hide an unexplained error. Next.js's [instant validation reference](https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config/instant) explains why these checks run in development; [React Doctor](diagnostics.md) complements it but does not replace it.
 
 Dated results of the template's own runs are in [verification history](verification-history.md).

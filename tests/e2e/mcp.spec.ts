@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { expect, test } from "@playwright/test";
 import { expectedToolNames } from "../../apps/web/src/testing/mcp-tool-names";
+import { homeLinkName } from "../page-state";
 
 for (const mode of ["modern", "legacy"] as const) {
   test(`connects a real ${mode} MCP client statelessly and lists every generated tool`, async ({
@@ -166,9 +167,8 @@ test("disables MCP at production runtime without rebuilding or disabling REST", 
     expect(disabled.headers.get("Cache-Control")).toBe("no-store");
     expect((await fetch(`${origin}/api/mcp/inspector`)).status).toBe(404);
     await page.goto(new URL("/", origin).href);
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-      /Less setup\.\s*More building\./,
-    );
+    await expect(page.getByRole("link", { name: homeLinkName.en, exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
     // demo:start
     // A REST procedure still runs while MCP is off.
     expect((await fetch(`${origin}/api/v1/tasks?status=all`)).status).toBe(200);

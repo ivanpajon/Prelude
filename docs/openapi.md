@@ -45,6 +45,59 @@ The converter in the web package adapts oRPC 1.15.4's ArkType integration: input
 
 All oRPC packages are pinned to **1.15.4**. Use the matching [stable OpenAPI guide](https://v1.orpc.dev/docs/openapi/openapi-specification) and [reference-plugin documentation](https://v1.orpc.dev/docs/openapi/plugins/openapi-reference) when extending or upgrading the integration.
 
+## Call a procedure from the app
+
+Pages and components call procedures by their router names, with types from the contract and no fetch code. The examples below assume a `projects` contract with `list` and `create` procedures, added as `projects: projectsContract` to `contract` in `@repo/contracts`.
+
+In a Server Component, `getServerApiClient()` from `apps/web/src/lib/server-api.ts` calls the procedure in the same process, with the same validation and request context as the HTTP routes:
+
+```tsx
+import { connection } from "next/server";
+import { getServerApiClient } from "@/lib/server-api";
+
+export async function ProjectList() {
+  // Data that changes at run time must not become a build-time snapshot.
+  await connection();
+  const projects = await getServerApiClient().projects.list();
+  return (
+    <ul>
+      {projects.map((project) => (
+        <li key={project.id}>{project.name}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+Render it beneath `<Suspense>`; see [cache ownership](architecture.md#cache-ownership).
+
+In a Client Component, `orpc` from `apps/web/src/lib/orpc.ts` calls `/api/rpc` and builds TanStack Query options:
+
+```tsx
+"use client";
+
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { orpc } from "@/lib/orpc";
+
+export function NewProjectButton() {
+  const queryClient = useQueryClient();
+  const projects = useQuery(orpc.projects.list.queryOptions());
+  const create = useMutation(
+    orpc.projects.create.mutationOptions({
+      // Refetch every projects query after a successful write.
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: orpc.projects.key() }),
+    }),
+  );
+  return (
+    <button type="button" onClick={() => create.mutate({ name: "New project" })}>
+      Add project ({projects.data?.length ?? 0})
+    </button>
+  );
+}
+```
+
+To render the first data on the server and reuse it after hydration, fill `getServerQueryClient()` from the same server module through `createTanstackQueryUtils(getServerApiClient())`, and pass `dehydrate(queryClient)` to a `HydrationBoundary` around the Client Component. Use translated text from `@repo/i18n` instead of the literal strings above.
+
 ## Scalar renderer and caching
 
 `docsScriptUrl` pins this standalone browser bundle:

@@ -24,8 +24,8 @@ on:
       - playwright.stack.config.ts
       - "tests/stack/**"
       # The stack test edits these files to check rebuild caching and live reload.
-      - apps/web/src/components/animation-examples.tsx
-      - apps/web/src/components/site-footer.tsx
+      - apps/web/src/site.ts
+      - apps/web/src/components/site-header.tsx
       - packages/ui/src/styles/globals.css
       # demo:start
       - apps/web/src/components/task-workbench.tsx

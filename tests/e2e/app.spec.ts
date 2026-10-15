@@ -1,25 +1,17 @@
 import { expect, test } from "@playwright/test";
+import { waitForHydration } from "../hydration";
+import { homeLinkName } from "../page-state";
 
 test.describe("server rendering", () => {
   test.use({ javaScriptEnabled: false });
 
-  test("renders the homepage and animation previews without browser JavaScript", async ({
-    page,
-  }) => {
+  test("renders the home page without browser JavaScript", async ({ page }) => {
     const response = await page.goto("/");
     expect(response?.ok()).toBe(true);
-    await expect(page.getByRole("heading", { level: 1, includeHidden: true })).toHaveText(
-      /Less setup\.\s*More building\./,
-    );
+    await expect(page.getByRole("heading", { level: 1, includeHidden: true })).toHaveCount(1);
     await expect(
-      page.getByRole("link", { name: "Prelude home", exact: true, includeHidden: true }),
+      page.getByRole("link", { name: homeLinkName.en, exact: true, includeHidden: true }),
     ).toHaveAttribute("href", "/en");
-    await expect(
-      page.getByRole("button", { name: "Move to end", exact: true, includeHidden: true }),
-    ).toHaveCount(1);
-    await expect(
-      page.getByRole("button", { name: "Save idea", exact: true, includeHidden: true }),
-    ).toHaveAttribute("aria-pressed", "false");
   });
 });
 
@@ -33,23 +25,23 @@ test("returns home from a missing page and supports browser history on narrow sc
   );
   await page.getByRole("main").getByRole("link").click();
   await expect(page).toHaveURL((url) => url.pathname === "/en");
-  const home = page.getByRole("link", { name: "Prelude home", exact: true });
+  const home = page.getByRole("link", { name: homeLinkName.en, exact: true });
   await expect(home).toHaveAttribute("href", "/en");
-  await expect(page.getByRole("region", { name: "Small details. More life." })).toBeVisible();
+  const heading = page.getByRole("heading", { level: 1 });
+  await expect(heading).toHaveCount(1);
+  const homeHeading = (await heading.textContent()) ?? "";
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
 
   await page.goBack();
   await expect(page).toHaveURL((url) => url.pathname === "/en/missing-page");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("A fresh direction.");
+  await expect(heading).toHaveText("A fresh direction.");
   await page.goForward();
   await expect(page).toHaveURL((url) => url.pathname === "/en");
   await home.click();
   await expect(page).toHaveURL((url) => url.pathname === "/en");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    /Less setup\.\s*More building\./,
-  );
+  await expect(heading).toHaveText(homeHeading);
 });
 
 test("hydrates the homepage without hydration errors", async ({ page }) => {
@@ -63,13 +55,7 @@ test("hydrates the homepage without hydration errors", async ({ page }) => {
   });
 
   await page.goto("/");
-  const save = page.getByRole("button", { name: "Save idea", exact: true });
-  await expect(save).toHaveAttribute("aria-pressed", "false");
-  await save.click();
-  await expect(page.getByRole("button", { name: "Idea saved", exact: true })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  await waitForHydration(page);
   // Let the interactive render and its effects paint before checking errors.
   await page.evaluate(
     () =>
@@ -99,10 +85,8 @@ test("sends security headers and runs pages within their Content Security Policy
   expect(headers["content-security-policy"]).toContain("frame-ancestors 'none'");
   expect(headers["x-content-type-options"]).toBe("nosniff");
   expect(headers).not.toHaveProperty("x-powered-by");
-  await page.getByRole("button", { name: "Move to end", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Move to start", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Save idea", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Idea saved", exact: true })).toBeVisible();
+  // Hydration needs the page scripts, so it shows they run under the policy.
+  await waitForHydration(page);
 
   // API routes keep the shared headers but set their own policies (the API reference uses a CDN).
   for (const path of ["/api/health", "/api/openapi.json"]) {
@@ -113,61 +97,3 @@ test("sends security headers and runs pages within their Content Security Policy
   }
   expect(violations).toEqual([]);
 });
-
-for (const reducedMotion of ["no-preference", "reduce"] as const) {
-  test(`animation previews respond to keyboard with motion preference ${reducedMotion}`, async ({
-    page,
-  }) => {
-    await page.emulateMedia({ reducedMotion });
-    await page.goto("/");
-    const preview = page.getByRole("region", { name: "Small details. More life." });
-    const moveToEnd = preview.getByRole("button", { name: "Move to end", exact: true });
-    const moveToStart = preview.getByRole("button", { name: "Move to start", exact: true });
-    const save = preview.getByRole("button", { name: "Save idea", exact: true });
-    const saved = preview.getByRole("button", { name: "Idea saved", exact: true });
-    const tile = preview.locator("[aria-hidden='true'] > div");
-    const bookmark = preview.locator("svg").last();
-    await expect(moveToEnd).toBeVisible();
-    const initialX = await tile.evaluate((element) => element.getBoundingClientRect().x);
-    const initialPaths = await bookmark
-      .locator("path")
-      .evaluateAll((paths) => paths.map((path) => path.getAttribute("d")));
-
-    await moveToEnd.focus();
-    await page.keyboard.press("Enter");
-    await expect(moveToStart).toBeFocused();
-    await expect
-      .poll(() => tile.evaluate((element) => element.getBoundingClientRect().x))
-      .toBeGreaterThan(initialX + 50);
-    await page.keyboard.press("Tab");
-    await expect(save).toBeFocused();
-    await page.keyboard.press("Space");
-    await expect(saved).toHaveAttribute("aria-pressed", "true");
-    await expect
-      .poll(() =>
-        bookmark
-          .locator("path")
-          .evaluateAll((paths) => paths.map((path) => path.getAttribute("d"))),
-      )
-      .not.toEqual(initialPaths);
-    await expect(moveToStart).toBeVisible();
-
-    await moveToStart.click();
-    await expect(moveToEnd).toBeVisible();
-    await expect
-      .poll(() => tile.evaluate((element) => element.getBoundingClientRect().x))
-      .toBeCloseTo(initialX, 0);
-    await saved.click();
-    await expect(save).toHaveAttribute("aria-pressed", "false");
-    await expect
-      .poll(() =>
-        bookmark
-          .locator("path")
-          .evaluateAll((paths) => paths.map((path) => path.getAttribute("d"))),
-      )
-      .toEqual(initialPaths);
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
-    ).toBe(true);
-  });
-}

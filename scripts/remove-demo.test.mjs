@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   demo,
   formatJson,
+  generated,
   markerKind,
   planRemoval,
   removeDemo,
@@ -68,6 +69,7 @@ const fixtureLists = {
     delete: ["scripts/remove-demo.mjs"],
     json: [{ file: "package.json", delete: ["scripts", "remove-demo"] }],
   },
+  generated: ["apps/web/.next/dev/types"],
 };
 
 function fixture() {
@@ -326,6 +328,28 @@ describe("demo removal", () => {
     );
   });
 
+  it("deletes the route types from pnpm dev before the checks, even with --skip-checks", () => {
+    const root = fixture();
+    write(root, ".gitignore", ".next/\n");
+    git(root, "add", ".gitignore");
+    commit(root, "chore: ignore build output");
+    // pnpm dev leaves route types behind that still import the deleted pages.
+    const types = "apps/web/.next/dev/types";
+    write(root, `${types}/validator.ts`, 'import("../../../src/app/playground/page.js");\n');
+    write(root, "apps/web/.next/dev/cache/kept.txt", "kept\n");
+    const preview = vi.fn();
+    removeDemo(root, { "dry-run": true }, preview, fixtureLists);
+    expect(console.log).toHaveBeenCalledWith(`It would delete generated route types ${types}.`);
+    expect(existsSync(path.join(root, types))).toBe(true);
+    const run = vi.fn((args) => {
+      if (args[0] === "install") expect(existsSync(path.join(root, types))).toBe(false);
+    });
+    removeDemo(root, { "skip-checks": true }, run, fixtureLists);
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(existsSync(path.join(root, types))).toBe(false);
+    expect(read(root, "apps/web/.next/dev/cache/kept.txt")).toBe("kept\n");
+  });
+
   it("refuses to start with uncommitted changes, so the result can be reviewed", () => {
     const root = fixture();
     write(root, "notes.txt", "work in progress\n");
@@ -392,6 +416,14 @@ describe("the template's demo list", () => {
     // An edit that finds nothing to change is not reported, so the counts must match.
     for (const [file, edits] of Map.groupBy(demo.json, (edit) => edit.file)) {
       expect(byFile.get(file)?.details, file).toHaveLength(edits.length);
+    }
+  });
+
+  it("deletes the generated route types that the web tsconfig includes", () => {
+    const { include } = JSON.parse(read(repository, "apps/web/tsconfig.json"));
+    const typeChecked = include.map((pattern) => `apps/web/${pattern}`);
+    for (const directory of generated) {
+      expect(typeChecked.some((pattern) => pattern.startsWith(`${directory}/`))).toBe(true);
     }
   });
 

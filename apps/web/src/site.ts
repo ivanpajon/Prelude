@@ -12,10 +12,13 @@ export interface SiteIdentity {
    * `components/site-footer.tsx` for another host. Leave it undefined to hide the link.
    */
   repositoryUrl?: string | undefined;
+  /** Header logo under `apps/web/public`, with its intrinsic size in pixels. */
+  logo: { src: string; width: number; height: number };
 }
 
 export const site: SiteIdentity = {
   name: "Prelude",
   slug: "prelude",
   repositoryUrl: "https://github.com/ivanpajon/Prelude",
+  logo: { src: "/branding/logo.png", width: 2027, height: 776 },
 };

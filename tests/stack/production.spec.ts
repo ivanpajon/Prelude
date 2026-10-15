@@ -2,6 +2,7 @@ import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/cli
 import { expect, test } from "@playwright/test";
 import { site } from "../../apps/web/src/site";
 import { expectedToolNames } from "../../apps/web/src/testing/mcp-tool-names";
+import { waitForHydration } from "../hydration";
 import { localizationAcceptance } from "../i18n-scenarios";
 import { containerNode } from "./owned-context";
 
@@ -21,9 +22,8 @@ test("serves the standalone app, health, docs, MCP, and optimized images", async
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
-  await page.getByRole("button", { name: "Move to end", exact: true }).click();
-  await expect(page.getByText("Tile at the end.", { exact: true })).toBeVisible();
-  const image = await request.get("/_next/image?url=%2Fbranding%2Fprelude-logo.png&w=256&q=75");
+  await waitForHydration(page);
+  const image = await request.get("/_next/image?url=%2Ficons%2Ficon-192.png&w=256&q=75");
   expect(image.status()).toBe(200);
   expect(image.headers()["content-type"]).toMatch(/^image\//);
   expect((await image.body()).length).toBeGreaterThan(100);
@@ -140,6 +140,9 @@ test("activates a replacement worker only after approval in the running containe
   page,
 }) => {
   await page.goto("/");
+  const heading = page.getByRole("heading", { level: 1 });
+  await expect(heading).toHaveCount(1);
+  const homeHeading = (await heading.textContent()) ?? "";
   await page.evaluate(async () => navigator.serviceWorker.ready.then(() => undefined));
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
   const token = crypto.randomUUID();
@@ -159,9 +162,7 @@ test("activates a replacement worker only after approval in the running containe
     const reload = page.waitForEvent("load");
     await update.click();
     await reload;
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-      /Less setup\.\s*More building\./,
-    );
+    await expect(heading).toHaveText(homeHeading);
     await expect(update).toBeHidden();
   } finally {
     containerNode(`

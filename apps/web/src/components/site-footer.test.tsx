@@ -3,7 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 import type { SiteIdentity } from "@/site";
 import { SiteFooter } from "./site-footer";
 
-const site = vi.hoisted((): SiteIdentity => ({ name: "Acme", slug: "acme" }));
+const site = vi.hoisted(
+  (): SiteIdentity => ({
+    name: "Acme",
+    slug: "acme",
+    logo: { src: "/branding/logo.png", width: 100, height: 40 },
+  }),
+);
 vi.mock("@/site", () => ({ site }));
 vi.mock("next-intl/server", () => ({
   getTranslations: async () => (key: string, values?: { name: string }) =>

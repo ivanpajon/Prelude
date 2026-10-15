@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { site } from "../../apps/web/src/site";
 import { localizationAcceptance } from "../i18n-scenarios";
+import { homeLinkName } from "../page-state";
 
 localizationAcceptance();
 
@@ -22,19 +23,23 @@ test("isolates server-rendered language and negotiates only unprefixed entries",
     for (const [index, page] of pages.entries()) {
       await expect(page.locator("html")).toHaveAttribute("lang", index === 0 ? "es" : "en");
       await expect(page).toHaveURL(`${baseURL}/${index === 0 ? "es" : "en"}`);
-      await expect(page.getByRole("heading", { level: 1, includeHidden: true })).toHaveText(
-        index === 0 ? /Menos configuración/ : /Less setup/,
-      );
+      await expect(
+        page.getByRole("combobox", {
+          name: index === 0 ? "Idioma" : "Language",
+          exact: true,
+          includeHidden: true,
+        }),
+      ).toHaveCount(1);
     }
     const spanish = contexts[0];
     const page = pages[0];
     if (!spanish || !page || !baseURL) throw new Error("Missing language context");
-    await spanish.addCookies([{ name: "PRELUDE_LOCALE", value: "en", url: baseURL }]);
+    await spanish.addCookies([{ name: "NEXT_LOCALE", value: "en", url: baseURL }]);
     await page.reload();
     await expect(page.locator("html")).toHaveAttribute("lang", "es");
     await page.goto(`${baseURL}/`);
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
-    await spanish.addCookies([{ name: "PRELUDE_LOCALE", value: "invalid", url: baseURL }]);
+    await spanish.addCookies([{ name: "NEXT_LOCALE", value: "invalid", url: baseURL }]);
     await page.goto(`${baseURL}/`);
     await expect(page.locator("html")).toHaveAttribute("lang", "es");
     const response = await request.get("/", {
@@ -61,8 +66,8 @@ for (const locale of ["en", "es"] as const) {
       });
       try {
         await context.addCookies([
-          { name: "PRELUDE_LOCALE", value: locale, url: baseURL },
-          { name: "PRELUDE_LOCALE_ROUTING", value: "never", url: baseURL },
+          { name: "NEXT_LOCALE", value: locale, url: baseURL },
+          { name: "NEXT_LOCALE_ROUTING", value: "never", url: baseURL },
         ]);
         const page = await context.newPage();
         await page.goto(mode === "always" ? `/${locale}` : "/");
@@ -77,7 +82,7 @@ for (const locale of ["en", "es"] as const) {
         else await expect(toggle).not.toBeChecked();
         await expect(
           page.getByRole("link", {
-            name: locale === "en" ? "Prelude home" : "Inicio de Prelude",
+            name: homeLinkName[locale],
             exact: true,
             includeHidden: true,
           }),
@@ -93,7 +98,7 @@ test("keeps explicit URLs deterministic and hidden variants private without expo
   request,
 }) => {
   const explicit = await request.get("/es", {
-    headers: { cookie: "PRELUDE_LOCALE=en; PRELUDE_LOCALE_ROUTING=never" },
+    headers: { cookie: "NEXT_LOCALE=en; NEXT_LOCALE_ROUTING=never" },
     maxRedirects: 0,
   });
   expect(explicit.status()).toBe(200);
@@ -105,7 +110,7 @@ test("keeps explicit URLs deterministic and hidden variants private without expo
   expect(await explicit.text()).toContain('lang="es"');
 
   const hidden = await request.get("/", {
-    headers: { cookie: "PRELUDE_LOCALE=es; PRELUDE_LOCALE_ROUTING=never" },
+    headers: { cookie: "NEXT_LOCALE=es; NEXT_LOCALE_ROUTING=never" },
     maxRedirects: 0,
   });
   expect(hidden.status()).toBe(200);
@@ -116,7 +121,7 @@ test("keeps explicit URLs deterministic and hidden variants private without expo
   expect(await hidden.text()).toContain('lang="es"');
 
   const invalid = await request.get("/?probe=1", {
-    headers: { cookie: "PRELUDE_LOCALE=en; PRELUDE_LOCALE_ROUTING=invalid" },
+    headers: { cookie: "NEXT_LOCALE=en; NEXT_LOCALE_ROUTING=invalid" },
     maxRedirects: 0,
   });
   expect(invalid.status()).toBe(307);
@@ -138,8 +143,8 @@ test("localizes the dynamic manifest while keeping API responses language-neutra
   request,
 }) => {
   const [english, spanish] = await Promise.all([
-    request.get("/manifest.webmanifest", { headers: { cookie: "PRELUDE_LOCALE=en" } }),
-    request.get("/manifest.webmanifest", { headers: { cookie: "PRELUDE_LOCALE=es" } }),
+    request.get("/manifest.webmanifest", { headers: { cookie: "NEXT_LOCALE=en" } }),
+    request.get("/manifest.webmanifest", { headers: { cookie: "NEXT_LOCALE=es" } }),
   ]);
   const en = await english.json();
   const es = await spanish.json();

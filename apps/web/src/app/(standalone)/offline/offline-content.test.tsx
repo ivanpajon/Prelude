@@ -2,6 +2,7 @@ import { LOCALE_COOKIE } from "@repo/i18n";
 import { render, screen } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { site } from "@/site";
 import { OfflineContent } from "./offline-content";
 
 beforeEach(() => {
@@ -29,7 +30,7 @@ describe("static offline fallback", () => {
     expect(screen.getByRole("heading", { name: "No tienes conexión." })).toBeVisible();
     expect(screen.getByRole("link", { name: "Reintentar" })).toHaveAttribute("href", "/");
     expect(document.documentElement.lang).toBe("es");
-    expect(document.title).toBe("Sin conexión — Prelude");
+    expect(document.title).toBe(`Sin conexión — ${site.name}`);
   });
 
   it("matches the browser when the saved choice is invalid", () => {
@@ -44,7 +45,7 @@ describe("static offline fallback", () => {
     render(<OfflineContent />);
     expect(screen.getByRole("heading", { name: "You’re offline." })).toBeVisible();
     expect(document.documentElement.lang).toBe("en");
-    expect(document.title).toBe("You’re offline — Prelude");
+    expect(document.title).toBe(`You’re offline — ${site.name}`);
   });
 
   it("still matches browser language when cookie access is blocked", () => {

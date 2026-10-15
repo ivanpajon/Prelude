@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { site } from "../../../apps/web/src/site";
+import { homeLinkName } from "../../page-state";
 
 const listRpc = /\/api\/rpc\/tasks\/list(?:\?|$)/;
 const createRpc = /\/api\/rpc\/tasks\/create(?:\?|$)/;
@@ -31,7 +33,7 @@ test.describe("server rendering", () => {
     const response = await page.goto("/");
     expect(response?.ok()).toBe(true);
     await expect(
-      page.getByRole("link", { name: "Open playground", exact: true, includeHidden: true }),
+      page.getByRole("link", { name: "Playground", exact: true, includeHidden: true }),
     ).toHaveAttribute("href", "/en/playground");
     await expect(page.getByRole("list", { name: "Tasks", includeHidden: true })).toHaveCount(0);
   });
@@ -42,19 +44,16 @@ test("opens the playground from home and supports browser history on narrow scre
 }) => {
   await page.goto("/");
   const navigation = page.getByRole("link", { name: "Playground", exact: true });
-  const open = page.getByRole("link", { name: "Open playground", exact: true });
   await expect(navigation).toHaveAttribute("href", "/en/playground");
-  await expect(open).toHaveAttribute("href", "/en/playground");
-  await expect(page.getByRole("region", { name: "Small details. More life." })).toBeVisible();
   await expect(page.getByRole("list", { name: "Tasks" })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
 
-  await open.focus();
+  await navigation.focus();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/playground$/);
-  await expect(page).toHaveTitle("Playground — Prelude");
+  await expect(page).toHaveTitle(`Playground — ${site.name}`);
   await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Discover tools", exact: true })).toBeVisible();
   const appSection = page.getByRole("region", {
@@ -71,18 +70,19 @@ test("opens the playground from home and supports browser history on narrow scre
   await expect(appSection.getByRole("link", { name: /Open Inspector/ })).toHaveCount(0);
   // Keep this test's back/forward assertions about route history rather than the local anchor.
   await page.goBack();
-  await expect(page.getByRole("button", { name: "Move to end", exact: true })).toHaveCount(0);
+  await expect(page).toHaveURL(/\/playground$/);
+  await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
 
   await page.goBack();
   await expect(page).toHaveURL((url) => url.pathname === "/en");
-  await expect(open).toBeVisible();
+  await expect(page.getByRole("list", { name: "Tasks" })).toHaveCount(0);
   await page.goForward();
   await expect(page).toHaveURL(/\/playground$/);
   await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
-  await page.getByRole("link", { name: "Prelude home", exact: true }).click();
+  await page.getByRole("link", { name: homeLinkName.en, exact: true }).click();
   await expect(page).toHaveURL((url) => url.pathname === "/en");
   await navigation.click();
   await expect(page).toHaveURL(/\/playground$/);

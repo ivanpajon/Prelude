@@ -47,7 +47,7 @@ test("shows an offline fallback without caching the playground or task data", as
   await expect(page.getByRole("heading", { name: "You’re offline." })).toBeVisible();
   await context.setOffline(false);
   await page.getByRole("link", { name: "Try again" }).click();
-  await expect(page.getByRole("link", { name: "Open playground", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Playground", exact: true })).toBeVisible();
 });
 
 test("keeps another tab's task draft until that tab approves its own reload", async ({

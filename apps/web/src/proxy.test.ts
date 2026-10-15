@@ -29,7 +29,7 @@ describe("locale proxy", () => {
   it("rewrites canonical prefixed URLs without writing cookies or forcing private caching", () => {
     const response = proxy(
       request("/es/about?status=active", {
-        cookie: `PRELUDE_LOCALE=en; ${ROUTING_MODE_COOKIE}=never`,
+        cookie: `NEXT_LOCALE=en; ${ROUTING_MODE_COOKIE}=never`,
         "accept-language": "en",
       }),
     );
@@ -50,7 +50,7 @@ describe("locale proxy", () => {
   it("uses the hidden-URL override with locale negotiation, private caching, and noindex", () => {
     const response = proxy(
       request("/about?status=active", {
-        cookie: `${ROUTING_MODE_COOKIE}=never; PRELUDE_LOCALE=invalid`,
+        cookie: `${ROUTING_MODE_COOKIE}=never; NEXT_LOCALE=invalid`,
         "accept-language": "es",
         "x-request-id": "kept-through-rewrite",
       }),
@@ -63,7 +63,7 @@ describe("locale proxy", () => {
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(response.headers.get("x-robots-tag")).toBe("noindex");
     expect(response.headers.has("link")).toBe(false);
-    expect(response.cookies.get("PRELUDE_LOCALE")?.value).toBe("es");
+    expect(response.cookies.get("NEXT_LOCALE")?.value).toBe("es");
   });
 
   it.each([undefined, "invalid", "NEVER", "../../never"])(
@@ -82,7 +82,7 @@ describe("locale proxy", () => {
     ]) {
       const response = proxy(
         request("/", {
-          cookie: `PRELUDE_LOCALE=${localeCookie}; ${ROUTING_MODE_COOKIE}=never`,
+          cookie: `NEXT_LOCALE=${localeCookie}; ${ROUTING_MODE_COOKIE}=never`,
           "accept-language": "es",
         }),
       );
@@ -124,7 +124,7 @@ describe("locale proxy", () => {
     const fixed = createLocaleProxy({ defaultMode: "always", demoEnabled: false });
     const response = fixed(
       request("/about", {
-        cookie: `${ROUTING_MODE_COOKIE}=never; PRELUDE_LOCALE=es`,
+        cookie: `${ROUTING_MODE_COOKIE}=never; NEXT_LOCALE=es`,
       }),
     );
     expect(response.headers.get("location")).toBe("http://localhost/es/about");
@@ -132,7 +132,7 @@ describe("locale proxy", () => {
 
   it("uses fixed never mode without demo noindex and removes incoming language prefixes", () => {
     const fixed = createLocaleProxy({ defaultMode: "never", demoEnabled: false });
-    const headers = { cookie: `${ROUTING_MODE_COOKIE}=always; PRELUDE_LOCALE=es` };
+    const headers = { cookie: `${ROUTING_MODE_COOKIE}=always; NEXT_LOCALE=es` };
     const page = fixed(request("/about", headers));
     expect(page.headers.get("x-middleware-rewrite")).toBe("http://localhost/never/es/about");
     expect(page.headers.get("cache-control")).toBe("private, no-store");
@@ -148,7 +148,7 @@ describe("locale proxy", () => {
     const fixed = createLocaleProxy({ defaultMode: "never", demoEnabled: false });
     const response = fixed(
       new NextRequest("http://0.0.0.0:3000/es/about?status=active", {
-        headers: { host: "127.0.0.1:3001", cookie: "PRELUDE_LOCALE=es" },
+        headers: { host: "127.0.0.1:3001", cookie: "NEXT_LOCALE=es" },
       }),
     );
     expect(response.headers.get("location")).toBe("http://0.0.0.0:3000/about?status=active");
@@ -199,10 +199,10 @@ describe("locale proxy", () => {
 
   it("does not share routing or language selection across requests", () => {
     const spanishHidden = proxy(
-      request("/", { cookie: `${ROUTING_MODE_COOKIE}=never; PRELUDE_LOCALE=es` }),
+      request("/", { cookie: `${ROUTING_MODE_COOKIE}=never; NEXT_LOCALE=es` }),
     );
     const englishDefault = proxy(request("/", { "accept-language": "en" }));
-    const englishCanonical = proxy(request("/en", { cookie: "PRELUDE_LOCALE=es" }));
+    const englishCanonical = proxy(request("/en", { cookie: "NEXT_LOCALE=es" }));
     expect(spanishHidden.headers.get("x-middleware-rewrite")).toBe("http://localhost/never/es");
     expect(englishDefault.headers.get("location")).toBe("http://localhost/en");
     expect(englishCanonical.headers.get("x-middleware-rewrite")).toBe("http://localhost/always/en");

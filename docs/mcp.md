@@ -141,7 +141,7 @@ To remove only the website's JSON explorer, remove `McpPlayground` from `apps/we
 After any partial removal, including removing MCP entirely below, also remove the `pnpm remove-demo` command; see [Remove only part of the demo](remove-demo.md#remove-only-part-of-the-demo).
 <!-- demo:end -->
 
-To remove MCP entirely, first remove the website code that calls it and any MCP App resources, then its endpoint, bridge, development Inspector wrapper, managed Inspector launcher/check command, tests, and documentation. Remove the now-unused MCP dependencies and sandbox port configuration, and restore a plain Next.js/Turbo development command. Retain OpenAPI and Scalar if desired; the REST API does not depend on MCP. See [OpenAPI](openapi.md) for the shared specification and [architecture](architecture.md) for repository replacement.
+To remove MCP entirely, first remove the website code that calls it and any MCP App resources, then its endpoint, bridge, development Inspector wrapper, managed Inspector launcher/check command, tests, and documentation. Remove the now-unused MCP dependencies and sandbox port configuration, and restore a plain `next dev` development command. Retain OpenAPI and Scalar if desired; the REST API does not depend on MCP. See [OpenAPI](openapi.md) for the shared specification and [architecture](architecture.md) for repository replacement.
 
 ## Verification
 

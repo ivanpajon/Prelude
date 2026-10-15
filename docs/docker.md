@@ -37,11 +37,11 @@ docker compose up --build --detach --wait
 docker compose down
 ```
 
-`pnpm stack:prod` builds and starts containers in the background. Use `docker compose ps` to check readiness or the `up --wait` form above to wait for a healthy server before continuing.
+`pnpm stack:prod` builds and starts the container in the background, and returns once its healthcheck passes. Use `docker compose ps` to check it later.
 
 Rebuild after source or dependency changes. To recreate containers after changing runtime environment values, run `docker compose up --detach --wait` again; an ordinary `restart` retains the container's old environment.
 
-Both stacks use the same localization policy as native workflows: explicit `/en` and `/es` URLs by default, with the homepage switch enabling unprefixed URLs for a visitor. Changing `routingSettings.defaultMode` or `routingSettings.demoEnabled` is a source change and requires rebuilding the production image. These settings are not Compose environment variables. Development Watch synchronizes their source changes. See [localization](i18n.md) for fixed policies, cookie scope across ports, and cache behavior.
+Both stacks use the same localization policy as native workflows: explicit `/en` and `/es` URLs by default, with the header's **Language in URL** switch enabling unprefixed URLs for a visitor. Changing `routingSettings.defaultMode` or `routingSettings.demoEnabled` is a source change and requires rebuilding the production image. These settings are not Compose environment variables. Development Watch synchronizes their source changes. See [localization](i18n.md) for fixed policies, cookie scope across ports, and cache behavior.
 
 The healthcheck requests `/api/health` with Node's built-in HTTP client. The endpoint answers `{"status":"ok"}` per request with `Cache-Control: no-store`, reads no data, and is not part of the API contract (no OpenAPI operation or MCP tool). It is a liveness check, not a database or external-service check; extend the route if your project needs readiness checks. The development healthcheck uses the same endpoint, plus the Inspector and its sandbox.
 
@@ -75,7 +75,7 @@ Watch synchronization is **one way, from host to container**. Run dependency upd
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm --dir packages/ui exec shadcn add dialog
+pnpm --filter @repo/ui exec shadcn add dialog
 pnpm customize --name my-app --scope "@acme"
 ```
 
@@ -115,7 +115,7 @@ Future `NEXT_PUBLIC_*` variables are embedded into browser code during the Next.
 
 ## Concurrent stacks and projects
 
-Compose normally names a project after its directory. Neither file fixes that name, so the two shortcut commands select the same Compose project in one checkout. Stop that stack before switching modes, or give each mode a separate project name to run both:
+Compose normally names a project after its directory. Neither file fixes that name, so the two shortcut commands select the same Compose project in one checkout. Each mode still builds its own image: `<project>-web` for production and `<project>-web-dev` for development. Stop that stack before switching modes, or give each mode a separate project name to run both:
 
 ```sh
 docker compose --project-name prelude-prod up --build --detach --wait
@@ -157,6 +157,23 @@ docker compose exec web /nodejs/bin/node -e "console.log({ node: process.version
 The development image contains a shell and the development tools. Diagnose package installation and compiler failures there or in the builder rather than installing tools into a running production container.
 
 For a clean rebuild of this stack, use `docker compose build --no-cache` followed by `docker compose up --detach --wait`. The build context excludes host dependencies, build output, tool and agent folders, local environment files, test reports, documentation, root Markdown files, and the host-only `tests` directory, so editing them does not rebuild the application. Persistent engine-wide cache deletion is not required for a normal rebuild.
+
+## Clean up
+
+Stop and remove each stack together with its image:
+
+```sh
+docker compose down --rmi all
+docker compose -f compose.dev.yaml down --rmi all
+```
+
+If you started a stack with `--project-name`, pass it here too. `docker compose build --no-cache` re-runs every build step, but it keeps the BuildKit cache mounts: the pnpm store and the Next.js cache (`<name>-pnpm-*` and `<name>-next-*` in the `Dockerfile`, where `<name>` is the root package name). To free that space, clear the cache mounts:
+
+```sh
+docker builder prune --filter type=exec.cachemount
+```
+
+This clears the cache mounts of every project that uses the same builder, not only this one. `docker buildx du --filter type=exec.cachemount` lists them first. The next build downloads the dependencies again.
 
 ## Verification and measurements
 
