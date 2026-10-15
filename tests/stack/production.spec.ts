@@ -23,9 +23,7 @@ test("serves the standalone app, health, docs, MCP, and optimized images", async
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
   await waitForHydration(page);
-  const image = await request.get(
-    `/_next/image?url=${encodeURIComponent(site.logo.src)}&w=256&q=75`,
-  );
+  const image = await request.get("/_next/image?url=%2Ficons%2Ficon-192.png&w=256&q=75");
   expect(image.status()).toBe(200);
   expect(image.headers()["content-type"]).toMatch(/^image\//);
   expect((await image.body()).length).toBeGreaterThan(100);
