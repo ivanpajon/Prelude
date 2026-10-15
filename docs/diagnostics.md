@@ -42,6 +42,7 @@ The exceptions retain every other diagnostic for the affected files. Each has a 
 | --- | --- | --- |
 | Web `package.json` | `react-doctor/require-reduced-motion` | The scanner examines each workspace package separately and cannot follow the `@repo/ui` provider import. Each animated section is wrapped by the shared provider, whose `MotionConfig` uses `reducedMotion="user"`; Morphicons has its own matching wrapper. Browser and component tests exercise reduced-motion behavior. The UI package's reduced-motion check remains enabled. |
 | Web `src/app/(standalone)/offline/offline-content.tsx` | `react-doctor/nextjs-no-a-element` | The offline fallback intentionally uses a full document navigation for **Try again**, requesting fresh HTML after reconnection instead of relying on client-side navigation from the cached fallback. Ordinary internal navigation uses the locale-aware `Link`. |
+| Web `src/components/site-header.tsx` | `react-doctor/nextjs-no-a-element` | The **API docs** link opens `/api/docs`, a Route Handler rather than a page, so it needs a full page load; `Link` would try client-side navigation and prefetching. The home link in the same header uses `Link`. |
 | Web `src/app/actions/locale.ts` | `react-doctor/server-auth-actions` | Anonymous visitors may set their own language cookie to one of two validated values. This action changes no protected/shared data and invokes no billable service; authentication would prevent anonymous language selection. Business actions still require their own authorization policy. |
 | UI `src/components/button.tsx` and `src/components/badge.tsx` | `react-doctor/only-export-components` | These generated shadcn modules export their components and CVA variant functions as the shared component API. This retains the upstream pattern and accepts its Fast Refresh limitation. If the modules become heavily customized, move the variant helpers into separate modules and remove the exception. |
 
@@ -69,5 +70,30 @@ Scoped overrides use arrays for both `files` and `rules`:
 Paths are relative to the scanned package. Use a package-local configuration when an exception must apply to only one package; local exceptions merge with the root scan configuration. Omitting `rules` suppresses every rule for the matching file, so always name the intended rule. Remove exceptions when their underlying reason no longer applies rather than extending them to new files automatically.
 
 The offline override uses `src/app/**/offline/offline-content.tsx` because these are glob patterns: a literal route-group name in parentheses can be interpreted as pattern syntax. This matches the offline component under `(standalone)` while retaining all other rules for that file.
+
+## Known warnings
+
+The scan reports these warnings and no errors. They stay visible on purpose: each one is a trade-off, not a bug. Recheck them after you change the files.
+
+| Package/file | Rule | Why it stays, or how to fix it |
+| --- | --- | --- |
+| Web `src/app/[routingMode]/[locale]/layout.tsx` | `react-doctor/async-parallel` | The four awaits read the routing mode, the locale, and catalogs that next-intl already holds for the request; none of them waits on the network. The routing mode must also pass `notFound()` before the rest run. |
+| Web `src/lib/mcp.ts` | `react-doctor/server-sequential-independent-await` | The tool catalog is built once and then reused, and the default `getContext` is synchronous, so the second await costs nothing. If your context does slow work, such as reading a session, run both with `Promise.all`. |
+| Web `src/lib/openapi.ts` | `react-doctor/js-set-map-lookups` | The list holds a route's path parameters, usually one or two, so a `Set` would not be faster. |
+| Web `src/i18n/navigation.tsx` | `react-doctor/only-export-components` | `getPathname` sits next to the navigation hooks that use the same configuration. Editing this file reloads the page instead of keeping state with Fast Refresh. Move `getPathname` to its own `.ts` module if that gets in the way. |
+| Web `src/i18n/routing-preference-provider.tsx` | `react-doctor/jsx-no-constructed-context-values` | The provider renders again only when its own state changes, which changes the value anyway, or on navigation. Its readers are the two language controls, so `useMemo` would save little. |
+| UI `src/components/toast.tsx` | `react-doctor/only-export-components` | `toast` is the shared notification manager that the app imports together with `Toaster`. It is the same trade-off as the button and badge variants above. |
+
+<!-- demo:start -->
+The demo files add these warnings. `pnpm remove-demo` deletes the files.
+
+| Package/file | Rule | Why it stays, or how to fix it |
+| --- | --- | --- |
+| Web `src/components/mcp-playground.tsx`, `src/components/task-workbench.tsx`, and `src/mcp-apps/tasks/app.tsx` | `react-doctor/no-high-complexity-react-function`, and `react-doctor/no-giant-component` for the task workbench | These examples keep each flow in one place so you can read it top to bottom. Split them into smaller components if you keep them. |
+| Web `src/lib/mcp-playground-format.ts` | `react-doctor/js-set-map-lookups` | The list holds a schema's few required keys. |
+| Web `src/mcp-apps/tasks/app.tsx` | `react-doctor/only-export-components` | tsdown bundles the widget into a static HTML file; Next.js does not serve it, so Fast Refresh does not apply. |
+| Web `src/mcp-apps/tasks/app.tsx` | `react-doctor/no-loading-flag-reset-outside-finally` | `session.mutate()` catches its own errors and resolves `false`, so the reset after it always runs. |
+| Web `src/mcp-apps/tasks/app.tsx` | `react-doctor/no-adjust-state-on-prop-change` | The effect closes the title editor when its task disappears from the host's data, for example after a delete elsewhere, and records where focus goes next. |
+<!-- demo:end -->
 
 References: [CLI reference](https://www.react.doctor/docs/reference/cli-reference), [configuration](https://www.react.doctor/docs/configuration/config-files), [telemetry switch implementation](https://github.com/millionco/react-doctor/blob/main/packages/react-doctor/src/cli/utils/is-telemetry-enabled.ts), [Motion feature bundles](https://motion.dev/docs/react-reduce-bundle-size).
