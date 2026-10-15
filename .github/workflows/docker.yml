@@ -27,6 +27,7 @@ on:
       - "tests/*.ts"
       - "apps/web/src/testing/**"
       - apps/web/src/lib/api-info.ts
+      - apps/web/src/i18n/routing-settings.ts
       # The stack test edits these files to check rebuild caching and live reload.
       - apps/web/src/site.ts
       - apps/web/src/components/site-header.tsx

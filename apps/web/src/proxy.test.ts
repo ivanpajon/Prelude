@@ -1,13 +1,20 @@
+import { defaultLocale } from "@repo/i18n";
 import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLocaleProxy } from "./i18n/proxy";
-import { ROUTING_MODE_COOKIE } from "./i18n/routing";
+import { DEFAULT_ROUTING_MODE, ROUTING_MODE_COOKIE } from "./i18n/routing";
 import proxy, { config } from "./proxy";
 
 function request(pathname: string, headers: Record<string, string> = {}) {
   return new NextRequest(`http://localhost${pathname}`, { headers });
 }
+
+/**
+ * The template's default routingSettings. The cases that use it describe that policy, so they keep
+ * passing after you change the settings; the fixed-mode cases below cover the other policies.
+ */
+const templateProxy = createLocaleProxy({ defaultMode: "always", demoEnabled: true });
 
 describe("locale proxy", () => {
   beforeEach(() => {
@@ -17,7 +24,7 @@ describe("locale proxy", () => {
   afterEach(() => vi.unstubAllEnvs());
 
   it("negotiates an explicit language URL by default, preserving search parameters", () => {
-    const response = proxy(
+    const response = templateProxy(
       request("/about?status=active", { "accept-language": "es-ES,es;q=0.9,en;q=0.8" }),
     );
     expect(response.status).toBe(307);
@@ -27,7 +34,7 @@ describe("locale proxy", () => {
   });
 
   it("rewrites canonical prefixed URLs without writing cookies or forcing private caching", () => {
-    const response = proxy(
+    const response = templateProxy(
       request("/es/about?status=active", {
         cookie: `NEXT_LOCALE=en; ${ROUTING_MODE_COOKIE}=never`,
         "accept-language": "en",
@@ -48,7 +55,7 @@ describe("locale proxy", () => {
   });
 
   it("uses the hidden-URL override with locale negotiation, private caching, and noindex", () => {
-    const response = proxy(
+    const response = templateProxy(
       request("/about?status=active", {
         cookie: `${ROUTING_MODE_COOKIE}=never; NEXT_LOCALE=invalid`,
         "accept-language": "es",
@@ -70,7 +77,7 @@ describe("locale proxy", () => {
     "ignores an unsupported routing override (%s)",
     (override) => {
       const cookie = override ? `${ROUTING_MODE_COOKIE}=${override}` : "";
-      const response = proxy(request("/", { cookie, "accept-language": "es" }));
+      const response = templateProxy(request("/", { cookie, "accept-language": "es" }));
       expect(response.headers.get("location")).toBe("http://localhost/es");
     },
   );
@@ -80,7 +87,7 @@ describe("locale proxy", () => {
       ["en", "en"],
       ["invalid", "es"],
     ]) {
-      const response = proxy(
+      const response = templateProxy(
         request("/", {
           cookie: `NEXT_LOCALE=${localeCookie}; ${ROUTING_MODE_COOKIE}=never`,
           "accept-language": "es",
@@ -102,7 +109,7 @@ describe("locale proxy", () => {
         ["/es/about", "", "/always/es/about"],
         ["/about", `${ROUTING_MODE_COOKIE}=never`, "/never/es/about"],
       ] as const) {
-        const response = proxy(
+        const response = templateProxy(
           new NextRequest(`${origin}${pathname}?status=active`, {
             headers: {
               host,
@@ -198,14 +205,25 @@ describe("locale proxy", () => {
   });
 
   it("does not share routing or language selection across requests", () => {
-    const spanishHidden = proxy(
+    const spanishHidden = templateProxy(
       request("/", { cookie: `${ROUTING_MODE_COOKIE}=never; NEXT_LOCALE=es` }),
     );
-    const englishDefault = proxy(request("/", { "accept-language": "en" }));
-    const englishCanonical = proxy(request("/en", { cookie: "NEXT_LOCALE=es" }));
+    const englishDefault = templateProxy(request("/", { "accept-language": "en" }));
+    const englishCanonical = templateProxy(request("/en", { cookie: "NEXT_LOCALE=es" }));
     expect(spanishHidden.headers.get("x-middleware-rewrite")).toBe("http://localhost/never/es");
     expect(englishDefault.headers.get("location")).toBe("http://localhost/en");
     expect(englishCanonical.headers.get("x-middleware-rewrite")).toBe("http://localhost/always/en");
+  });
+
+  it("applies the configured routingSettings to a first visit", () => {
+    const response = proxy(request("/", { "accept-language": defaultLocale }));
+    if (DEFAULT_ROUTING_MODE === "always") {
+      expect(response.headers.get("location")).toBe(`http://localhost/${defaultLocale}`);
+    } else {
+      expect(response.headers.get("x-middleware-rewrite")).toBe(
+        `http://localhost/never/${defaultLocale}`,
+      );
+    }
   });
 
   it("marks server action requests private even on explicit language URLs", () => {

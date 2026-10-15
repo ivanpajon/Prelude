@@ -1,14 +1,15 @@
 import { defaultLocale, LOCALE_COOKIE, localeCookieMaxAge, locales } from "@repo/i18n";
 import { defineRouting } from "next-intl/routing";
+import type { RoutingMode } from "./routing-settings";
 
-export const routingModes = ["always", "never"] as const;
-export type RoutingMode = (typeof routingModes)[number];
-export type RoutingSettings = { defaultMode: RoutingMode; demoEnabled: boolean };
-
-// Consumer configuration: disable the demo to enforce one routing policy.
-export const routingSettings: RoutingSettings = { defaultMode: "always", demoEnabled: true };
-export const DEFAULT_ROUTING_MODE = routingSettings.defaultMode;
-export const ROUTING_DEMO_ENABLED = routingSettings.demoEnabled;
+export {
+  DEFAULT_ROUTING_MODE,
+  ROUTING_DEMO_ENABLED,
+  type RoutingMode,
+  type RoutingSettings,
+  routingModes,
+  routingSettings,
+} from "./routing-settings";
 export const ROUTING_MODE_COOKIE = "NEXT_LOCALE_ROUTING";
 
 export function isRoutingMode(value: unknown): value is RoutingMode {

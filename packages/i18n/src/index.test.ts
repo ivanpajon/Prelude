@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   browserLocale,
+  defaultLocale,
   isLocale,
   type Locale,
   locales,
@@ -51,30 +52,37 @@ describe("locale selection", () => {
     for (const locale of locales) expect(isLocale(locale)).toBe(true);
     for (const value of ["es-MX", "fr", "", "EN", undefined]) expect(isLocale(value)).toBe(false);
     expect(resolveLocale("fr", "es-MX", "en")).toBe("es");
-    expect(resolveLocale("invalid_locale", "de")).toBe("en");
+    expect(resolveLocale("invalid_locale", "de")).toBe(defaultLocale);
     expect(browserLocale("other=en; NEXT_LOCALE=es", ["en-US"])).toBe("es");
     expect(browserLocale("NEXT_LOCALE=invalid", ["es-ES"])).toBe("es");
   });
 
-  it("honors valid cookies, weighted languages, and the English fallback", () => {
+  it("honors valid cookies, weighted languages, and the default fallback", () => {
     expect(requestLocale("en", "es-ES,es;q=0.9")).toBe("en");
     expect(requestLocale("invalid", "en;q=0.4,es-MX;q=0.9")).toBe("es");
     expect(requestLocale(undefined, "es;q=0,en;q=0.5")).toBe("en");
-    expect(requestLocale(undefined, "es;q=invalid,de;q=1")).toBe("en");
-    expect(requestLocale(undefined, null)).toBe("en");
+    expect(requestLocale(undefined, "es;q=invalid,de;q=1")).toBe(defaultLocale);
+    expect(requestLocale(undefined, null)).toBe(defaultLocale);
   });
 });
 
 describe("message catalogs", () => {
   it("keeps all catalog keys aligned across locales", () => {
-    for (const get of catalogs) expect(keys(get("es"))).toEqual(keys(get("en")));
+    for (const get of catalogs) {
+      for (const locale of locales)
+        expect(keys(get(locale)), locale).toEqual(keys(get(defaultLocale)));
+    }
   });
 
   it("uses the same ICU arguments and rich-text tags in every locale", () => {
     for (const get of catalogs) {
-      const spanish = new Map(leaves(get("es")));
-      for (const [key, english] of leaves(get("en"))) {
-        expect(placeholders(spanish.get(key) ?? ""), key).toEqual(placeholders(english));
+      for (const locale of locales) {
+        const translated = new Map(leaves(get(locale)));
+        for (const [key, source] of leaves(get(defaultLocale))) {
+          expect(placeholders(translated.get(key) ?? ""), `${locale}: ${key}`).toEqual(
+            placeholders(source),
+          );
+        }
       }
     }
   });

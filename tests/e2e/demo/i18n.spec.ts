@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { demoLocalizationAcceptance } from "../../demo/i18n-scenarios";
+import { skipWithoutRoutingSwitch } from "../../i18n-scenarios";
 
 demoLocalizationAcceptance();
 
@@ -10,6 +11,8 @@ for (const locale of ["en", "es"] as const) {
       baseURL,
     }) => {
       if (!baseURL) throw new Error("Missing production URL");
+      // The hidden variant needs the visitor override cookie.
+      if (mode === "never") skipWithoutRoutingSwitch();
       const context = await browser.newContext({
         javaScriptEnabled: false,
         locale: locale === "en" ? "es-ES" : "en-US",

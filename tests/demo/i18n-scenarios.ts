@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { site } from "../../apps/web/src/site";
 import { waitForHydration } from "../hydration";
+import { skipWithoutRoutingSwitch } from "../i18n-scenarios";
 import { homeLinkName } from "../page-state";
 
 /** Task demo localization scenarios. The shared scenarios are in ../i18n-scenarios.ts. */
@@ -8,6 +9,7 @@ export function demoLocalizationAcceptance() {
   test("switches actual URL policies with keyboard controls and preserves document state", async ({
     page,
   }) => {
+    skipWithoutRoutingSwitch();
     await page.goto("/en/playground");
     await waitForHydration(page);
     const draft = `Keep this draft ${crypto.randomUUID()}`;
@@ -72,6 +74,7 @@ export function demoLocalizationAcceptance() {
   });
 
   test("persists hidden URLs until an explicit language link is opened", async ({ page }) => {
+    skipWithoutRoutingSwitch();
     await page.goto("/es");
     await page.getByRole("switch", { name: "Idioma en la URL", exact: true }).click();
     await expect(page).toHaveURL((url) => url.pathname === "/");
