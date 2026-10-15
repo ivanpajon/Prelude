@@ -11,8 +11,8 @@
   "scripts": {
     "customize": "node scripts/customize.mjs",
     "remove-demo": "node scripts/remove-demo.mjs",
-    "dev": "turbo run dev",
-    "dev:app": "turbo run dev -- --no-inspector",
+    "dev": "node scripts/dev-web.mjs",
+    "dev:app": "node scripts/dev-web.mjs --no-inspector",
     "mcp:check": "node scripts/mcp-check.mjs",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck && tsc --project tsconfig.tools.json",
