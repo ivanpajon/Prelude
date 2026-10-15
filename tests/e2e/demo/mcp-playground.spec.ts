@@ -1,14 +1,21 @@
 import { expect, type Page, test } from "@playwright/test";
+import { expectedToolNames } from "../../../apps/web/src/testing/mcp-tool-names";
 
 function playground(page: Page) {
   return page.getByRole("region", { name: "A little input. Real action.", exact: true });
 }
 
+/** All tool names the server should list, so features added next to the demo still pass. */
+async function toolNames(page: Page) {
+  return expectedToolNames(await (await page.request.get("/api/openapi.json")).json());
+}
+
 async function discover(page: Page) {
+  const count = (await toolNames(page)).length;
   const widget = playground(page);
   await widget.getByRole("button", { name: "Discover tools", exact: true }).click();
   await expect(widget.getByRole("group", { name: "MCP tools" })).toBeVisible();
-  await expect(widget.getByText("5 tools available.", { exact: false })).toBeVisible();
+  await expect(widget.getByText(`${count} tools available.`, { exact: false })).toBeVisible();
   return widget;
 }
 
@@ -16,23 +23,28 @@ test("discovers real tools, exposes schemas, and handles arguments and tool erro
   page,
 }) => {
   await page.goto("/playground");
+  const names = await toolNames(page);
+  expect(names).toEqual(
+    expect.arrayContaining([
+      "createTask",
+      "deleteTask",
+      "listTasks",
+      "setTaskCompleted",
+      "updateTaskTitle",
+    ]),
+  );
   const widget = playground(page);
   const discoverButton = widget.getByRole("button", { name: "Discover tools", exact: true });
   await discoverButton.focus();
   await page.keyboard.press("Enter");
   const tools = widget.getByRole("group", { name: "MCP tools" });
-  await expect(tools.getByRole("button")).toHaveCount(5);
-  expect((await tools.getByRole("button").allTextContents()).sort()).toEqual([
-    "createTask",
-    "deleteTask",
-    "listTasks",
-    "setTaskCompleted",
-    "updateTaskTitle",
-  ]);
-  await expect(tools.getByRole("button", { name: "listTasks", exact: true })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  await expect(tools.getByRole("button")).toHaveCount(names.length);
+  expect((await tools.getByRole("button").allTextContents()).sort()).toEqual(names);
+  // Another read-only tool may be selected first; choose listTasks with the keyboard.
+  const listTasks = tools.getByRole("button", { name: "listTasks", exact: true });
+  await listTasks.focus();
+  await page.keyboard.press("Enter");
+  await expect(listTasks).toHaveAttribute("aria-pressed", "true");
   const argumentsInput = widget.getByRole("textbox", { name: "Arguments JSON" });
   expect(["all", "active", "completed"]).toContain(
     JSON.parse(await argumentsInput.inputValue()).status,

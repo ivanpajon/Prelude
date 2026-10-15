@@ -24,14 +24,14 @@ The included task list connects the stack end to end. **It is public, shared, in
 
 ## Start locally
 
-You need Node.js **26.10.0 or later within 26.x** (`.node-version` records the baseline) and pnpm **12.6.0**, matching `packageManager`. Node 26 no longer includes Corepack, so install pnpm on its own, for example with `npm install --global pnpm@12.6.0` (see [pnpm installation](https://pnpm.io/installation)).
+You need Node.js **26.10.0 or later within 26.x** (`.node-version` names the version the project uses) and pnpm. Node 26 no longer includes Corepack, so install pnpm on its own, for example with `npm install --global pnpm` (see [pnpm installation](https://pnpm.io/installation)). Inside the project, pnpm then downloads and runs the version in `packageManager` in `package.json`.
 
 `create-next-app` makes the first Git commit with your Git identity. If `user.name` or `user.email` is not set, that commit fails and `create-next-app` quietly deletes the new `.git` folder: Husky then installs no hooks, and the repository commands that need Git, such as `pnpm customize`, fail. Set them first with `git config --global user.name "Your Name"` and `git config --global user.email "you@example.com"`.
 
 Create a new project from the public template:
 
 ```sh
-pnpm dlx create-next-app@16.4.0 my-app --example https://github.com/ivanpajon/Prelude --use-pnpm --skip-install --yes
+pnpm dlx create-next-app@16 my-app --example https://github.com/ivanpajon/Prelude --use-pnpm --skip-install --yes
 cd my-app
 pnpm install --frozen-lockfile
 pnpm dev
@@ -86,11 +86,7 @@ Run `pnpm exec playwright install chromium` once before the browser checks. On D
 
 ## Make it yours
 
-1. **Site identity.** Set the display name, slug, repository URL, header logo, and browser colors in `apps/web/src/site.ts`. They feed the metadata, manifest, API reference, offline page, MCP server name, the label of the header's home link, and the footer link (leave the URL unset to hide it). Tests read these values from `site.ts`. One translated text still contains the name: `Home.metaTitle` in `packages/i18n/src/messages/en/site.json` and `es/site.json`. Also replace the footer credit, `Common.footer` in `site.json` ("Made with ❤️ by Ivan Pajon"), and the install description, `Pwa.manifestDescription` in `pwa.json`. Change other metadata in `apps/web/src/app/[routingMode]/[locale]/layout.tsx` and other manifest fields in `apps/web/src/app/manifest.ts`.
-
-   <!-- demo:start -->
-   The demo's texts contain the name too: `Playground` in `site.json` and the MCP App texts in `widget.json`. `pnpm remove-demo` deletes them.
-   <!-- demo:end -->
+1. **Site identity.** Set the display name, slug, repository URL, header logo, and browser colors in `apps/web/src/site.ts`. They feed the metadata, manifest, API reference, offline page, MCP server name, the label of the header's home link, and the footer link (leave the URL unset to hide it). Tests read these values from `site.ts`, and translated texts with a `{name}` placeholder get the name from there too, so a new name does not break them. Two texts in `packages/i18n/src/messages/en/site.json` and `es/site.json` still describe the template: `Home.metaTitle`, which writes the name out, and `Home.metaDescription`, the description of every page. Write your own text for both. Also replace the footer credit, `Common.footer` in `site.json` ("Made with ❤️ by Ivan Pajon"), and the install description, `Pwa.manifestDescription` in `pwa.json`. Change other metadata in `apps/web/src/app/[routingMode]/[locale]/layout.tsx` and other manifest fields in `apps/web/src/app/manifest.ts`.
 
 2. **Package names.** Keep the private `@repo` scope, or rename it and the root package; preview with `--dry-run` first. See [customization](docs/customization.md).
 
@@ -107,17 +103,18 @@ Run `pnpm exec playwright install chromium` once before the browser checks. On D
    ```
 
 <!-- demo:end -->
-4. **Home page.** Replace `apps/web/src/app/[routingMode]/[locale]/page.tsx` and its `Home` messages freely; the infrastructure tests don't depend on its text. Keep `Home.metaTitle` and `Home.metaDescription`, which the layout uses for the site metadata, or change the layout too. Keep `<SiteHeader />`: the localization tests use its language selector and **Language in URL** switch, and the Docker development test edits it to check live reload. Keep one level-1 heading, which the tests look for. The animation previews are optional; [animation](docs/motion.md) explains how to remove them with their tests.
+4. **Home page.** Replace `apps/web/src/app/[routingMode]/[locale]/page.tsx` and its `Home` messages freely; the infrastructure tests don't depend on its text. Keep the `Home.metaTitle` and `Home.metaDescription` keys, which the layout uses for the site metadata, and write your own text in them (step 1), or change the layout too. Keep `<SiteHeader />`: the localization tests use its language selector and **Language in URL** switch, and the Docker development test edits it to check live reload. The switch tests skip themselves when `routingSettings.demoEnabled` is `false`, and the selector hides itself on a site with one language; see [localization](docs/i18n.md#use-one-language). The header's **Next.js docs** link (`Common.nextDocs` in `apps/web/src/components/site-header.tsx`) is a template link: change it or delete it. Keep one level-1 heading, which the tests look for. The animation previews are optional; [animation](docs/motion.md) explains how to remove them with their tests.
 5. **Branding assets.** Replace the icons in `apps/web/public/icons`, the web logo `apps/web/public/branding/logo.png` (its path and size are `logo` in `apps/web/src/site.ts`), and the README banner in `docs/assets`, and adjust the theme colors, radius, and fonts in `packages/ui/src/styles/theme.css`.
-6. **License.** Prelude uses the [MIT License](LICENSE). Set your own copyright holder there, or choose another license and update `license` in `package.json`.
-7. **Docs.** Rewrite this README for your project. Delete `docs/verification-history.md` and `docs/docker-measurements.md`, the template's own records, and the sentences that link to them; see [template history](docs/customization.md#template-history). In `docs/requirements.md`, delete the sentence that starts "Delivery is organized into local commits" under **Development workflow**: it describes how the template was built. Review `docs/skills.md`, a dated shortlist of agent skills: install the ones you want, then update or delete it.
+6. **License.** The template uses the [MIT License](LICENSE). Set your own copyright holder there, or choose another license and update `license` in `package.json`.
+7. **Docs.** Rewrite this README for your project. Delete `docs/verification-history.md` and `docs/docker-measurements.md`, the template's own records, and the sentences that link to them; see [template history](docs/customization.md#template-history). In `docs/requirements.md`, delete the sentence that starts "Delivery is organized into local commits" under **Development workflow**: it describes how the template was built. Review `docs/skills.md`, a dated shortlist of agent skills: install the ones you want, then update or delete it. Then search `docs/` for "Prelude" and replace it with your project's name.
 8. **CI branches.** Both workflows run on pushes only to `main` and `develop`. If your default branch has another name, add it to `on.push.branches` in `.github/workflows/ci.yml` and `.github/workflows/docker.yml`. Private repositories spend Actions minutes; see [continuous integration](docs/verification.md#continuous-integration).
 9. **Dependency updates.** Install the free Renovate GitHub App to receive the grouped update pull requests configured in `renovate.json`; see [dependency updates](docs/requirements.md#dependency-updates).
 
 Then build on the starter:
 
 - Add components with the pinned CLI, such as `pnpm --filter @repo/ui exec shadcn add dialog`, and import them from `@repo/ui/components/*`. Hooks that come with a component, such as `use-mobile` for `sidebar`, go to `@repo/ui/hooks/*`.
-- Set the API title and version in `apps/web/src/lib/api-info.ts`, and its tags and descriptions in `apps/web/src/lib/openapi.ts`; MCP tools follow the same operations.
+- Add a page in `apps/web/src/app/[routingMode]/[locale]/<name>/page.tsx`. Copy the shape of the home page `page.tsx` there: `<SiteHeader />`, then `<main id="main-content">` with one `h1` (the layout's skip link jumps to it), then `<SiteFooter />`. Export a `generateMetadata` with a translated title, such as `` `${t("metaTitle")} — ${site.name}` `` as in `not-found.tsx`; without it, the page keeps the site title from the layout. Put its texts in each catalog ([add and use messages](docs/i18n.md#add-and-use-messages)). For a header link, add it in `apps/web/src/components/site-header.tsx`, with its label under `Common` in each `site.json`. Add each new browser spec in `tests/e2e` to the `browserSpecs` list in `playwright.config.ts`, or it does not run.
+- Set the API title and version in `apps/web/src/lib/api-info.ts`. To describe the API and its groups, edit the `createOpenApi` call at the end of `apps/web/src/lib/openapi.ts`: add `description` inside `info`, and `tags: [{ name, description }]` next to `info`. Use the same tag names as the contracts' `.route({ tags })`, so each group in the Scalar reference gets its description. MCP tools follow the same operations.
 - Add origins to the Content Security Policy in `apps/web/next.config.ts` before loading scripts, images, or APIs from another host; see [security headers](docs/architecture.md#security-headers).
 - Import dates and times from `@repo/temporal` ([Temporal](docs/temporal.md)), and use the shared Motion provider for animations that honor reduced motion ([animation](docs/motion.md)).
 - Read [architecture](docs/architecture.md) for data access, state, and caching, and [requirements](docs/requirements.md) for the stack and deferred choices. [React diagnostics](docs/diagnostics.md) and [candidate skills](docs/skills.md) cover agent tooling.
@@ -128,7 +125,7 @@ Then build on the starter:
 Remove the demo first: its task list is public and lives in memory.
 
 <!-- demo:end -->
-Any host with Node.js 26.10.0 or later within 26.x and pnpm 12.6.0 can run the app; the install stops on an older Node.js. From the repository root:
+Any host with Node.js 26.10.0 or later within 26.x and pnpm can run the app; the install stops on an older Node.js. From the repository root:
 
 ```sh
 pnpm install --frozen-lockfile
@@ -136,7 +133,7 @@ pnpm build
 pnpm start --port 8080
 ```
 
-`pnpm start` uses port 3000 unless you pass `--port` or set `PORT`. The server checks its variables, listed in `apps/web/.env.example`, at startup and stops if one is invalid. To run in a container, use the production Docker image; see [deploying on a server](docs/docker.md#deploying-on-a-server). On platforms that build Next.js from a monorepo, set the app directory to `apps/web` and the Node version from `.node-version`.
+`pnpm start` uses port 3000 unless you pass `--port` or set `PORT`. The server checks its variables, listed in `apps/web/.env.example`, at startup and stops if one is invalid. To run in a container, use the production Docker image; see [deploying on a server](docs/docker.md#deploying-on-a-server), which also covers Railway and running several servers. On platforms that build Next.js from a monorepo, set the app directory to `apps/web` and the Node version from `.node-version`. A platform that does not offer Node.js 26 cannot build the project. As of October 2026, Vercel offers only Node.js 22 and 24, so use the Docker image or a host where you can choose the Node version.
 
 Serve the site over HTTPS: browsers install the service worker only on HTTPS origins and localhost. If your pages load anything from another host, add it to the Content Security Policy first, as described above.
 

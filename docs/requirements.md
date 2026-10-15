@@ -2,37 +2,43 @@
 
 ## Version policy
 
-Use compatible stable releases, with React 19.x, Next.js 16.x, and Tailwind 4.x. Direct dependencies are pinned and one pnpm lockfile is committed. Node 26.10.0+ within 26.x and pnpm 12.6.0 are the runtime/tooling baseline. Node types track 26.x. Upgrades must pass `pnpm verify` and a frozen-lockfile installation.
+Use compatible stable releases, with React 19.x, Next.js 16.x, and Tailwind 4.x. Direct dependencies are pinned and one pnpm lockfile is committed. The exact versions are in each `package.json`; this page names only the major lines, so it stays true after updates. Node 26 (the version in `.node-version`) and pnpm 12 (the version in `packageManager`) are the runtime/tooling baseline. Node types track 26.x. Upgrades must pass `pnpm verify` and a frozen-lockfile installation.
 
-TypeScript remains pinned to the verified 6.0.3 baseline; compiler upgrades are separate from linting changes. oRPC packages share stable version 1.15.4; follow the [v1 documentation](https://v1.orpc.dev/docs/getting-started), rather than mixing newer prerelease APIs into this implementation.
+TypeScript stays on 6.0.x; compiler upgrades are separate from linting changes. All oRPC packages share one stable 1.x version; follow the [v1 documentation](https://v1.orpc.dev/docs/getting-started), rather than mixing newer prerelease APIs into this implementation.
 
 ### Dependency updates
 
-`renovate.json` configures [Renovate](https://docs.renovatebot.com/). Install the free [Renovate GitHub App](https://github.com/apps/renovate) on your repository to enable it. Every Monday it opens one pull request for non-major npm updates, with separate groups for Next.js and React, oRPC, the MCP SDK, Serwist, and Vitest. Each major update gets its own pull request. Security fixes are labeled `security` and are not held for the schedule. It keeps exact versions, the SHA pins in `.github/workflows`, and the Dockerfile image digests. It also keeps TypeScript on 6.0.x and Node on 26.x. Node updates `.node-version`, `engines`, `@types/node`, and both Dockerfile images in one pull request, and pnpm updates `packageManager`, `engines.pnpm`, and the Dockerfile's pnpm version together. It also tracks the pinned Scalar renderer URL. Update the Docker Compose release that CI installs by hand, with its checksum. Once a month it refreshes the lockfile so indirect dependencies pick up patched releases.
+`renovate.json` configures [Renovate](https://docs.renovatebot.com/). Install the free [Renovate GitHub App](https://github.com/apps/renovate) on your repository to enable it. Every Monday it opens one pull request for non-major npm updates, with separate groups for Next.js and React, oRPC, the MCP SDK, Serwist, Vitest, and Biome. Biome has its own group because a Biome patch release can change a nursery lint rule, and a lint failure there should not hold back the other updates. Each major update gets its own pull request. Renovate waits 3 days after a release before it proposes it. Until then, the Dependency Dashboard lists the update under **Pending Status Checks**; this is normal, and the pull request opens on the next Monday after the wait. Security fixes are labeled `security`, skip the wait, and are not held for the schedule.
 
-Renovate is used instead of Dependabot because Dependabot cannot yet read pnpm 12 lockfiles. Either way, the CI **Audit** job checks production dependencies for known advisories on every run and once a week.
+It keeps exact versions, the SHA pins in `.github/workflows`, and the Dockerfile image digests. It also keeps TypeScript on 6.0.x and Node on 26.x. The Node pull request updates `@types/node` and both Dockerfile images together. It updates `.node-version` only once a Node line is LTS: Node 26 becomes LTS on 2026-10-28, so until then CI can test an older Node patch release than the images use. The Node range in `engines` stays as it is, because it still allows the new version. The pnpm pull request updates `packageManager`, `engines.pnpm`, and the Dockerfile's pnpm version together. Renovate also updates the Scalar renderer URL in `apps/web/src/lib/api-info.ts` and the schema URL in `biome.json`. Update the Docker Compose release that CI installs by hand, with its checksum. Once a month it refreshes the lockfile so indirect dependencies pick up patched releases.
 
-`pnpm-workspace.yaml` overrides the `browserslist` version that `@serwist/next` 9.5.12 pins, because that version has known advisories. The override stops applying when Serwist is updated.
+Almost every Renovate pull request changes a `package.json` or the lockfile, so it runs both CI workflows, and its merge runs both again. In a private repository, each of those runs costs about 46 billed minutes; see [continuous integration](verification.md#continuous-integration) for ways to use fewer.
+
+If CI stops at install with `ERR_PNPM_IGNORED_BUILDS`, an update added a package with an install script. On that branch, run `pnpm approve-builds`, or add the package to `allowBuilds` in `pnpm-workspace.yaml` with `true` or `false` and a one-line comment saying why. Then commit the change.
+
+Renovate is used instead of Dependabot because Dependabot cannot yet read pnpm 12 lockfiles. Either way, the CI **Audit** job checks production dependencies for known advisories on every run and once a week. See [continuous integration](verification.md#continuous-integration) for what to do when it fails.
+
+`pnpm-workspace.yaml` overrides the `browserslist` version that `@serwist/next` 9.5.12 pins, because that version has known advisories. Newer Serwist releases do not need it. In the Serwist update pull request, delete the override and this paragraph, and run `pnpm install` to refresh the lockfile.
 
 ## Stack
 
-- React 19.3.0, Next.js 16.4.0 App Router, Turbopack development/production builds, and Cache Components with Partial Prefetching.
-- shadcn 4.21.4 with Base UI 1.8.0, Tailwind 4.3.3 CSS-first tokens, and `cn` 0.4.0 for class composition.
-- Contract-first oRPC 1.15.4 with ArkType 2.2.5 inputs, outputs, and inferred TypeScript types.
-- Public REST access through the same procedures, automatic OpenAPI 3.1.1 at `/api/openapi.json`, and Scalar at `/api/docs`. Scalar's standalone renderer is pinned to `@scalar/api-reference@1.72.1` on jsDelivr; it is not an installed application dependency.
-- Native stateless Streamable HTTP MCP at `/api/mcp`, generated from OpenAPI using `mcp-from-openapi` 2.8.0 and MCP SDK server/client 2.2.0. Every API operation becomes a tool by default; `MCP_ENABLED=false` disables the endpoint.
-- MCP Inspector 2.10.1 as a root development tool, managed by `pnpm dev` and embedded at the development-only `/api/mcp/inspector` route. Inspector authentication remains enabled; no agent configuration is installed automatically.
+- React 19, Next.js 16 App Router, Turbopack development/production builds, and Cache Components with Partial Prefetching.
+- shadcn with Base UI, Tailwind 4 CSS-first tokens, and `cn` for class composition.
+- Contract-first oRPC 1.x with ArkType inputs, outputs, and inferred TypeScript types.
+- Public REST access through the same procedures, automatic OpenAPI 3.1.1 at `/api/openapi.json`, and Scalar at `/api/docs`. Scalar's standalone renderer loads from jsDelivr at the pinned URL in `apps/web/src/lib/api-info.ts`; it is not an installed application dependency.
+- Native stateless Streamable HTTP MCP at `/api/mcp`, generated from OpenAPI using `mcp-from-openapi` and the MCP SDK server and client. Every API operation becomes a tool by default; `MCP_ENABLED=false` disables the endpoint.
+- MCP Inspector as a root development tool, managed by `pnpm dev` and embedded at the development-only `/api/mcp/inspector` route. Inspector authentication remains enabled; no agent configuration is installed automatically.
 <!-- demo:start -->
 - A dedicated `/playground` with the task workbench, URL filters, local density state, and JSON MCP explorer. Discovery is on demand, arguments are editable, schemas are generated, and calls execute against the real endpoint. Same-origin Server Actions use a request-scoped SDK client in process; `MCP_ENABLED=false` disables these actions too. Successful calls refresh the workbench. The homepage retains Motion and Morphicons previews.
-- A removable task MCP App using official `ext-apps` 2.0.3 with SDK 2.2.0. The `listTasks` tool references a self-contained HTML resource; the widget uses the shared list/create/edit/complete/delete tool schemas and JSON outputs. Preview uses the local Inspector, with browser-reachable sandbox port `6275` by default; there is no custom website MCP Apps host.
-- Widget-only bundling with tsdown 0.23.0 and Tailwind CLI 4.3.3. Its generated HTML is traced into standalone output and restored by Turbo. Next.js retains Turbopack and its Tailwind PostCSS setup; Biome remains the sole linter/formatter.
+- A removable task MCP App using the official `ext-apps` package with the MCP SDK. The `listTasks` tool references a self-contained HTML resource; the widget uses the shared list/create/edit/complete/delete tool schemas and JSON outputs. Preview uses the local Inspector, with browser-reachable sandbox port `6275` by default; there is no custom website MCP Apps host.
+- Widget-only bundling with tsdown and Tailwind CLI. Its generated HTML is traced into standalone output and restored by Turbo. Next.js retains Turbopack and its Tailwind PostCSS setup; Biome remains the sole linter/formatter.
 <!-- demo:end -->
-- TanStack Query 5.103.2 for client server data, nuqs 2.10.1 for URL state, and Zustand 5.0.15 for shared local UI state.
-- next-intl 4.14.8 with shared `@repo/i18n` catalogs. English and Spanish cover the website and PWA. Explicit language URLs are the default; a visitor-specific **Language in URL** switch in the header demonstrates unprefixed URLs. Consumers can disable the demo and select either fixed policy. Both policies prerender localized documents without document-level Suspense. Explicit prefixes win over preferences; unprefixed entries use saved/browser language with English fallback. API identifiers, schemas, descriptions, JSON outputs, stored content, and third-party interfaces retain their original language.
+- TanStack Query for client server data, nuqs for URL state, and Zustand for shared local UI state.
+- next-intl with shared `@repo/i18n` catalogs. English and Spanish cover the website and PWA. Explicit language URLs are the default; a visitor-specific **Language in URL** switch in the header demonstrates unprefixed URLs. Consumers can disable the demo and select either fixed policy. Both policies prerender localized documents without document-level Suspense. Explicit prefixes win over preferences; unprefixed entries use saved/browser language with a fallback to the default locale (English in this template). API identifiers, schemas, descriptions, JSON outputs, stored content, and third-party interfaces retain their original language.
 <!-- demo:start -->
-- use-intl 4.14.8 translates the standalone MCP App into English and Spanish.
+- use-intl translates the standalone MCP App into English and Spanish.
 <!-- demo:end -->
-- Serwist 9.5.12 for installability, static assets, an offline fallback, and user-controlled updates through a responsive, dismissible Base UI toast using the existing UI dependency.
+- Serwist for installability, static assets, an offline fallback, and user-controlled updates through a responsive, dismissible Base UI toast using the existing UI dependency.
 - pnpm workspaces, Turborepo, and strict TypeScript.
 - Biome as the sole linter, formatter, and import organizer.
 - Husky pre-commit with lint-staged, preserving unstaged changes.
@@ -40,8 +46,8 @@ Renovate is used instead of Dependabot because Dependabot cannot yet read pnpm 1
 - Testing Library with jsdom for component tests, plus Vitest coverage and its local UI.
 - Commitlint CLI and conventional configuration for commit-message checks.
 - Standard Temporal API with a native-first, full-calendar polyfill fallback.
-- Motion 13.4.4 and Morphicons 1.7.1 with shared reduced-motion defaults; Lucide 1.48.0 icon data matches the React icon package.
-- React Doctor 0.9.14 for optional local React diagnostics and machine-readable reports; Biome remains the routine source linter.
+- Motion and Morphicons with shared reduced-motion defaults; Lucide icon data matches the React icon package.
+- React Doctor for optional local React diagnostics and machine-readable reports; Biome remains the routine source linter.
 
 ## Acceptance
 
@@ -59,7 +65,7 @@ Localization acceptance covers catalog parity and ICU counts; browser detection 
 
 ## Development workflow
 
-Biome owns linting, import organization, and formatting, with Tailwind CSS directive parsing enabled. Its opt-in `noTailwindArbitraryValue` rule rejects arbitrary values in application JSX/TSX, including `cn(...)`; generated shared UI components retain their required arbitrary values. This is a nursery rule in the pinned Biome release, so review its behavior during upgrades.
+Biome owns linting, import organization, and formatting, with Tailwind CSS directive parsing enabled. Its opt-in `noTailwindArbitraryValue` rule rejects arbitrary values in application JSX/TSX. The rule has no options in `biome.json`: Biome checks class strings in `cn(...)` calls by default. Generated shared UI components retain their required arbitrary values. This is a nursery rule, so review its behavior when Biome is updated; Biome updates come in their own Renovate pull request.
 
 <!-- demo:start -->
 tsdown's internal Rolldown/Oxc compilation does not add a separate Oxc tool or lint workflow. Tailwind CLI's internal Lightning CSS processing applies only to the standalone widget stylesheet. The main application's Tailwind PostCSS configuration is unchanged.

@@ -1,6 +1,6 @@
 # Remove the demo
 
-Prelude ships with a task demo: a shared in-memory task list, the `/playground` page with the task workbench and the MCP explorer, five task tools over REST and MCP, and the task MCP App. It shows the stack working end to end. When you start your own project, remove it in one step and keep the infrastructure.
+The template ships with a task demo: a shared in-memory task list, the `/playground` page with the task workbench and the MCP explorer, five task tools over REST and MCP, and the task MCP App. It shows the stack working end to end. When you start your own project, remove it in one step and keep the infrastructure.
 
 ## Steps
 

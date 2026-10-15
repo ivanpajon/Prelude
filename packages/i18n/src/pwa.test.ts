@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { locales } from "./index";
+import { getMessages } from "./messages";
 import { getPwaMessages } from "./pwa";
 
 describe("standalone PWA messages", () => {
-  it("delivers only the PWA namespace in either language", () => {
-    expect(Object.keys(getPwaMessages("en"))).toEqual(["Pwa"]);
-    expect(Object.keys(getPwaMessages("es"))).toEqual(["Pwa"]);
+  it("delivers only the website's PWA namespace in every language", () => {
+    for (const locale of locales) {
+      expect(Object.keys(getPwaMessages(locale))).toEqual(["Pwa"]);
+      expect(getPwaMessages(locale).Pwa, locale).toEqual(getMessages(locale).Pwa);
+    }
     expect(getPwaMessages("en").Pwa.offlineTitle).toBe("You’re offline.");
-    expect(getPwaMessages("es").Pwa.offlineTitle).toBe("No tienes conexión.");
-    expect(Object.keys(getPwaMessages("es").Pwa)).toEqual(Object.keys(getPwaMessages("en").Pwa));
   });
 });

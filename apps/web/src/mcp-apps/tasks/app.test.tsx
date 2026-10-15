@@ -1,8 +1,11 @@
 import { CallToolResultSchema } from "@modelcontextprotocol/core";
+import { defaultLocale } from "@repo/i18n";
+import { getWidgetMessages } from "@repo/i18n/widget";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { site } from "../../site";
 import { TaskApp, TaskAppView, WidgetIntlProvider, WidgetStartupError, widgetLocale } from "./app";
 import { TaskAppSession, type TaskAppTools, type ToolCaller } from "./model";
 
@@ -21,6 +24,9 @@ const tools = {
   updateTaskTitle: "updateTaskTitle",
   deleteTask: "deleteTask",
 };
+// The widget texts that contain the site name, as the catalogs and site.ts define them.
+const named = (locale: "en" | "es", key: "documentTitle" | "appLabel" | "eyebrow") =>
+  getWidgetMessages(locale).Widget[key].replace("{name}", site.name);
 const result = (value: unknown) => ({ structuredContent: value });
 const sessions: TaskAppSession[] = [];
 
@@ -49,7 +55,8 @@ afterEach(() => {
 
 it("renders host-seeded data accessibly without fetching again and hides excluded mutation controls", async () => {
   const { call } = fixture({ listTasks: "listTasks" });
-  expect(screen.getByRole("main", { name: "Prelude task app" })).toBeVisible();
+  expect(screen.getByRole("main", { name: named("en", "appLabel") })).toBeVisible();
+  expect(screen.getByText(named("en", "eyebrow"))).toBeVisible();
   expect(screen.getByRole("heading", { name: "Your tasks, right here." })).toBeVisible();
   expect(within(screen.getByRole("list", { name: "Tasks" })).getByText(task.title)).toBeVisible();
   expect(screen.getByRole("status")).toHaveTextContent("1 task in this view");
@@ -419,7 +426,7 @@ it("chooses a supported host language before browser preferences and falls back 
   expect(widgetLocale("invalid locale")).toBe("es");
   expect(widgetLocale()).toBe("es");
   vi.spyOn(navigator, "languages", "get").mockReturnValue(["fr-FR", "de-DE"]);
-  expect(widgetLocale("ja-JP")).toBe("en");
+  expect(widgetLocale("ja-JP")).toBe(defaultLocale);
 });
 
 it("localizes startup failures before connecting to a host", () => {
@@ -432,7 +439,7 @@ it("localizes startup failures before connecting to a host", () => {
     "La configuración de la aplicación de tareas no está disponible.",
   );
   expect(document.documentElement).toHaveAttribute("lang", "es");
-  expect(document.title).toBe("Tareas de Prelude");
+  expect(document.title).toBe(named("es", "documentTitle"));
 });
 
 it("changes host language without reconnecting, losing drafts, refetching, or resetting filters", async () => {
@@ -498,7 +505,10 @@ it("changes host language without reconnecting, losing drafts, refetching, or re
   expect(screen.getByRole("button", { name: "Active" })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByRole("status")).toHaveTextContent("1 task in this view");
   expect(document.documentElement).toHaveAttribute("lang", "en");
-  expect(document.title).toBe("Prelude Tasks");
+  expect(document.title).toBe(named("en", "documentTitle"));
+  expect(bridge.useApp.mock.calls[0]?.[0]).toMatchObject({
+    appInfo: { name: `${site.name} Tasks` },
+  });
   expect(host.request).not.toHaveBeenCalled();
   expect(connect).toHaveBeenCalledOnce();
   expect(dispose).not.toHaveBeenCalled();

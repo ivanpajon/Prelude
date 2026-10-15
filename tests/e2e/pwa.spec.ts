@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { ROUTING_DEMO_ENABLED } from "../../apps/web/src/i18n/routing-settings";
 import { site } from "../../apps/web/src/site";
 import { waitForHydration } from "../hydration";
 import { documentMark, homeLinkName, markDocument } from "../page-state";
@@ -37,28 +38,34 @@ test("localizes waiting updates and the precached fallback without network trans
       await expect(notice.getByText("Update available", { exact: true })).toBeVisible();
       await expect(notice).toHaveCount(1);
       await expect(notice).toHaveAttribute("data-toast-id", "pwa-update");
-      await page.evaluate(() => {
-        Reflect.set(window, "routingUpdateController", navigator.serviceWorker.controller);
-      });
-      // The notice covers the right side of the header, so toggle the switch with the keyboard.
-      await page.getByRole("switch", { name: "Language in URL", exact: true }).focus();
-      await page.keyboard.press("Space");
-      await expect(page).toHaveURL((url) => url.pathname === "/");
-      await expect(notice).toHaveCount(1);
-      await expect(notice.getByText("Update available", { exact: true })).toBeVisible();
-      expect(
-        await page.evaluate(
-          () =>
-            navigator.serviceWorker.controller === Reflect.get(window, "routingUpdateController"),
-        ),
-      ).toBe(true);
+      // routingSettings.demoEnabled: false removes the Language in URL switch, so its steps run
+      // only when the header shows it.
+      if (ROUTING_DEMO_ENABLED) {
+        await page.evaluate(() => {
+          Reflect.set(window, "routingUpdateController", navigator.serviceWorker.controller);
+        });
+        // The notice covers the right side of the header, so toggle the switch with the keyboard.
+        await page.getByRole("switch", { name: "Language in URL", exact: true }).focus();
+        await page.keyboard.press("Space");
+        await expect(page).toHaveURL((url) => url.pathname === "/");
+        await expect(notice).toHaveCount(1);
+        await expect(notice.getByText("Update available", { exact: true })).toBeVisible();
+        expect(
+          await page.evaluate(
+            () =>
+              navigator.serviceWorker.controller === Reflect.get(window, "routingUpdateController"),
+          ),
+        ).toBe(true);
+      }
       await page.getByRole("button", { name: "Dismiss notification", exact: true }).click();
       await page.getByRole("combobox", { name: "Language", exact: true }).selectOption("es");
       await expect(page.locator("html")).toHaveAttribute("lang", "es");
       await expect(notice).toHaveCount(0);
-      await page.getByRole("switch", { name: "Idioma en la URL", exact: true }).click();
-      await expect(page).toHaveURL((url) => url.pathname === "/es");
-      await expect(notice).toHaveCount(0);
+      if (ROUTING_DEMO_ENABLED) {
+        await page.getByRole("switch", { name: "Idioma en la URL", exact: true }).click();
+        await expect(page).toHaveURL((url) => url.pathname === "/es");
+        await expect(notice).toHaveCount(0);
+      }
       await context.setOffline(true);
       await page.goto("/not-available-offline");
       await expect(page.getByRole("heading", { level: 1 })).toHaveText("No tienes conexión.");

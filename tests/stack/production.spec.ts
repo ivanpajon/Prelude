@@ -1,6 +1,6 @@
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { expect, test } from "@playwright/test";
-import { apiInfo } from "../../apps/web/src/lib/api-info";
+import { apiInfo, scalarScriptUrl } from "../../apps/web/src/lib/api-info";
 import { expectedToolNames } from "../../apps/web/src/testing/mcp-tool-names";
 import { waitForHydration } from "../hydration";
 import { localizationAcceptance } from "../i18n-scenarios";
@@ -90,13 +90,11 @@ test("negotiates legacy MCP in the standalone runtime", async ({ baseURL, reques
 });
 
 test("renders the pinned Scalar reference", async ({ page }) => {
-  const script =
-    "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.72.1/dist/browser/standalone.js";
-  const renderer = page.waitForResponse(script);
+  const renderer = page.waitForResponse(scalarScriptUrl);
   await page.goto("/api/docs");
   expect((await renderer).ok()).toBe(true);
   await expect(page.getByRole("heading", { name: apiInfo.title, exact: true })).toBeVisible();
-  await expect(page.locator(`script[src="${script}"]`)).toHaveCount(1);
+  await expect(page.locator(`script[src="${scalarScriptUrl}"]`)).toHaveCount(1);
 });
 
 test("keeps API responses out of the PWA cache and serves its offline fallback", async ({

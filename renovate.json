@@ -26,14 +26,18 @@
     },
     {
       "customType": "regex",
-      "description": "Scalar's renderer loads from jsDelivr, so only its URL pins the version.",
-      "managerFilePatterns": [
-        "/^apps/web/src/lib/openapi[^/]*\\.ts$/",
-        "/^tests/.+\\.spec\\.ts$/",
-        "/^docs/(openapi|requirements)\\.md$/"
-      ],
+      "description": "Scalar's renderer loads from jsDelivr, so only its URL pins the version. The app and the tests import it from api-info.ts.",
+      "managerFilePatterns": ["/^apps/web/src/lib/api-info\\.ts$/"],
       "matchStrings": ["@scalar/api-reference@(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
       "depNameTemplate": "@scalar/api-reference",
+      "datasourceTemplate": "npm"
+    },
+    {
+      "customType": "regex",
+      "description": "biome.json names its schema by the Biome version.",
+      "managerFilePatterns": ["/^biome\\.json$/"],
+      "matchStrings": ["biomejs\\.dev/schemas/(?<currentValue>\\d+\\.\\d+\\.\\d+)/schema\\.json"],
+      "depNameTemplate": "@biomejs/biome",
       "datasourceTemplate": "npm"
     }
   ],
@@ -81,6 +85,11 @@
       "groupName": "Vitest"
     },
     {
+      "description": "Biome patch releases can change nursery rules, so a lint failure must not hold back other updates.",
+      "matchPackageNames": ["@biomejs/biome"],
+      "groupName": "Biome"
+    },
+    {
       "description": "TypeScript stays on 6.0.x; see docs/requirements.md (Version policy).",
       "matchPackageNames": ["typescript"],
       "matchUpdateTypes": ["minor", "major"],
@@ -92,7 +101,7 @@
       "allowedVersions": "/^26\\./"
     },
     {
-      "description": "Update the Node runtime together: .node-version, engines, @types/node, and both images.",
+      "description": "Update the Node runtime together: @types/node and both images. .node-version follows once the line is LTS, and the engines range stays; see docs/requirements.md.",
       "matchPackageNames": ["node", "@types/node", "gcr.io/distroless/nodejs26-debian13"],
       "groupName": "Node.js"
     },

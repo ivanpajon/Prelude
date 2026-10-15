@@ -43,6 +43,12 @@ const expectedTaskAnnotations = {
     openWorldHint: false,
   },
 };
+const taskToolNames = Object.keys(expectedTaskAnnotations);
+
+/** Keep only the task tools, so procedures added next to the demo do not fail these tests. */
+function taskTools<T extends { name: string }>(tools: readonly T[]) {
+  return tools.filter((tool) => taskToolNames.includes(tool.name));
+}
 
 afterEach(async () => {
   for (const client of clients.splice(0)) await client.close();
@@ -105,11 +111,14 @@ describe("generated task MCP catalog", () => {
     const catalog = await generateMcpCatalog(spec);
 
     // Require explicit contract hints, independent of the generator's HTTP-method defaults.
-    const operations = Object.values(spec.paths ?? {}).flatMap((path) =>
-      [path?.get, path?.post, path?.patch, path?.delete].filter(
-        (operation) => operation !== undefined,
-      ),
-    );
+    // Only the task paths count; other features may sit next to the demo.
+    const operations = Object.entries(spec.paths ?? {})
+      .filter(([path]) => path === "/v1/tasks" || path.startsWith("/v1/tasks/"))
+      .flatMap(([, path]) =>
+        [path?.get, path?.post, path?.patch, path?.delete].filter(
+          (operation) => operation !== undefined,
+        ),
+      );
     expect(
       Object.fromEntries(
         operations.map((operation) => [
@@ -125,17 +134,9 @@ describe("generated task MCP catalog", () => {
         ]),
       ),
     );
-    expect(Object.fromEntries(catalog.map((tool) => [tool.name, tool.annotations]))).toEqual(
-      expectedTaskAnnotations,
-    );
-
-    expect(catalog.map((tool) => tool.name).sort()).toEqual([
-      "createTask",
-      "deleteTask",
-      "listTasks",
-      "setTaskCompleted",
-      "updateTaskTitle",
-    ]);
+    expect(
+      Object.fromEntries(taskTools(catalog).map((tool) => [tool.name, tool.annotations])),
+    ).toEqual(expectedTaskAnnotations);
     expect(catalog.find((tool) => tool.name === "listTasks")).toMatchObject({
       inputSchema: { type: "object", required: ["status"] },
       outputSchema: { type: "array" },
@@ -205,16 +206,9 @@ describe.each(["modern", "legacy"] as const)("MCP %s task tools", (era) => {
     const client = await connect(handler, era);
     expect(client.getServerVersion()?.name).toBe(site.slug);
     const { tools } = await client.listTools();
-    expect(Object.fromEntries(tools.map((tool) => [tool.name, tool.annotations]))).toEqual(
-      expectedTaskAnnotations,
-    );
-    expect(tools.map((tool) => tool.name).sort()).toEqual([
-      "createTask",
-      "deleteTask",
-      "listTasks",
-      "setTaskCompleted",
-      "updateTaskTitle",
-    ]);
+    expect(
+      Object.fromEntries(taskTools(tools).map((tool) => [tool.name, tool.annotations])),
+    ).toEqual(expectedTaskAnnotations);
     expect(tools.find((tool) => tool.name === "listTasks")?.outputSchema).toMatchObject(
       era === "modern"
         ? { type: "array" }
@@ -390,7 +384,7 @@ describe.each(["modern", "legacy"] as const)("MCP %s App resources", (era) => {
       era,
     );
     const { tools } = await client.listTools();
-    expect(tools).toHaveLength(5);
+    expect(tools.map((tool) => tool.name)).toEqual(expect.arrayContaining(taskToolNames));
     expect(tools.find((tool) => tool.name === "listTasks")).toMatchObject({
       _meta: {
         ui: { resourceUri: mcpAppResourceUri },
@@ -403,6 +397,7 @@ describe.each(["modern", "legacy"] as const)("MCP %s App resources", (era) => {
     const { resources } = await client.listResources();
     expect(resources).toHaveLength(1);
     expect(resources[0]).toMatchObject({
+      name: `${site.name} task workspace`,
       uri: mcpAppResourceUri,
       mimeType: "text/html;profile=mcp-app",
     });

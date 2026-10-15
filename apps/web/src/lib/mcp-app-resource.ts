@@ -11,6 +11,7 @@ import {
 import { INTERNAL_ERROR, type McpServer, ProtocolError } from "@modelcontextprotocol/server";
 import type { McpOpenAPITool } from "mcp-from-openapi";
 import type { TaskAppTools } from "@/mcp-apps/tasks/model";
+import { site } from "@/site";
 import type { McpToolCallback, McpToolConfig } from "./mcp";
 
 export const mcpAppResourceUri = "ui://prelude/tasks.html";
@@ -83,7 +84,7 @@ export function registerTaskAppResource(
   };
   registerAppResource(
     server,
-    "Prelude task workspace",
+    `${site.name} task workspace`,
     mcpAppResourceUri,
     { description: "Create, edit, filter, complete, and delete tasks in an MCP App.", _meta: meta },
     async () => {

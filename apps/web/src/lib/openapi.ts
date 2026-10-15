@@ -15,7 +15,7 @@ import { BodyLimitPlugin } from "@orpc/server/fetch";
 import { router } from "@repo/api";
 import type { Type } from "arktype";
 import { logUnexpectedApiError, logUnexpectedHandlerErrors } from "./api-errors";
-import { apiInfo } from "./api-info";
+import { apiInfo, scalarScriptUrl } from "./api-info";
 import { plainRequest } from "./plain-request";
 
 /** oRPC 1.15.4's converter does not select the input/output side of ArkType morphs. */
@@ -101,9 +101,7 @@ export function createOpenApi<TRouter extends AnyRouter>(
         specPath: "/openapi.json",
         docsProvider: "scalar",
         docsTitle: `${apiInfo.title} Reference`,
-        // Pin the renderer separately: the oRPC package version does not pin this CDN asset.
-        docsScriptUrl:
-          "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.72.1/dist/browser/standalone.js",
+        docsScriptUrl: scalarScriptUrl,
         docsConfig: {
           withDefaultFonts: false,
           telemetry: false,

@@ -1,13 +1,26 @@
 import { expect, test } from "@playwright/test";
+import { ROUTING_DEMO_ENABLED } from "../apps/web/src/i18n/routing-settings";
 import { site } from "../apps/web/src/site";
 import { waitForHydration } from "./hydration";
 import { documentMark, homeLinkName, markDocument } from "./page-state";
+
+/**
+ * Skips a test that uses the header's "Language in URL" switch or the visitor override cookie.
+ * `routingSettings.demoEnabled: false` removes both, so there is nothing to test.
+ */
+export function skipWithoutRoutingSwitch() {
+  test.skip(
+    !ROUTING_DEMO_ENABLED,
+    "routingSettings.demoEnabled is false: no Language in URL switch and no visitor override",
+  );
+}
 
 /** Localization scenarios that need only the home page and the shared layout. */
 export function localizationAcceptance() {
   test("switches actual URL policies with keyboard controls and preserves document state", async ({
     page,
   }) => {
+    skipWithoutRoutingSwitch();
     await page.goto("/en");
     const mode = page.getByRole("switch", { name: "Language in URL", exact: true });
     // The switch is enabled after hydration, once the router no longer rewrites the URL.
@@ -52,6 +65,7 @@ export function localizationAcceptance() {
   });
 
   test("persists hidden URLs until an explicit language URL is opened", async ({ page }) => {
+    skipWithoutRoutingSwitch();
     await page.goto("/es");
     await page.getByRole("switch", { name: "Idioma en la URL", exact: true }).click();
     await expect(page).toHaveURL((url) => url.pathname === "/");

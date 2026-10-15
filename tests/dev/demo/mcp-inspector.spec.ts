@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { site } from "../../../apps/web/src/site";
+import { expectedToolNames } from "../../../apps/web/src/testing/mcp-tool-names";
 import { waitForHydration } from "../../hydration";
 
 test("embedded Inspector discovers generated tools and performs real CRUD against the shared API", async ({
@@ -36,9 +37,14 @@ test("embedded Inspector discovers generated tools and performs real CRUD agains
   // Mantine's decorative switch track overlays its input; use the native keyboard action.
   await connection.press("Space");
   await expect(connection).toBeChecked();
+  // Count every tool the server lists, so features added next to the demo still pass.
+  const names = await expectedToolNames(await (await request.get("/api/openapi.json")).json());
   await inspector.getByText("Tools", { exact: true }).click();
   const tools = inspector.getByTestId("tools-screen");
-  await expect(tools).toHaveAttribute("data-tool-count", "5");
+  await expect(tools).toHaveAttribute("data-tool-count", String(names.length));
+  // Match the exact name, so a user tool such as `listTasksByOwner` does not also match.
+  const toolButton = (name: string) =>
+    tools.getByRole("button").filter({ has: inspector.getByText(name, { exact: true }) });
   for (const name of [
     "listTasks",
     "createTask",
@@ -46,11 +52,11 @@ test("embedded Inspector discovers generated tools and performs real CRUD agains
     "deleteTask",
     "updateTaskTitle",
   ]) {
-    await expect(tools.getByRole("button", { name: new RegExp(name) })).toBeVisible();
+    await expect(toolButton(name)).toBeVisible();
   }
 
   let title = `Inspector ${crypto.randomUUID()}`;
-  await tools.getByRole("button", { name: /createTask/ }).click();
+  await toolButton("createTask").click();
   await tools.getByRole("textbox", { name: /^title/ }).fill(`  ${title}  `);
   await tools.getByRole("button", { name: "Execute Tool", exact: true }).click();
   await expect(tools).toHaveAttribute("data-call-status", "ok");
@@ -61,7 +67,7 @@ test("embedded Inspector discovers generated tools and performs real CRUD agains
   expect(created).toMatchObject({ id: expect.any(String), title, completed: false });
 
   await tools.getByRole("button", { name: "Close results", exact: true }).click();
-  await tools.getByRole("button", { name: /updateTaskTitle/ }).click();
+  await toolButton("updateTaskTitle").click();
   await tools.getByRole("textbox", { name: /^id/ }).fill(created.id);
   title = `Edited ${title}`;
   await tools.getByRole("textbox", { name: /^title/ }).fill(`  ${title}  `);
@@ -71,7 +77,7 @@ test("embedded Inspector discovers generated tools and performs real CRUD agains
   created.title = title;
 
   await tools.getByRole("button", { name: "Close results", exact: true }).click();
-  await tools.getByRole("button", { name: /setTaskCompleted/ }).click();
+  await toolButton("setTaskCompleted").click();
   await tools.getByRole("textbox", { name: /^id/ }).fill(created.id);
   await tools.getByRole("checkbox", { name: /^completed/ }).check();
   await tools.getByRole("button", { name: "Execute Tool", exact: true }).click();
@@ -79,7 +85,7 @@ test("embedded Inspector discovers generated tools and performs real CRUD agains
   await expect(tools).toContainText(title);
 
   await tools.getByRole("button", { name: "Close results", exact: true }).click();
-  await tools.getByRole("button", { name: /listTasks/ }).click();
+  await toolButton("listTasks").click();
   // The generated enum has no redundant type keyword, so Inspector uses its JSON editor.
   const status = tools.getByRole("textbox", { name: /^status/ });
   await status.press("ControlOrMeta+A");
@@ -92,7 +98,7 @@ test("embedded Inspector discovers generated tools and performs real CRUD agains
   const completed = await request.get("/api/v1/tasks?status=completed");
   expect(await completed.json()).toEqual(expect.arrayContaining([{ ...created, completed: true }]));
   await tools.getByRole("button", { name: "Close results", exact: true }).click();
-  await tools.getByRole("button", { name: /deleteTask/ }).click();
+  await toolButton("deleteTask").click();
   await tools.getByRole("textbox", { name: /^id/ }).fill(created.id);
   await tools.getByRole("button", { name: "Execute Tool", exact: true }).click();
   await expect(tools).toHaveAttribute("data-call-status", "ok");

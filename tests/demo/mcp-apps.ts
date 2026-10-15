@@ -24,7 +24,11 @@ export async function expectTaskAppResource(client: Client) {
   const { resources } = await client.listResources();
   expect(resources).toEqual(
     expect.arrayContaining([
-      expect.objectContaining({ uri: resourceUri, mimeType: "text/html;profile=mcp-app" }),
+      expect.objectContaining({
+        name: `${site.name} task workspace`,
+        uri: resourceUri,
+        mimeType: "text/html;profile=mcp-app",
+      }),
     ]),
   );
   const { contents } = await client.readResource({ uri: resourceUri });
@@ -36,7 +40,8 @@ export async function expectTaskAppResource(client: Client) {
     _meta: { ui: { csp: { connectDomains: [], resourceDomains: [], frameDomains: [] } } },
   });
   if (!resource || !("text" in resource)) throw new Error("Expected self-contained MCP App HTML");
-  expect(resource.text).toContain("Your tasks, right here.");
+  const { heading } = catalog<ReturnType<typeof getWidgetMessages>["Widget"]>("en", "widget");
+  expect(resource.text).toContain(heading);
   expect(resource.text).toContain("prelude-mcp-app-config");
   expect(resource.text).not.toContain("<!--PRELUDE_MCP_APP_CONFIG-->");
   expect(resource.text).not.toMatch(/<script\b[^>]*\bsrc\s*=/i);
@@ -121,7 +126,7 @@ export async function exerciseTaskApp({
   await expect(tasks).toHaveAttribute("aria-busy", "false");
   await expect(widget.getByRole("heading", { name: copy.heading })).toBeVisible();
   await expect(widget.locator("html")).toHaveAttribute("lang", locale);
-  await expect(widget.locator("title")).toHaveText(copy.documentTitle);
+  await expect(widget.locator("title")).toHaveText(copy.documentTitle.replace("{name}", site.name));
   await expect(widget.locator("script[src], link[rel=stylesheet]")).toHaveCount(0);
   const policies = await widget
     .locator('meta[http-equiv="Content-Security-Policy"]')

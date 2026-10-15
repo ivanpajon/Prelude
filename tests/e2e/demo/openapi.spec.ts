@@ -1,8 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { apiInfo } from "../../../apps/web/src/lib/api-info";
-
-const scalarScript =
-  "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.72.1/dist/browser/standalone.js";
+import { apiInfo, scalarScriptUrl as scalarScript } from "../../../apps/web/src/lib/api-info";
 
 test("searches task operations in the pinned Scalar reference on a narrow screen", async ({
   page,

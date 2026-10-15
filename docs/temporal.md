@@ -10,7 +10,7 @@ const instant = Temporal.Instant.from("2026-09-25T12:00:00Z");
 const madridTime = instant.toZonedDateTimeISO("Europe/Madrid");
 ```
 
-The package re-exports `temporal-polyfill/full` 1.0.5. Its local entry uses the runtime's native `Temporal` when available and supplies the polyfill otherwise, without modifying `globalThis`, `Date`, or `Intl`. The full entry retains the standard non-ISO calendar systems. Node 26 supplies native Temporal; the fallback covers browsers without it. No experimental Node flags or global TypeScript declarations are needed for these imports. See the [polyfill entrypoint documentation](https://github.com/fullcalendar/temporal-polyfill/blob/main/polyfill/README.md#package-entrypoints).
+The package re-exports `temporal-polyfill/full`. Its local entry uses the runtime's native `Temporal` when available and supplies the polyfill otherwise, without modifying `globalThis`, `Date`, or `Intl`. The full entry retains the standard non-ISO calendar systems. Node 26 supplies native Temporal; the fallback covers browsers without it. No experimental Node flags or global TypeScript declarations are needed for these imports. See the [polyfill entrypoint documentation](https://github.com/fullcalendar/temporal-polyfill/blob/main/polyfill/README.md#package-entrypoints).
 
 This is a synchronous import: fallback code is bundled when a client module imports this package, even if that browser eventually selects native Temporal. Keep date logic on the server when appropriate. Native detection happens once when the module loads. Once every supported runtime has native Temporal, the shared boundary gives you one place to remove the fallback.
 

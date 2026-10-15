@@ -1,9 +1,12 @@
-import { LOCALE_COOKIE } from "@repo/i18n";
+import { defaultLocale, LOCALE_COOKIE, locales } from "@repo/i18n";
+import { getPwaMessages } from "@repo/i18n/pwa";
 import { render, screen } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { site } from "@/site";
 import { OfflineContent } from "./offline-content";
+
+const fallback = getPwaMessages(defaultLocale).Pwa;
 
 beforeEach(() => {
   vi.spyOn(document, "cookie", "get").mockReturnValue("");
@@ -16,11 +19,13 @@ afterEach(() => {
 });
 
 describe("static offline fallback", () => {
-  it("renders readable English without browser state or JavaScript", () => {
+  it("renders the default language without browser state or JavaScript", () => {
     const document = renderToString(<OfflineContent />);
-    expect(document).toContain("You’re offline.");
+    expect(document).toContain(fallback.offlineTitle);
     expect(document).toContain('href="/"');
-    expect(document).not.toContain("No tienes conexión.");
+    for (const locale of locales.filter((locale) => locale !== defaultLocale)) {
+      expect(document).not.toContain(getPwaMessages(locale).Pwa.offlineTitle);
+    }
   });
 
   it("uses a saved language before browser preferences and updates document metadata", () => {
@@ -40,12 +45,12 @@ describe("static offline fallback", () => {
     expect(screen.getByRole("heading", { name: "No tienes conexión." })).toBeVisible();
   });
 
-  it("falls back to English for unsupported browser languages", () => {
+  it("falls back to the default language for unsupported browser languages", () => {
     vi.spyOn(navigator, "languages", "get").mockReturnValue(["fr-FR"]);
     render(<OfflineContent />);
-    expect(screen.getByRole("heading", { name: "You’re offline." })).toBeVisible();
-    expect(document.documentElement.lang).toBe("en");
-    expect(document.title).toBe(`You’re offline — ${site.name}`);
+    expect(screen.getByRole("heading", { name: fallback.offlineTitle })).toBeVisible();
+    expect(document.documentElement.lang).toBe(defaultLocale);
+    expect(document.title).toBe(`${fallback.offlineDocumentTitle} — ${site.name}`);
   });
 
   it("still matches browser language when cookie access is blocked", () => {

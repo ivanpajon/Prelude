@@ -46,13 +46,16 @@ for (const mode of ["modern", "legacy"] as const) {
       await client.connect(transport);
       await expectTaskAppResource(client);
       const { tools } = await client.listTools();
-      expect(tools.map((tool) => tool.name).sort()).toEqual([
-        "createTask",
-        "deleteTask",
-        "listTasks",
-        "setTaskCompleted",
-        "updateTaskTitle",
-      ]);
+      // Other features may add tools next to the demo; check only the task tools here.
+      expect(tools.map((tool) => tool.name)).toEqual(
+        expect.arrayContaining([
+          "createTask",
+          "deleteTask",
+          "listTasks",
+          "setTaskCompleted",
+          "updateTaskTitle",
+        ]),
+      );
       const listTool = tools.find((tool) => tool.name === "listTasks");
       expect(listTool).toMatchObject({
         inputSchema: {

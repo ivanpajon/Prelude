@@ -1,6 +1,6 @@
 # Docker workflows
 
-Prelude provides a production Compose stack by default and a separate development stack using Compose Watch. The production image contains Next.js standalone output, static assets, the generated Serwist worker, and the dependencies needed at runtime. Development retains the tools needed for Turbopack and the MCP Inspector.
+This template provides a production Compose stack by default and a separate development stack using Compose Watch. The production image contains Next.js standalone output, static assets, the generated Serwist worker, and the dependencies needed at runtime. Development retains the tools needed for Turbopack and the MCP Inspector.
 
 Docker adds no database or persistence layer.
 
@@ -10,7 +10,7 @@ The task repository remains shared, process-local demo data. Rebuilding or resta
 
 ## Prerequisites and commands
 
-Use a current Docker Desktop with Linux containers, or Docker Engine with BuildKit and the Compose plugin **5.5.1 or later**. The development stack's `initial_sync` watch option fails validation before Compose 2.39.4 and skips files older than the image before 5.5.1. The Dockerfile uses the current stable Dockerfile frontend, including `COPY --parents`. Start the Docker engine before running these commands. The `pnpm` shortcuts use the project's pinned pnpm **12.6.0**; the images install their own dependencies with Node **26.10.0**. A host dependency installation is not needed just to start a stack.
+Use a current Docker Desktop with Linux containers, or Docker Engine with BuildKit and the Compose plugin **5.5.1 or later**. The development stack's `initial_sync` watch option fails validation before Compose 2.39.4 and skips files older than the image before 5.5.1. The Dockerfile uses the current stable Dockerfile frontend, including `COPY --parents`. Start the Docker engine before running these commands. The `pnpm` shortcuts use the pnpm version pinned in `packageManager`; the images install their own dependencies with the Node 26 release pinned in the `Dockerfile`. A host dependency installation is not needed just to start a stack.
 
 From the repository root:
 
@@ -45,7 +45,7 @@ Both stacks use the same localization policy as native workflows: explicit `/en`
 
 The healthcheck requests `/api/health` with Node's built-in HTTP client. The endpoint answers `{"status":"ok"}` per request with `Cache-Control: no-store`, reads no data, and is not part of the API contract (no OpenAPI operation or MCP tool). It is a liveness check, not a database or external-service check; extend the route if your project needs readiness checks. The development healthcheck uses the same endpoint, plus the Inspector and its sandbox.
 
-The production runtime uses the official **Distroless Node 26 Debian 13 nonroot** image, pinned by digest. It has no shell or package manager. The builder and development stages use **Node 26.10.0 on Debian 13 slim**, keeping the Node version, architecture, and libc family aligned. The runtime starts the generated `apps/web/server.js` directly as a nonroot user.
+The production runtime uses the official **Distroless Node 26 Debian 13 nonroot** image, pinned by digest. It has no shell or package manager. The builder and development stages use the **Node 26 Debian 13 slim** image, pinned by version and digest, keeping the Node version, architecture, and libc family aligned. The runtime starts the generated `apps/web/server.js` directly as a nonroot user.
 
 The image includes the complete traced standalone directory, `.next/static`, and `public`. The build compiles Next.js and then runs Serwist before copying the finished public assets; copying public before Serwist would omit the generated worker. Native dependencies and internationalization support are preserved. Runtime cache directories remain writable by the application user.
 
@@ -118,15 +118,15 @@ Future `NEXT_PUBLIC_*` variables are embedded into browser code during the Next.
 Compose normally names a project after its directory. Neither file fixes that name, so the two shortcut commands select the same Compose project in one checkout. Each mode still builds its own image: `<project>-web` for production and `<project>-web-dev` for development. Stop that stack before switching modes, or give each mode a separate project name to run both:
 
 ```sh
-docker compose --project-name prelude-prod up --build --detach --wait
-docker compose --project-name prelude-dev -f compose.dev.yaml up --build --watch
+docker compose --project-name my-app-prod up --build --detach --wait
+docker compose --project-name my-app-dev -f compose.dev.yaml up --build --watch
 ```
 
 Use the same project name and file for subsequent commands:
 
 ```sh
-docker compose --project-name prelude-prod down
-docker compose --project-name prelude-dev -f compose.dev.yaml down
+docker compose --project-name my-app-prod down
+docker compose --project-name my-app-dev -f compose.dev.yaml down
 ```
 
 For multiple checkouts, choose unique host ports as well as project names. Set `COMPOSE_PROJECT_NAME` in each checkout's optional root `.env`, or supply `--project-name` explicitly. Two development stacks need different `DEV_PORT`, `MCP_INSPECTOR_PORT`, and `MCP_SANDBOX_PORT` values. Production uses port `3000` internally; change `PROD_PORT` to select its host port.
@@ -142,6 +142,10 @@ docker compose --env-file .env.second --project-name second-dev -f compose.dev.y
 The default production binding is appropriate for local use and a reverse proxy running on the same host. Set `PROD_HOST=0.0.0.0` only when the deployment needs the port reachable through other interfaces. Configure the server's network access and HTTPS ingress for the intended audience.
 
 Use HTTPS for a deployed PWA; browsers permit the local loopback exception during development. Preserve the public request Host when forwarding to Next.js so same-origin Server Actions can verify it, and preserve streaming responses. TLS termination, public DNS, authentication, persistence, and deployment-provider configuration remain the operator's choices. Send `Strict-Transport-Security` from the HTTPS proxy; the app sends its other [security headers](architecture.md#security-headers) itself.
+
+If several servers each run their own build, their Server Action IDs differ, so a page served by one server cannot call the actions of another ("Failed to find Server Action"). Run one image on all of them, or give every build the same `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` (a base64 key of 16, 24, or 32 bytes). For rolling deployments, also set `deploymentId` in `apps/web/next.config.ts` (or `NEXT_DEPLOYMENT_ID` during the build), so Next.js reloads a page that came from another build. See the Next.js [self-hosting guide](https://nextjs.org/docs/app/guides/self-hosting#multi-server-deployments).
+
+Railway's [Dockerfile guide](https://docs.railway.com/builds/dockerfiles) supports cache mounts only with IDs in the form `s/<service id>-<target path>`, and says IDs cannot use variables. The `Dockerfile`'s two cache mount IDs do not match it, so the build fails on Railway. Remove the two `--mount=type=cache` options there, or change each `id` to that form.
 
 REST, RPC, and MCP have no authentication: every procedure, including mutations, is public. Set `MCP_ENABLED=false` if MCP should be hidden; this does not disable the other transports. Add application authorization before serving private data.
 

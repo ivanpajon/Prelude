@@ -4,12 +4,20 @@ import {
   StreamableHTTPClientTransport,
 } from "@modelcontextprotocol/client";
 import { expect, test } from "@playwright/test";
-import { apiInfo } from "../../../apps/web/src/lib/api-info";
+import { apiInfo, scalarScriptUrl } from "../../../apps/web/src/lib/api-info";
 import { demoLocalizationAcceptance } from "../../demo/i18n-scenarios";
 import { expectTaskAppResource } from "../../demo/mcp-apps";
 import { containerNode } from "../owned-context";
 
 demoLocalizationAcceptance();
+
+const taskToolNames = [
+  "createTask",
+  "deleteTask",
+  "listTasks",
+  "setTaskCompleted",
+  "updateTaskTitle",
+];
 
 function toolText(result: CallToolResult): unknown {
   expect(result.isError).not.toBe(true);
@@ -45,13 +53,10 @@ test("serves the playground, REST, MCP tools, and the task App resource", async 
   try {
     await client.connect(new StreamableHTTPClientTransport(new URL("/api/mcp", baseURL)));
     await expectTaskAppResource(client);
-    expect((await client.listTools()).tools.map((tool) => tool.name).sort()).toEqual([
-      "createTask",
-      "deleteTask",
-      "listTasks",
-      "setTaskCompleted",
-      "updateTaskTitle",
-    ]);
+    // Other features may add tools next to the demo; check only the task tools here.
+    expect((await client.listTools()).tools.map((tool) => tool.name)).toEqual(
+      expect.arrayContaining(taskToolNames),
+    );
     const title = `Container ${crypto.randomUUID()}`;
     const created = await client.callTool({ name: "createTask", arguments: { title } });
     expect(created.isError).not.toBe(true);
@@ -149,13 +154,7 @@ test("negotiates legacy MCP and executes every generated tool in the standalone 
     await client.connect(transport);
     await expectTaskAppResource(client);
     const { tools } = await client.listTools();
-    expect(tools.map((tool) => tool.name).sort()).toEqual([
-      "createTask",
-      "deleteTask",
-      "listTasks",
-      "setTaskCompleted",
-      "updateTaskTitle",
-    ]);
+    expect(tools.map((tool) => tool.name)).toEqual(expect.arrayContaining(taskToolNames));
     expect(tools.find((tool) => tool.name === "listTasks")?.outputSchema).toMatchObject({
       type: "object",
       properties: { result: { type: "array" } },
@@ -200,13 +199,11 @@ test("negotiates legacy MCP and executes every generated tool in the standalone 
 });
 
 test("executes a same-origin task read in the pinned Scalar reference", async ({ page }) => {
-  const script =
-    "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.72.1/dist/browser/standalone.js";
-  const renderer = page.waitForResponse(script);
+  const renderer = page.waitForResponse(scalarScriptUrl);
   await page.goto("/api/docs");
   expect((await renderer).ok()).toBe(true);
   await expect(page.getByRole("heading", { name: apiInfo.title, exact: true })).toBeVisible();
-  await expect(page.locator(`script[src="${script}"]`)).toHaveCount(1);
+  await expect(page.locator(`script[src="${scalarScriptUrl}"]`)).toHaveCount(1);
   await page.getByRole("button", { name: "Test Request (get /v1/tasks)", exact: true }).click();
   const client = page.getByRole("dialog", { name: "API Client", exact: true });
   const origin = new URL(page.url()).origin;

@@ -1,6 +1,6 @@
 # MCP Apps
 
-Prelude publishes a removable task widget using the official **`@modelcontextprotocol/ext-apps` 2.0.3** package and MCP SDK **2.2.0**. A compatible MCP client can render it when calling `listTasks`. All five task tools use the same input schemas, JSON results, and OpenAPI contracts as the other transports; the widget adds a presentation layer, not another API.
+The app publishes a removable task widget using the official **`@modelcontextprotocol/ext-apps`** package and the MCP SDK. A compatible MCP client can render it when calling `listTasks`. All five task tools use the same input schemas, JSON results, and OpenAPI contracts as the other transports; the widget adds a presentation layer, not another API.
 
 The website and the MCP App have different roles:
 
@@ -12,7 +12,7 @@ The website and the MCP App have different roles:
 
 ## Preview in Inspector
 
-Run `pnpm dev`, open `/playground`, and choose **Open Inspector**. The managed launcher builds the widget before starting Next.js and Inspector. Enable the Inspector's connection to the predefined Prelude server, open **Apps**, select **List tasks** (`listTasks`), fill the required `status` argument, and choose **Open App**. Status accepts `all`, `active`, or `completed`; in its JSON editor include the quotes, for example `"all"`.
+Run `pnpm dev`, open `/playground`, and choose **Open Inspector**. The managed launcher builds the widget before starting Next.js and Inspector. Enable the Inspector's connection to the predefined server for the app, open **Apps**, select **List tasks** (`listTasks`), fill the required `status` argument, and choose **Open App**. Status accepts `all`, `active`, or `completed`; in its JSON editor include the quotes, for example `"all"`.
 
 The widget receives the originating tool input and result from the host. It displays that result without immediately fetching it again. Its filters and Refresh action call `listTasks`; creating, editing titles, completing, and deleting tasks call `createTask`, `updateTaskTitle`, `setTaskCompleted`, and `deleteTask`, then refresh the selected filter. Errors and cancellation remain visible for retry. Refresh another open browser page or client to see changes made outside it.
 
@@ -24,9 +24,9 @@ Inspector's **Tools** interface and the website's JSON explorer remain available
 
 Widget source and shared UI edits trigger a rebuild during development. An already-open iframe contains the previous HTML; close and reopen the preview, or rerun the associated tool in a new preview, to read the rebuilt resource. The widget has no separate HMR client or background polling. A failed rebuild retains the previous complete asset and reports the error in the development terminal.
 
-The widget includes English and Spanish catalogs and selects a supported host-context locale, then browser language, then English. Host language changes update its presentation without resetting drafts, filters, or connection/query state. Task titles and protocol data retain their original content. Shared translation edits also rebuild the resource; reopen the preview to load them. See [localization](i18n.md#mcp-app-language) for fallback and adding languages.
+The widget includes English and Spanish catalogs and selects a supported host-context locale, then browser language, then the default locale (English in this template). Host language changes update its presentation without resetting drafts, filters, or connection/query state. Task titles and protocol data retain their original content. Shared translation edits also rebuild the resource; reopen the preview to load them. See [localization](i18n.md#mcp-app-language) for fallback and adding languages.
 
-Inspector is local development tooling. `/api/mcp/inspector` and its nested paths return 404 in production. Production users connect their own compatible client to the deployed HTTPS `/api/mcp` endpoint; Prelude does not embed a production MCP Apps host or configure users' agents automatically.
+Inspector is local development tooling. `/api/mcp/inspector` and its nested paths return 404 in production. Production users connect their own compatible client to the deployed HTTPS `/api/mcp` endpoint; the app does not embed a production MCP Apps host or configure users' agents automatically.
 
 ## Ports and Docker
 
@@ -66,7 +66,7 @@ JSON is escaped before insertion into the HTML. Renaming a tool through the gene
 
 Modern MCP clients receive a list as a natural JSON array. Legacy clients receive `{ "result": [...] }` in structured content, while their text content contains the original array. The widget accepts both, uses text JSON only when structured content is absent, and validates the display shape before rendering. It distinguishes a tool's `isError` response from transport failures. Task objects retain their normal shape through both protocol versions.
 
-With ext-apps 2.0.3, the Apps handshake does not negotiate the host's MCP protocol version. Its `callServerTool` convenience method consequently selects a legacy validator that rejects natural arrays. The small `callHostTool` helper uses the public `App.request` overload with SDK 2.2.0's `CallToolResultSchema`, which validates both shapes without changing protocol versions or server results. It retains SDK cancellation and progress handling; real in-memory handshake tests cover both shapes and malformed results.
+With ext-apps 2.0.3, the version this note was written for, the Apps handshake does not negotiate the host's MCP protocol version. Its `callServerTool` convenience method consequently selects a legacy validator that rejects natural arrays. The small `callHostTool` helper uses the public `App.request` overload with the SDK's `CallToolResultSchema`, which validates both shapes without changing protocol versions or server results. It retains SDK cancellation and progress handling; real in-memory handshake tests cover both shapes and malformed results. Recheck this note, and whether the helper is still needed, after ext-apps upgrades.
 
 ## Widget boundaries
 
@@ -92,7 +92,7 @@ pnpm test:cache
 
 `pnpm build` runs `scripts/build-mcp-apps.mjs` before Next.js and runs Serwist afterward. The script produces one self-contained file at `apps/web/.generated/mcp-apps/tasks.html`. It is ignored by Git and kept outside `public`, so it is served only as an MCP resource.
 
-The script uses **tsdown 0.23.0** for a fully bundled browser IIFE and **Tailwind CLI 4.3.3** for the widget CSS. tsdown's internal Rolldown/Oxc compilation is a build implementation detail; no separate Oxc linter or source workflow is configured. Biome remains the sole source linter and formatter. Tailwind CLI's internal Lightning CSS processing applies to the widget build only; Next.js continues to use its existing Tailwind PostCSS configuration.
+The script uses **tsdown** for a fully bundled browser IIFE and **Tailwind CLI** for the widget CSS. tsdown's internal Rolldown/Oxc compilation is a build implementation detail; no separate Oxc linter or source workflow is configured. Biome remains the sole source linter and formatter. Tailwind CLI's internal Lightning CSS processing applies to the widget build only; Next.js continues to use its existing Tailwind PostCSS configuration.
 
 For an isolated asset build from the repository root:
 
@@ -124,4 +124,4 @@ To remove just the widget:
 
 Run `pnpm verify` and, when Docker configuration remains, `pnpm test:stack` after changing these boundaries. The [verification guide](verification.md) describes the acceptance commands; generated reports are not committed as source.
 
-References: [official MCP Apps](https://modelcontextprotocol.io/docs/extensions/apps), [pinned server helpers](https://github.com/modelcontextprotocol/ext-apps/blob/v2.0.3/src/server/index.ts), and [MCP Apps SDK](https://github.com/modelcontextprotocol/ext-apps/tree/v2.0.3).
+References: [official MCP Apps](https://modelcontextprotocol.io/docs/extensions/apps), [server helpers](https://github.com/modelcontextprotocol/ext-apps/blob/main/src/server/index.ts), and [MCP Apps SDK](https://github.com/modelcontextprotocol/ext-apps).

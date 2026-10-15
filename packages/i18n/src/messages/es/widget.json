@@ -1,7 +1,7 @@
 {
-  "documentTitle": "Tareas de Prelude",
-  "appLabel": "Aplicación de tareas de Prelude",
-  "eyebrow": "Prelude · MCP App",
+  "documentTitle": "Tareas de {name}",
+  "appLabel": "Aplicación de tareas de {name}",
+  "eyebrow": "{name} · MCP App",
   "heading": "Tus tareas, aquí mismo.",
   "description": "La misma lista compartida, a través de tu conexión MCP.",
   "refresh": "Actualizar",
