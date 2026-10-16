@@ -23,9 +23,11 @@ describe("static offline fallback", () => {
     const document = renderToString(<OfflineContent />);
     expect(document).toContain(fallback.offlineTitle);
     expect(document).toContain('href="/"');
-    for (const locale of locales.filter((locale) => locale !== defaultLocale)) {
-      expect(document).not.toContain(getPwaMessages(locale).Pwa.offlineTitle);
-    }
+    // Compare titles, not locale codes: a new catalog may still share the default's text.
+    const otherTitles = locales
+      .map((locale) => getPwaMessages(locale).Pwa.offlineTitle)
+      .filter((title) => title !== fallback.offlineTitle);
+    for (const title of otherTitles) expect(document).not.toContain(title);
   });
 
   it("uses a saved language before browser preferences and updates document metadata", () => {
