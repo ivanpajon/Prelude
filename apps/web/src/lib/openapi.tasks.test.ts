@@ -11,7 +11,7 @@ import {
 import type { ApiClient, Task } from "@repo/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { POST as rpcPost } from "../app/api/rpc/[[...rest]]/route";
-import { apiInfo, scalarScriptUrl } from "./api-info";
+import { apiInfo, scalarScriptIntegrity, scalarScriptUrl } from "./api-info";
 import { generateOpenApiSpec, handleOpenApiRequest } from "./openapi";
 
 // Route handlers receive a Proxy like this one; `new Request(proxy)` cannot read its fields.
@@ -215,7 +215,10 @@ describe("task demo HTTP adapter", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     const html = await response.text();
     expect(html).toContain(`<title>${apiInfo.title} Reference</title>`);
-    expect(html).toContain(`src="${scalarScriptUrl}"`);
+    expect(html).toContain('<html lang="en">');
+    expect(html).toContain(
+      `<script src="${scalarScriptUrl}" integrity="${scalarScriptIntegrity}" crossorigin="anonymous">`,
+    );
     expect(html).toContain('"withDefaultFonts":false');
     expect(html).toContain('"telemetry":false');
     expect(html).toContain('"agent":{"disabled":true}');

@@ -104,7 +104,12 @@ export function createMcpPlayground({
           const protocolHeaders = new Headers(headers);
           for (const [name, value] of request.headers) protocolHeaders.set(name, value);
           return handleMcpRequest(
-            new Request(request, { headers: protocolHeaders }),
+            // Follow the SDK's signal directly, so a timeout always aborts the endpoint call.
+            // A copy that follows only `request` stops following once `request` is collected.
+            new Request(request, {
+              headers: protocolHeaders,
+              signal: init?.signal ?? request.signal,
+            }),
             (nativeRequest) => endpoint.fetch(nativeRequest),
             environment(),
           );

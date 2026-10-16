@@ -1,5 +1,10 @@
+import { createHash } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import { apiInfo, scalarScriptUrl as scalarScript } from "../../../apps/web/src/lib/api-info";
+import {
+  apiInfo,
+  scalarScriptUrl as scalarScript,
+  scalarScriptIntegrity,
+} from "../../../apps/web/src/lib/api-info";
 
 test("searches task operations in the pinned Scalar reference on a narrow screen", async ({
   page,
@@ -22,7 +27,16 @@ test("searches task operations in the pinned Scalar reference on a narrow screen
   await page.setViewportSize({ width: 320, height: 800 });
   const renderer = page.waitForResponse(scalarScript);
   await page.goto("/api/docs");
-  expect((await renderer).ok()).toBe(true);
+  const script = await renderer;
+  expect(script.ok()).toBe(true);
+  // Renovate bumps the version but not the hash; a stale hash makes the browser block the script.
+  const hash = createHash("sha384")
+    .update(await script.body())
+    .digest("base64");
+  expect(
+    `sha384-${hash}`,
+    "Update scalarScriptIntegrity in apps/web/src/lib/api-info.ts for this Scalar version",
+  ).toBe(scalarScriptIntegrity);
   await expect(page.getByRole("heading", { name: apiInfo.title, exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Open Menu", exact: true }).click();

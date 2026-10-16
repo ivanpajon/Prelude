@@ -37,18 +37,25 @@ export function localizationAcceptance() {
     await page.keyboard.press("Space");
     await expect(page).toHaveURL(/\/\?preview=1#main-content$/);
     await expect(mode).not.toBeChecked();
+    // The new route mounts the header again; focus stays on the control that made the change.
+    await expect(mode).toBeFocused();
     await expect(page.getByRole("link", { name: homeLinkName.en, exact: true })).toHaveAttribute(
       "href",
       "/",
     );
-    await page.getByRole("combobox", { name: "Language", exact: true }).selectOption("es");
+    const language = page.getByRole("combobox", { name: "Language", exact: true });
+    await language.focus();
+    await language.selectOption("es");
     await expect(page.locator("html")).toHaveAttribute("lang", "es");
     await expect(page).toHaveURL(/\/\?preview=1#main-content$/);
+    await expect(page.getByRole("combobox", { name: "Idioma", exact: true })).toBeFocused();
     const spanishMode = page.getByRole("switch", { name: "Idioma en la URL", exact: true });
-    await spanishMode.focus();
+    await page.keyboard.press("Tab");
+    await expect(spanishMode).toBeFocused();
     await page.keyboard.press("Space");
     await expect(page).toHaveURL(/\/es\?preview=1#main-content$/);
     await expect(spanishMode).toBeChecked();
+    await expect(spanishMode).toBeFocused();
     expect(await page.evaluate(() => Reflect.get(window, "routingDocumentId"))).toBe(documentId);
     await expect(page.getByRole("link", { name: homeLinkName.es, exact: true })).toHaveAttribute(
       "href",
@@ -107,9 +114,13 @@ export function localizationAcceptance() {
     await waitForHydration(page);
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
     const english = await markDocument(page);
-    await page.getByRole("combobox", { name: "Language", exact: true }).selectOption("es");
+    const language = page.getByRole("combobox", { name: "Language", exact: true });
+    await language.focus();
+    await language.selectOption("es");
     await expect(page.locator("html")).toHaveAttribute("lang", "es");
     await expect(page).toHaveURL(/\/es\?probe=1#main-content$/);
+    // The new locale segment mounts the header again; focus stays on the language select.
+    await expect(page.getByRole("combobox", { name: "Idioma", exact: true })).toBeFocused();
     await expect(page).toHaveTitle(spanishTitle);
     await expect(
       page

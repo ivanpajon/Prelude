@@ -27,7 +27,7 @@
     },
     {
       "customType": "regex",
-      "description": "Scalar's renderer loads from jsDelivr, so only its URL pins the version. The app and the tests import it from api-info.ts.",
+      "description": "Scalar's renderer loads from jsDelivr, so only its URL pins the version. The app and the tests import it from api-info.ts. Renovate cannot update scalarScriptIntegrity next to it; see the Scalar package rule.",
       "managerFilePatterns": ["/^apps/web/src/lib/api-info\\.ts$/"],
       "matchStrings": ["@scalar/api-reference@(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
       "depNameTemplate": "@scalar/api-reference",
@@ -84,6 +84,13 @@
       "matchUpdateTypes": ["minor", "patch"],
       "matchPackageNames": ["vitest", "@vitest/**"],
       "groupName": "Vitest"
+    },
+    {
+      "description": "The integrity hash of Scalar's script must change with its version, and Renovate cannot compute it.",
+      "matchPackageNames": ["@scalar/api-reference"],
+      "prBodyNotes": [
+        "**Before merging**, set `scalarScriptIntegrity` in `apps/web/src/lib/api-info.ts` to the output of this command, or the browser blocks the new script:\n\n```sh\nnode -e \"fetch(process.argv[1]).then((r) => r.arrayBuffer()).then((b) => console.log('sha384-' + require('crypto').createHash('sha384').update(Buffer.from(b)).digest('base64')))\" https://cdn.jsdelivr.net/npm/@scalar/api-reference@{{{newVersion}}}/dist/browser/standalone.js\n```"
+      ]
     },
     {
       "description": "Biome patch releases can change nursery rules, so a lint failure must not hold back other updates.",

@@ -99,6 +99,24 @@ describe("routing preference controls", () => {
     expect(mocks.replace).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["always", "/en/about", "replace"],
+    ["never", "/about", "refresh"],
+  ] as const)(
+    "keeps focus on the language select when the %s route mounts the header again",
+    async (mode, start, navigation) => {
+      window.history.replaceState(null, "", start);
+      const user = userEvent.setup();
+      const { rerender } = render(<Controls key="en" mode={mode} />);
+      screen.getByRole("combobox", { name: "Language" }).focus();
+      await user.selectOptions(screen.getByRole("combobox", { name: "Language" }), "es");
+      await waitFor(() => expect(mocks[navigation]).toHaveBeenCalledTimes(1));
+      // The new locale segment remounts the layout, as the router does after the change.
+      rerender(<Controls key="es" mode={mode} locale="es" />);
+      expect(screen.getByRole("combobox", { name: "Idioma" })).toHaveFocus();
+    },
+  );
+
   it("shows an error and stays on the page when a language change fails", async () => {
     mocks.save.mockRejectedValueOnce(new Error("Network failure"));
     const location = stubPageLoads();
@@ -208,6 +226,16 @@ describe.skipIf(!ROUTING_DEMO_ENABLED)(
       );
       expect(mocks.save).toHaveBeenCalledWith({ locale: "es", mode: "never" });
       expect(mocks.refresh).not.toHaveBeenCalled();
+    });
+
+    it("keeps focus on the switch when the new route mounts the header again", async () => {
+      const user = userEvent.setup();
+      const { rerender } = render(<Controls key="always" />);
+      screen.getByRole("switch", { name: "Language in URL" }).focus();
+      await user.keyboard(" ");
+      await waitFor(() => expect(mocks.replace).toHaveBeenCalledTimes(1));
+      rerender(<Controls key="never" mode="never" />);
+      expect(screen.getByRole("switch", { name: "Language in URL" })).toHaveFocus();
     });
 
     it("adds the current locale prefix and preserves URL state", async () => {

@@ -6,6 +6,7 @@ import { useLocale } from "next-intl";
 import {
   createContext,
   type ReactNode,
+  useCallback,
   useContext,
   useEffect,
   useEffectEvent,
@@ -27,12 +28,20 @@ const subscribeToReadiness = () => () => {};
 const getClientSnapshot = () => true;
 const getServerSnapshot = () => false;
 
+type PreferenceKind = "locale" | "mode";
+
+/**
+ * A change replaces the route segments around the header, so the control that made it unmounts
+ * and focus falls to <body>. This remembers that control until its new copy mounts.
+ */
+let focusAfterChange: { control: PreferenceKind; from: Element } | null = null;
+
 type PreferenceControl = {
   locale: Locale;
   mode: RoutingMode;
   disabled: boolean;
   pending: boolean;
-  failure: "locale" | "mode" | null;
+  failure: PreferenceKind | null;
   changeLocale: (locale: Locale) => void;
   changeMode: (mode: RoutingMode) => void;
 };
@@ -63,6 +72,8 @@ export function RoutingPreferenceProvider({
     }
     submitting.current = true;
     setFailure(null);
+    const control = selectedMode === mode ? "locale" : "mode";
+    const focused = document.activeElement;
     // Read query/hash at interaction time, keeping the document statically renderable.
     const current = new URL(window.location.href);
     const pathname =
@@ -77,6 +88,7 @@ export function RoutingPreferenceProvider({
         destination.search = current.search;
         destination.hash = current.hash;
         await setLocalePreferences({ locale: selectedLocale, mode: selectedMode });
+        if (focused && focused !== document.body) focusAfterChange = { control, from: focused };
         if (selectedMode === mode && selectedMode === "never") {
           router.refresh();
         } else {
@@ -100,7 +112,7 @@ export function RoutingPreferenceProvider({
           window.location.reload();
           return;
         }
-        setFailure(selectedMode === mode ? "locale" : "mode");
+        setFailure(control);
       } finally {
         submitting.current = false;
       }
@@ -151,4 +163,22 @@ export function useRoutingPreference(): PreferenceControl {
   const hydrated = useSyncExternalStore(subscribeToReadiness, getClientSnapshot, getServerSnapshot);
   if (!preference) throw new Error("Locale controls require RoutingPreferenceProvider");
   return { ...preference, disabled: preference.pending || !hydrated };
+}
+
+/**
+ * A ref for the control of one preference. When the route that a change opened mounts the
+ * control again, it takes focus back, unless focus has moved on since the change started.
+ */
+export function useFocusAfterChange(control: PreferenceKind) {
+  return useCallback(
+    (element: HTMLElement | null) => {
+      if (!element || focusAfterChange?.control !== control) return;
+      const { from } = focusAfterChange;
+      focusAfterChange = null;
+      if (document.activeElement === from || document.activeElement === document.body) {
+        element.focus();
+      }
+    },
+    [control],
+  );
 }

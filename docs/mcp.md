@@ -100,7 +100,7 @@ Stdio serving, prompts, a general resource framework, filesystem tools, authenti
 The task widget is the only supplied MCP resource. Update its identity together with the server metadata when customizing the demo.
 <!-- demo:end -->
 
-Modern clients negotiate protocol `2026-07-28`; legacy clients can use the earlier initialize handshake. The SDK preserves natural JSON output for modern clients. For a list result, legacy clients receive structured content as `{ "result": [...] }` with a matching output schema; the text content still contains the original JSON array. Object results retain their natural shape. Application errors set the MCP tool result's `isError` flag, while malformed protocol requests and unknown tools use protocol errors. Unexpected server failures return a generic error without repository details or stack traces.
+Modern clients negotiate protocol `2026-07-28`; legacy clients can use the earlier initialize handshake. The SDK preserves natural JSON output for modern clients. For a list result, legacy clients receive structured content as `{ "result": [...] }` with a matching output schema; the text content still contains the original JSON array. Object results retain their natural shape. Application errors set the MCP tool result's `isError` flag, while malformed protocol requests and unknown tools use protocol errors. Unexpected server failures return a generic error without repository details or stack traces, and the server logs them with the stack. A request that its own client aborted, after a timeout or a disconnect, is not a server failure and is not logged.
 
 ## Add, change, or remove tools
 

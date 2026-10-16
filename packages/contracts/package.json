@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@orpc/contract": "1.15.4",
+    "@orpc/contract": "1.15.6",
     "arktype": "2.2.5"
   },
   "devDependencies": {

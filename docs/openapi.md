@@ -9,7 +9,7 @@ The same oRPC procedures serve the browser over RPC, direct Server Component cal
 | `GET /api/docs` | Public, interactive Scalar reference; linked from the shared header and homepage. |
 | `GET /api/openapi.json` | Generated specification, titled with the site name from `apps/web/src/site.ts` followed by **API**, version **1.0.0**. Both values are set in `apps/web/src/lib/api-info.ts`. |
 
-Each procedure adds its own endpoint under `/api`. Invalid inputs return 400; invalid procedure outputs return 500. REST and RPC request bodies larger than 64 KB are rejected with 413 before parsing. Path parameters belong only in the URL: on any route with a path parameter, such as `{id}`, and oRPC's default compact input, repeating that key in the query or body returns 400, even when the values match. This includes bracket keys such as `id[0]`. On those routes, a malformed body also returns 400 before any mutation. This guard in `createOpenApi` (`apps/web/src/lib/openapi.ts`) stops oRPC's compact input merge from replacing the path value. Routes with `inputStructure: "detailed"` keep path parameters and the query apart, so the guard skips them.
+Each procedure adds its own endpoint under `/api`. Invalid inputs return 400; invalid procedure outputs return 500. REST and RPC request bodies larger than 64 KB are rejected with 413 before parsing. Path parameters belong only in the URL: on any route with a path parameter, such as `{id}`, and oRPC's default compact input, repeating that key in the query or body returns 400, even when the values match. This includes bracket keys such as `id[0]`. On those routes, a malformed body also returns 400 before any mutation. oRPC's compact input merges path parameters with the query or body, and since oRPC 1.15.5 the value from the URL wins. The guard in `createOpenApi` (`apps/web/src/lib/openapi.ts`) also rejects the request, so a repeated key is never dropped silently. Routes with `inputStructure: "detailed"` keep path parameters and the query apart, so the guard skips them.
 
 <!-- demo:start -->
 The task demo adds these endpoints:
@@ -37,7 +37,7 @@ The browser workbench now lives at `/playground#tasks`. The separate [MCP App](m
 
 For a small, complete example, see `apps/web/src/testing/fixture-api.ts`. It holds a contract and its implementation in one file, with a query input, a JSON body, a path parameter, a custom success status, and a typed error. The tests use it, so copy from it rather than change it, and split the copy into `@repo/contracts` and `@repo/api`. After `pnpm remove-demo`, the larger task demo is still in Git history.
 
-1. Define browser-safe ArkType schemas and an `oc` contract in `@repo/contracts`. Add `.route({ method, path, operationId, tags, summary, description })`, stable unique operation IDs, declared errors, and the appropriate success status. Paths are relative to `/api`, such as `/v1/projects`; the generated document uses `/api` as its server URL.
+1. Define browser-safe ArkType schemas and an `oc` contract in `@repo/contracts`. Add `.route({ method, path, operationId, tags, summary, description })`, stable unique operation IDs, declared errors, and the appropriate success status. Paths are relative to `/api`, such as `/v1/projects`; the generated document uses `/api` as its server URL. REST and MCP send query and path values as strings, so a number or boolean input there must parse the string, such as `type("string.integer.parse").to("1 <= number <= 50")`.
 2. Add examples with a `.route({ spec: operation => ... })` callback that preserves generated schemas. Do not replace the operation with a hand-written schema that can drift from runtime validation.
 3. Implement the contract in `@repo/api`, using request context for data access and shared mutation invalidation. Adding the implementation to the router exposes it through RPC, REST, and generated MCP tools; no separate business logic is needed for each transport.
 4. Export any newly needed HTTP verb from `apps/web/src/app/api/[...rest]/route.ts` (currently GET, POST, PATCH, and DELETE). The REST adapter already rejects a query or body key that repeats a path parameter, so new routes need no guard of their own.
@@ -52,9 +52,11 @@ For a small, complete example, see `apps/web/src/testing/fixture-api.ts`. It hol
    });
    ```
 
-The converter in the web package adapts oRPC's ArkType integration, as written for oRPC 1.15.4; recheck it after oRPC upgrades. Input schemas use `.in`, and response schemas use `.out`. For a trimmed string, the input JSON Schema describes a string while the output describes the normalized length bounds; endpoint descriptions explain the additional normalization rules. Arbitrary refinements that ArkType cannot represent, and defined non-ArkType schemas, fail generation instead of silently producing an empty schema. Procedures with no input or output schema remain supported.
+The converter in the web package adapts oRPC's ArkType integration, as written for oRPC 1.15.6; recheck it after oRPC upgrades. Input schemas use `.in`, and response schemas use `.out`. For a trimmed string, the input JSON Schema describes a string while the output describes the normalized length bounds; endpoint descriptions explain the additional normalization rules. Arbitrary refinements that ArkType cannot represent, and defined non-ArkType schemas, fail generation instead of silently producing an empty schema. Procedures with no input or output schema remain supported.
 
 All oRPC packages are pinned to the same 1.x version (see `apps/web/package.json`). Use the matching [stable OpenAPI guide](https://v1.orpc.dev/docs/openapi/openapi-specification) and [reference-plugin documentation](https://v1.orpc.dev/docs/openapi/plugins/openapi-reference) when extending or upgrading the integration.
+
+A schema with a morph, such as `string.trim`, makes ArkType deep-clone the whole input before it validates. A deeply nested extra key can then overflow the stack and return a 500. Build such schemas from a scope that turns cloning off, as the fixture does: `const $ = scope({}, { clone: false })`, then `$.type(...)`. The schema then changes its input in place, so pass a copy when you validate an object that you still use.
 
 ## Call a procedure from the app
 
@@ -111,9 +113,15 @@ To render the first data on the server and reuse it after hydration, fill `getSe
 
 ## Scalar renderer and caching
 
-`scalarScriptUrl` in `apps/web/src/lib/api-info.ts` pins Scalar's standalone browser bundle on jsDelivr by an exact `@scalar/api-reference` version. `createOpenApi` passes it to the reference plugin as `docsScriptUrl`.
+`scalarScriptUrl` in `apps/web/src/lib/api-info.ts` pins Scalar's standalone browser bundle on jsDelivr by an exact `@scalar/api-reference` version. `createOpenApi` passes it to the reference plugin as `docsScriptUrl`. `scalarScriptIntegrity` next to it holds the file's Subresource Integrity hash. `createOpenApi` adds it to the script tag with `crossorigin="anonymous"`, so the browser blocks the script if jsDelivr ever serves a different file. It also adds `lang="en"` to the page.
 
-There is no local `@scalar/api-reference` dependency, bundle-copy script, or generated Scalar asset. Loading the interactive reference requires access to jsDelivr; the JSON specification and REST API do not depend on that CDN. Upgrading oRPC does not change the renderer version. Renovate updates the version in `scalarScriptUrl`. To upgrade Scalar by hand, change the version there and run `pnpm verify`; the unit and browser tests import the URL, so they need no edits. Follow Scalar's [renderer-pinning guidance](https://scalar.com/products/api-references/integrations/nextjs#pin-the-browser-renderer).
+There is no local `@scalar/api-reference` dependency, bundle-copy script, or generated Scalar asset. Loading the interactive reference requires access to jsDelivr; the JSON specification and REST API do not depend on that CDN. Upgrading oRPC does not change the renderer version. Renovate updates the version in `scalarScriptUrl`, but not the hash: its pull request shows the command to run, and the browser tests fail until you update `scalarScriptIntegrity`. To upgrade Scalar by hand, change the version, set the hash to the output of this command, and run `pnpm verify`. Replace `SCALAR_SCRIPT_URL` with the new value of `scalarScriptUrl`; the command works in Bash, PowerShell, and Command Prompt:
+
+```sh
+node -e "fetch(process.argv[1]).then((r) => r.arrayBuffer()).then((b) => console.log('sha384-' + require('crypto').createHash('sha384').update(Buffer.from(b)).digest('base64')))" SCALAR_SCRIPT_URL
+```
+
+The unit and browser tests import the URL and the hash, so they need no edits. Follow Scalar's [renderer-pinning guidance](https://scalar.com/products/api-references/integrations/nextjs#pin-the-browser-renderer).
 
 Scalar uses its responsive layout and hash navigation with the API title followed by **Reference**, such as **My App API Reference**. External fonts, telemetry, and Scalar Agent are disabled. Requests go directly to the application's origin; no request proxy or cross-origin API configuration is provided.
 

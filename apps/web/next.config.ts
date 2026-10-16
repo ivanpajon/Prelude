@@ -45,8 +45,8 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // Not on API routes: /api/docs has no CSP so Scalar can load its pinned CDN script, and
-        // the development Inspector page sets its own.
+        // Not on API routes: /api/docs has no CSP so Scalar can load its pinned CDN script (an
+        // integrity hash guards it), and the development Inspector page sets its own.
         source: "/((?!api(?:/|$)).*)",
         headers: [{ key: "Content-Security-Policy", value: contentSecurityPolicy }],
       },

@@ -12,10 +12,13 @@ allowBuilds:
 
 auditConfig:
   # braces <=3.0.3 has no patched release (GHSA-vfj7-8cjw-p6xm: a stack overflow from deeply
-  # nested brace patterns). Only build and development tools reach it. The production path is
-  # @parcel/watcher, the file watcher in next-intl; development tools such as the shadcn CLI
-  # reach it too. Their glob patterns come from this repository, not from requests, and the
-  # production image ships only the Next.js standalone output, which does not include braces.
+  # nested brace patterns). Only build and development tools reach it, through micromatch: today
+  # @parcel/watcher (the file watcher in next-intl) and fast-glob (in the shadcn CLI and ts-morph).
+  # These paths can change with lockfile updates; run `pnpm why -r braces` to see them. When no
+  # production dependency reaches it, `pnpm audit --prod` stops reporting it, but `pnpm audit`
+  # still does. The glob patterns these tools use come from this repository, not from requests,
+  # and the production image ships only the Next.js standalone output, which does not include
+  # braces.
   # Remove this entry when a patched release ships.
   ignoreGhsas:
     - GHSA-vfj7-8cjw-p6xm
@@ -26,6 +29,11 @@ overrides:
   # @serwist/next 9.5.12 pins browserslist 4.28.6 (GHSA-c83g-rgw3-j3cx, GHSA-73wf-gq98-2v4g).
   # 9.5.13 depends on ^4.29.3, so delete this override in the Serwist update pull request.
   '@serwist/next@9.5.12>browserslist': 4.29.3
+
+permissions:
+  # Do not link the Inspector's agent skills, so installs under a coding agent do not ask for them.
+  '@modelcontextprotocol/inspector':
+    skills: false
 
 saveExact: true
 strictPeerDependencies: true

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
 import { ROUTING_DEMO_ENABLED } from "../../apps/web/src/i18n/routing-settings";
 import { site } from "../../apps/web/src/site";
@@ -102,6 +103,13 @@ test("publishes an installable manifest and valid installation icons", async ({ 
   }
   const worker = await request.get("/sw.js");
   expect(worker.headers()["cache-control"]).toContain("no-store");
+  // Pages load Next.js polyfills with <script noModule>, so the worker must not precache them.
+  const { polyfillFiles } = JSON.parse(
+    readFileSync(new URL("../../apps/web/.next/build-manifest.json", import.meta.url), "utf8"),
+  ) as { polyfillFiles: string[] };
+  expect(polyfillFiles.length).toBeGreaterThan(0);
+  const workerSource = await worker.text();
+  for (const file of polyfillFiles) expect(workerSource).not.toContain(`/_next/${file}`);
 });
 
 test("shows an offline fallback without caching API responses, pages, or RSC", async ({

@@ -1,4 +1,9 @@
+import { readFileSync } from "node:fs";
 import { serwist } from "@serwist/next/config";
+
+// `serwist build` runs after `next build`, so the build manifest exists. Pages load these
+// polyfills with <script noModule>, which every browser with service workers skips.
+const { polyfillFiles } = JSON.parse(readFileSync(".next/build-manifest.json", "utf8"));
 
 export default serwist({
   swSrc: "src/app/sw.ts",
@@ -9,5 +14,6 @@ export default serwist({
     "public/icons/**/*",
     ".next/server/app/offline.html",
   ],
+  globIgnores: polyfillFiles.map((file) => `.next/${file}`),
   esbuildOptions: { format: "esm" },
 });

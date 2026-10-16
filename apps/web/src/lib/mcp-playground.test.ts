@@ -329,21 +329,22 @@ describe("homepage MCP protocol client", () => {
     expect(JSON.stringify(result)).not.toContain("PRIVATE_HANDLER_DETAILS");
   });
 
-  it("times out a pending request and closes its client", async () => {
-    // Under load, the aborted endpoint call can settle and be logged as a failure.
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
+  it("times out a pending request, closes its client, and logs no error", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const { endpoint } = fixture();
     const closed = vi.spyOn(Client.prototype, "close");
+    let pending: Promise<Response> | undefined;
     const playground = createMcpPlayground({
       endpoint: {
         async fetch(request) {
           const body = await request.clone().json();
           if (body.method !== "tools/list") return endpoint.fetch(request);
-          return new Promise<Response>((_resolve, reject) => {
+          pending = new Promise<Response>((_resolve, reject) => {
             request.signal.addEventListener("abort", () => reject(request.signal.reason), {
               once: true,
             });
           });
+          return pending;
         },
       },
       environment: () => ({}),
@@ -354,5 +355,10 @@ describe("homepage MCP protocol client", () => {
       error: "errorTimeout",
     });
     expect(closed).toHaveBeenCalled();
+    expect(pending).toBeDefined();
+    // Let the aborted endpoint call settle, so a log from it cannot come after the check.
+    await pending?.catch(() => undefined);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(logged).not.toHaveBeenCalled();
   });
 });

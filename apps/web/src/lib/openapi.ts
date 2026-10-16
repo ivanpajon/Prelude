@@ -15,10 +15,10 @@ import { BodyLimitPlugin } from "@orpc/server/fetch";
 import { router } from "@repo/api";
 import type { Type } from "arktype";
 import { logUnexpectedApiError, logUnexpectedHandlerErrors } from "./api-errors";
-import { apiInfo, scalarScriptUrl } from "./api-info";
+import { apiInfo, scalarScriptIntegrity, scalarScriptUrl } from "./api-info";
 import { plainRequest } from "./plain-request";
 
-/** oRPC 1.15.4's converter does not select the input/output side of ArkType morphs. */
+/** oRPC 1.15.6's converter does not select the input/output side of ArkType morphs. */
 export class DirectionalArkTypeConverter extends ArkTypeToJsonSchemaConverter {
   override condition(schema: AnySchema | undefined) {
     // Claim every defined schema so oRPC cannot silently fall back to an empty schema.
@@ -33,7 +33,7 @@ export class DirectionalArkTypeConverter extends ArkTypeToJsonSchemaConverter {
 }
 
 /**
- * The top-level key of a bracket-notation key, as oRPC 1.15.4 decodes it: `id[0]` and `\id[0]`
+ * The top-level key of a bracket-notation key, as oRPC 1.15.6 decodes it: `id[0]` and `\id[0]`
  * both become `id`, because a backslash escapes the next character before the first bracket.
  * A key without an unescaped `[` stays as written.
  */
@@ -75,9 +75,10 @@ async function readBody(read: () => Promise<unknown>) {
 /**
  * Creates the REST adapter and OpenAPI document for a router.
  *
- * oRPC's compact inputs merge path parameters with the query (GET) or the body (other methods),
- * so a repeated key would replace the value from the URL. Requests that repeat a path parameter
- * in the query or body return 400, even when the values match.
+ * oRPC's compact inputs merge path parameters with the query (GET) or the body (other methods).
+ * Since oRPC 1.15.5 the value from the URL wins, so a repeated key would be dropped silently.
+ * Requests that repeat a path parameter in the query or body return 400 instead, even when the
+ * values match.
  */
 export function createOpenApi<TRouter extends AnyRouter>(
   apiRouter: TRouter,
@@ -91,13 +92,14 @@ export function createOpenApi<TRouter extends AnyRouter>(
   const matcher = new StandardOpenAPIMatcher();
   matcher.init(apiRouter);
   const logging = logUnexpectedHandlerErrors<InferRouterInitialContext<TRouter>>("rest");
+  const docsPath = "/docs";
   const handler = new OpenAPIHandler(apiRouter, {
     plugins: [
       new BodyLimitPlugin({ maxBodySize: 64 * 1024 }),
       new OpenAPIReferencePlugin({
         schemaConverters,
         specGenerateOptions: generateOptions,
-        docsPath: "/docs",
+        docsPath,
         specPath: "/openapi.json",
         docsProvider: "scalar",
         docsTitle: `${apiInfo.title} Reference`,
@@ -135,6 +137,19 @@ export function createOpenApi<TRouter extends AnyRouter>(
         }
         return next();
       },
+      async ({ request, prefix, next }) => {
+        const result = await next();
+        const { response } = result;
+        // The reference plugin answers its docs path with an HTML file, unless a procedure
+        // takes that path first.
+        const docs = request.url.pathname.replace(/\/$/, "") === `${prefix ?? ""}${docsPath}`;
+        if (!docs || !(response?.body instanceof Blob) || response.body.type !== "text/html") {
+          return result;
+        }
+        const html = hardenDocsHtml(await response.body.text());
+        const body = new File([html], "api-reference.html", { type: "text/html" });
+        return { matched: true, response: { ...response, body } };
+      },
     ],
     // Wraps only the procedure call: malformed requests fail earlier and return 4xx quietly.
     // MCP tools dispatch through this handler, so their failures are logged here once. A 5xx
@@ -153,6 +168,26 @@ export function createOpenApi<TRouter extends AnyRouter>(
       return result;
     },
   };
+}
+
+/**
+ * Adds the Scalar script's integrity hash and the page language to the reference page that
+ * oRPC renders. This keeps oRPC's own renderer, which escapes the embedded document. If an
+ * oRPC update changes the expected tags, this throws instead of serving the page without them.
+ */
+export function hardenDocsHtml(html: string) {
+  const script = `<script src="${scalarScriptUrl}">`;
+  if (!html.includes(script) || !html.includes("<html>")) {
+    throw new Error(
+      "Unexpected API reference HTML from oRPC; update hardenDocsHtml in openapi.ts.",
+    );
+  }
+  return html
+    .replace(
+      script,
+      `<script src="${scalarScriptUrl}" integrity="${scalarScriptIntegrity}" crossorigin="anonymous">`,
+    )
+    .replace("<html>", '<html lang="en">');
 }
 
 const openApi = createOpenApi(router, {
