@@ -3,10 +3,10 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "packageManager": "pnpm@12.6.0",
+  "packageManager": "pnpm@12.11.2",
   "engines": {
     "node": ">=26.10.0 <27",
-    "pnpm": "12.6.0"
+    "pnpm": "12.11.2"
   },
   "scripts": {
     "customize": "node scripts/customize.mjs",

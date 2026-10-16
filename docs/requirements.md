@@ -14,7 +14,7 @@ It keeps exact versions, the SHA pins in `.github/workflows`, and the Dockerfile
 
 Almost every Renovate pull request changes a `package.json` or the lockfile, so it runs both CI workflows, and its merge runs both again. In a private repository, each of those runs costs about 46 billed minutes with the demo and about 31 without it; see [continuous integration](verification.md#continuous-integration) for ways to use fewer.
 
-If CI stops at install with `ERR_PNPM_IGNORED_BUILDS`, an update added a package with an install script. On that branch, run `pnpm approve-builds`, or add the package to `allowBuilds` in `pnpm-workspace.yaml` with `true` or `false` and a one-line comment saying why. Then commit the change.
+If CI stops at install with `ERR_PNPM_IGNORED_BUILDS`, an update added a package with an install script. On that branch, run `pnpm approve-builds`. Because `pnpm-workspace.yaml` has a `permissions` block, pnpm writes the decision there, as `build: true` or `build: false` under the package name. You can also add the package to `allowBuilds` with `true` or `false`; pnpm reads both. Add a one-line comment saying why, and commit the change. The `permissions` block also turns off the agent skills that the MCP Inspector ships, so an install under a coding agent such as Claude Code does not ask to approve them.
 
 Renovate is used instead of Dependabot because Dependabot cannot yet read pnpm 12 lockfiles. Either way, the CI **Audit** job checks production dependencies for known advisories on every run and once a week. See [continuous integration](verification.md#continuous-integration) for what to do when it fails.
 
