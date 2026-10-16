@@ -41,6 +41,9 @@ export function OfflineContent() {
       <a
         href="/"
         onClick={(event) => {
+          // Modified clicks keep the link, and the /offline address itself has nothing to retry.
+          const modified = event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
+          if (event.button !== 0 || modified || window.location.pathname === "/offline") return;
           event.preventDefault();
           window.location.reload();
         }}
