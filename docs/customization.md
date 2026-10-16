@@ -48,4 +48,4 @@ If installation or validation fails, the command exits unsuccessfully and leaves
 
 ## Template history
 
-`docs/verification-history.md` and `docs/docker-measurements.md` record the template's own test runs and container measurements. A new project can delete both. Then also remove the sentence that links to each one: the last line of `docs/verification.md`, and the "recorded measurements" sentence under "Verification and measurements" in `docs/docker.md`.
+`docs/verification-history.md` and `docs/docker-measurements.md` record the template's own test runs and container measurements. A new project can delete both. Then also remove the sentence that links to each one: the last line of `docs/verification.md`, and the "recorded measurements" sentence under "Verification and measurements" in `docs/docker.md`. Delete the two sentences about these records in `docs/remove-demo.md`, change the "Three files keep their text" sentence in this guide to name only this guide, and delete this section.
