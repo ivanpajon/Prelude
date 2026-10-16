@@ -37,9 +37,14 @@ export function OfflineContent() {
       <p className="mt-5 text-base leading-relaxed text-muted-foreground">
         {messages.offlineDescription}
       </p>
+      {/* The worker serves this page at the address that failed, so reload that address. */}
       <a
         href="/"
-        className="mt-8 rounded-lg bg-primary px-5 py-3 text-sm font-medium text-primary-foreground hover:opacity-90"
+        onClick={(event) => {
+          event.preventDefault();
+          window.location.reload();
+        }}
+        className="mt-8 rounded-lg bg-primary px-5 py-3 text-sm font-medium text-primary-foreground hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
       >
         {messages.offlineAction}
       </a>

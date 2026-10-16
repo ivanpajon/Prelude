@@ -43,11 +43,15 @@ test("shows an offline fallback without caching the playground or task data", as
   }
   await context.setOffline(true);
   expect(await fetchFailures(page, apiPaths)).toEqual(apiPaths.map(() => true));
-  await page.goto("/never-visited-offline-page");
+  await page.goto("/playground?status=completed");
   await expect(page.getByRole("heading", { name: "You’re offline." })).toBeVisible();
   await context.setOffline(false);
+  // Try again reloads the address that failed, including its filter.
   await page.getByRole("link", { name: "Try again" }).click();
-  await expect(page.getByRole("link", { name: "Playground", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Completed", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
 });
 
 test("keeps another tab's task draft until that tab approves its own reload", async ({

@@ -145,7 +145,8 @@ test("shows an offline fallback without caching API responses, pages, or RSC", a
   }
   await context.setOffline(true);
   expect(await fetchFailures(page, apiPaths)).toEqual(apiPaths.map(() => true));
-  await page.goto("/never-visited-offline-page");
+  // The home page is not cached (checked above), so the worker serves the fallback at its URL.
+  await page.goto("/");
   await expect(page.getByRole("heading", { name: "You’re offline." })).toBeVisible();
   await expect(page.getByRole("link", { name: "Try again" })).toBeVisible();
   await context.setOffline(false);
