@@ -12,6 +12,7 @@ import {
   type NoteStore,
 } from "@/testing/fixture-api";
 import { expectedToolNames } from "@/testing/mcp-tool-names";
+import { apiInfo } from "./api-info";
 import { createMcpEndpoint, generateMcpCatalog, type McpEndpointOptions } from "./mcp";
 import { createOpenApi } from "./openapi";
 
@@ -226,7 +227,7 @@ describe.each(["modern", "legacy"] as const)("MCP %s HTTP compatibility", (era) 
       return openApi.handle(request, requestContext);
     });
     const client = await connect(endpoint({ getContext: () => context, dispatch }), era);
-    expect(client.getServerVersion()?.name).toBe(site.slug);
+    expect(client.getServerVersion()).toMatchObject({ name: site.slug, version: apiInfo.version });
     const { tools } = await client.listTools();
     expect(tools.map((tool) => tool.name).sort()).toEqual([
       "createNote",

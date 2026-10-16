@@ -8,6 +8,8 @@ test("embedded Inspector stays authenticated and discovers every generated tool"
   request,
 }) => {
   page.setDefaultTimeout(10_000);
+  // The first visit to a route compiles it, which can pass 10 seconds on a slow CI runner.
+  page.setDefaultNavigationTimeout(30_000);
   const unauthenticated = await request.get("http://127.0.0.1:6284/api/servers");
   expect(unauthenticated.status()).toBe(401);
   const crossOrigin = await request.get("http://127.0.0.1:6284/api/servers", {

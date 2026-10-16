@@ -46,8 +46,9 @@ it("removes the override when selecting the project default", async () => {
   expect(preferences.delete).toHaveBeenCalledWith(ROUTING_MODE_COOKIE);
 });
 
+// qaa is a private-use language code, so it stays unsupported whatever languages the site adds.
 it.each([
-  { locale: "fr", mode: "always" },
+  { locale: "qaa", mode: "always" },
   { locale: "en", mode: "sometimes" },
 ])("rejects unsupported preferences before accessing cookies: %o", async (value) => {
   await expect(setLocalePreferences(value)).rejects.toThrow("Unsupported");

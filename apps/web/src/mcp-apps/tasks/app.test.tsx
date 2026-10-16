@@ -418,15 +418,16 @@ it("shows host connection failures and keeps mutation controls disabled before c
 });
 
 it("chooses a supported host language before browser preferences and falls back safely", () => {
-  vi.spyOn(navigator, "languages", "get").mockReturnValue(["fr-FR", "es-MX"]);
-  vi.spyOn(navigator, "language", "get").mockReturnValue("fr-FR");
+  // Private-use codes (qaa to qtz) stay unsupported whatever languages the site adds.
+  vi.spyOn(navigator, "languages", "get").mockReturnValue(["qaa-QM", "es-MX"]);
+  vi.spyOn(navigator, "language", "get").mockReturnValue("qaa-QM");
   expect(widgetLocale("en-GB")).toBe("en");
   expect(widgetLocale("es-AR")).toBe("es");
-  expect(widgetLocale("fr-CA")).toBe("es");
+  expect(widgetLocale("qab-QM")).toBe("es");
   expect(widgetLocale("invalid locale")).toBe("es");
   expect(widgetLocale()).toBe("es");
-  vi.spyOn(navigator, "languages", "get").mockReturnValue(["fr-FR", "de-DE"]);
-  expect(widgetLocale("ja-JP")).toBe(defaultLocale);
+  vi.spyOn(navigator, "languages", "get").mockReturnValue(["qaa-QM", "qab"]);
+  expect(widgetLocale("qac-QM")).toBe(defaultLocale);
 });
 
 it("localizes startup failures before connecting to a host", () => {

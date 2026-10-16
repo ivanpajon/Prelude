@@ -94,7 +94,7 @@ Set these values in the web application's environment, for example `apps/web/.en
 
 MCP responses use `Cache-Control: no-store`. The service worker bypasses `/api/`, including MCP, and the Inspector is not precached. There is no offline MCP support, persistent MCP session store, resource subscription service, or background polling process.
 
-Stdio serving, prompts, a general resource framework, filesystem tools, authentication, and persistence remain deferred. The MCP server name comes from the site slug in `apps/web/src/site.ts`; update its version in `apps/web/src/lib/mcp.ts` alongside the OpenAPI metadata and application branding.
+Stdio serving, prompts, a general resource framework, filesystem tools, authentication, and persistence remain deferred. The MCP server name comes from the site slug in `apps/web/src/site.ts`, and its version comes from the API version in `apps/web/src/lib/api-info.ts`, which the OpenAPI document also uses.
 
 <!-- demo:start -->
 The task widget is the only supplied MCP resource. Update its identity together with the server metadata when customizing the demo.

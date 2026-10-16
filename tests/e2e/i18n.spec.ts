@@ -14,11 +14,11 @@ test("isolates server-rendered language and negotiates only unprefixed entries",
 }) => {
   // This case exercises concurrent browsers plus several preference navigations.
   test.setTimeout(60_000);
-  // French is not supported, so it gets the default language.
+  // qaa is a private-use language code that no site supports, so it gets the default language.
   const browsers = [
     ["es-ES", "es"],
     ["en-US", "en"],
-    ["fr-FR", defaultLocale],
+    ["qaa-QM", defaultLocale],
   ] as const;
   const contexts = await Promise.all(
     browsers.map(([locale]) => browser.newContext({ locale, javaScriptEnabled: false })),

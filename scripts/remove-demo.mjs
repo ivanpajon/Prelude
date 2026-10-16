@@ -1,5 +1,12 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -22,8 +29,14 @@ Options:
   --help         Show this help
 `;
 
-const enSite = "packages/i18n/src/messages/en/site.json";
-const esSite = "packages/i18n/src/messages/es/site.json";
+const messages = "packages/i18n/src/messages";
+// Every language folder, so the demo text also goes from languages added after the template.
+const languages = readdirSync(fileURLToPath(new URL(`../${messages}`, import.meta.url)), {
+  withFileTypes: true,
+})
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name)
+  .sort();
 
 /**
  * Everything the demo owns. Shared files mark demo-only lines between a `demo:start` and a
@@ -66,12 +79,9 @@ export const demo = {
     "packages/api/src/tasks.ts",
     "packages/contracts/src/limits.ts",
     "packages/contracts/src/tasks.ts",
-    "packages/i18n/src/messages/en/mcp.json",
-    "packages/i18n/src/messages/en/tasks.json",
-    "packages/i18n/src/messages/en/widget.json",
-    "packages/i18n/src/messages/es/mcp.json",
-    "packages/i18n/src/messages/es/tasks.json",
-    "packages/i18n/src/messages/es/widget.json",
+    ...languages.flatMap((language) =>
+      ["mcp", "tasks", "widget"].map((name) => `${messages}/${language}/${name}.json`),
+    ),
     "packages/i18n/src/widget.ts",
     "scripts/build-mcp-apps.mjs",
     "scripts/build-mcp-apps.test.mjs",
@@ -122,12 +132,12 @@ export const demo = {
   ],
   // JSON values that only the demo uses. A path lists the keys from the root.
   json: [
-    { file: enSite, delete: ["Common", "playground"] },
-    { file: enSite, delete: ["Home", "openPlayground"] },
-    { file: enSite, delete: ["Playground"] },
-    { file: esSite, delete: ["Common", "playground"] },
-    { file: esSite, delete: ["Home", "openPlayground"] },
-    { file: esSite, delete: ["Playground"] },
+    ...languages.flatMap((language) =>
+      [["Common", "playground"], ["Home", "openPlayground"], ["Playground"]].map((key) => ({
+        file: `${messages}/${language}/site.json`,
+        delete: key,
+      })),
+    ),
     { file: "packages/i18n/package.json", delete: ["exports", "./widget"] },
     { file: "packages/contracts/package.json", delete: ["exports", "./limits"] },
     { file: "apps/web/package.json", delete: ["dependencies", "@modelcontextprotocol/core"] },

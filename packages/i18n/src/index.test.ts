@@ -48,11 +48,12 @@ function placeholders(message: string): string[] {
 }
 
 describe("locale selection", () => {
+  // Unsupported examples use private-use codes (qaa to qtz), which no real language uses.
   it("validates saved locales and matches regional browser preferences", () => {
     for (const locale of locales) expect(isLocale(locale)).toBe(true);
-    for (const value of ["es-MX", "fr", "", "EN", undefined]) expect(isLocale(value)).toBe(false);
-    expect(resolveLocale("fr", "es-MX", "en")).toBe("es");
-    expect(resolveLocale("invalid_locale", "de")).toBe(defaultLocale);
+    for (const value of ["es-MX", "qaa", "", "EN", undefined]) expect(isLocale(value)).toBe(false);
+    expect(resolveLocale("qaa", "es-MX", "en")).toBe("es");
+    expect(resolveLocale("invalid_locale", "qab")).toBe(defaultLocale);
     expect(browserLocale("other=en; NEXT_LOCALE=es", ["en-US"])).toBe("es");
     expect(browserLocale("NEXT_LOCALE=invalid", ["es-ES"])).toBe("es");
   });
@@ -61,7 +62,7 @@ describe("locale selection", () => {
     expect(requestLocale("en", "es-ES,es;q=0.9")).toBe("en");
     expect(requestLocale("invalid", "en;q=0.4,es-MX;q=0.9")).toBe("es");
     expect(requestLocale(undefined, "es;q=0,en;q=0.5")).toBe("en");
-    expect(requestLocale(undefined, "es;q=invalid,de;q=1")).toBe(defaultLocale);
+    expect(requestLocale(undefined, "es;q=invalid,qaa;q=1")).toBe(defaultLocale);
     expect(requestLocale(undefined, null)).toBe(defaultLocale);
   });
 });

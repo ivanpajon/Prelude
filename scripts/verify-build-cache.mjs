@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { locales } from "../packages/i18n/src/index.ts";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 // biome-ignore lint/suspicious/noUndeclaredEnvVars: This standalone check uses pnpm's executable path only to launch Turbo.
@@ -29,7 +30,7 @@ const prerendered = JSON.parse(
   readFileSync(path.resolve(root, "apps/web/.next/prerender-manifest.json"), "utf8"),
 );
 for (const mode of ["always", "never"]) {
-  for (const locale of ["en", "es"]) {
+  for (const locale of locales) {
     const route = `/${mode}/${locale}`;
     assert.equal(prerendered.routes[route]?.compute, "static", `${route} must stay prerendered.`);
     assert.equal(

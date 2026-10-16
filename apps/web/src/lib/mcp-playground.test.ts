@@ -265,6 +265,7 @@ describe("homepage MCP protocol client", () => {
   });
 
   it("keeps invalid outputs and internal errors out of successful results", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const repository: TaskRepository = {
       ...createDemoRepository([]),
       list: () => [{ id: "broken", title: 42, completed: false } as unknown as Task],
@@ -281,6 +282,7 @@ describe("homepage MCP protocol client", () => {
       expect(result).toMatchObject({ ok: true, result: { isError: true } });
       expect(JSON.stringify(result)).not.toContain("PRIVATE_DATABASE_DETAILS");
     }
+    expect(logged).toHaveBeenCalledTimes(2);
   });
 
   it("isolates concurrent callers", async () => {
@@ -328,6 +330,8 @@ describe("homepage MCP protocol client", () => {
   });
 
   it("times out a pending request and closes its client", async () => {
+    // Under load, the aborted endpoint call can settle and be logged as a failure.
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
     const { endpoint } = fixture();
     const closed = vi.spyOn(Client.prototype, "close");
     const playground = createMcpPlayground({

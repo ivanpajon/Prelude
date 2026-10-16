@@ -10,7 +10,7 @@ The task repository remains shared, process-local demo data. Rebuilding or resta
 
 ## Prerequisites and commands
 
-Use a current Docker Desktop with Linux containers, or Docker Engine with BuildKit and the Compose plugin **5.5.1 or later**. The development stack's `initial_sync` watch option fails validation before Compose 2.39.4 and skips files older than the image before 5.5.1. The Dockerfile uses the current stable Dockerfile frontend, including `COPY --parents`. Start the Docker engine before running these commands. The `pnpm` shortcuts use the pnpm version pinned in `packageManager`; the images install their own dependencies with the Node 26 release pinned in the `Dockerfile`. A host dependency installation is not needed just to start a stack.
+Use a current Docker Desktop with Linux containers, or Docker Engine with BuildKit and the Compose plugin **5.5.1 or later**. The development stack's `initial_sync` watch option fails validation before Compose 2.39.4 and skips files older than the image before 5.5.1. The Dockerfile uses the current stable Dockerfile frontend, including `COPY --parents`; its `syntax` line pins that frontend by digest, and Renovate keeps the digest current. Start the Docker engine before running these commands. The `pnpm` shortcuts use the pnpm version pinned in `packageManager`; the images install their own dependencies with the Node 26 release pinned in the `Dockerfile`. A host dependency installation is not needed just to start a stack.
 
 From the repository root:
 
@@ -142,6 +142,20 @@ docker compose --env-file .env.second --project-name second-dev -f compose.dev.y
 The default production binding is appropriate for local use and a reverse proxy running on the same host. Set `PROD_HOST=0.0.0.0` only when the deployment needs the port reachable through other interfaces. Configure the server's network access and HTTPS ingress for the intended audience.
 
 Use HTTPS for a deployed PWA; browsers permit the local loopback exception during development. Preserve the public request Host when forwarding to Next.js so same-origin Server Actions can verify it, and preserve streaming responses. TLS termination, public DNS, authentication, persistence, and deployment-provider configuration remain the operator's choices. Send `Strict-Transport-Security` from the HTTPS proxy; the app sends its other [security headers](architecture.md#security-headers) itself.
+
+Caddy's `reverse_proxy` keeps the Host by default. nginx does not: it sends the upstream address as the Host, so every Server Action, such as the language change, fails. In nginx, forward the Host and turn off response buffering for streaming:
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:3001;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_buffering off;
+}
+```
+
+`$host` drops the port. If visitors reach the site on a port other than 80 or 443, use `$http_host` instead.
 
 If several servers each run their own build, their Server Action IDs differ, so a page served by one server cannot call the actions of another ("Failed to find Server Action"). Run one image on all of them, or give every build the same `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` (a base64 key of 16, 24, or 32 bytes). For rolling deployments, also set `deploymentId` in `apps/web/next.config.ts` (or `NEXT_DEPLOYMENT_ID` during the build), so Next.js reloads a page that came from another build. See the Next.js [self-hosting guide](https://nextjs.org/docs/app/guides/self-hosting#multi-server-deployments).
 

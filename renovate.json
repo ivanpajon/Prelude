@@ -3,7 +3,8 @@
   "extends": ["config:recommended", "helpers:pinGitHubActionDigests", "docker:pinDigests"],
   "rangeStrategy": "pin",
   "timezone": "Etc/UTC",
-  "schedule": ["before 6am on monday"],
+  "schedule": ["on monday"],
+  "prHourlyLimit": 0,
   "minimumReleaseAge": "3 days",
   "internalChecksFilter": "strict",
   "osvVulnerabilityAlerts": true,
@@ -13,7 +14,7 @@
   },
   "lockFileMaintenance": {
     "enabled": true,
-    "schedule": ["before 6am on the first day of the month"]
+    "schedule": ["on the first day of the month"]
   },
   "customManagers": [
     {
