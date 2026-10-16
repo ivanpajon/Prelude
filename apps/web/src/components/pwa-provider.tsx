@@ -31,7 +31,6 @@ function UpdateNotice() {
         title: t(`${status}Title`),
         description: t(`${status}Description`),
         type: status === "updating" ? "loading" : status === "error" ? "error" : "info",
-        priority: status === "error" ? "high" : "low",
         timeout: 0,
         actionProps: {
           children: t(`${status}Action`),
