@@ -1,7 +1,7 @@
 // New variables also go in the files listed in docs/architecture.md#errors-logs-and-configuration.
 import "server-only";
 
-/** Runtime variables read by the server. They apply without rebuilding. */
+/** Runtime variables read by the server. They apply without rebuilding when read at request time. */
 export interface RuntimeEnvironment {
   NODE_ENV?: string | undefined;
   MCP_ENABLED?: string | undefined;
