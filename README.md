@@ -137,6 +137,8 @@ pnpm start --port 8080
 
 Serve the site over HTTPS: browsers install the service worker only on HTTPS origins and localhost. If your pages load anything from another host, add it to the Content Security Policy first, as described above.
 
+For a public site, set `metadataBase` to your domain in `apps/web/src/app/[routingMode]/[locale]/layout.tsx`, and add Open Graph metadata and `robots.ts` and `sitemap.ts` files in `apps/web/src/app`; see [localization](docs/i18n.md#cache-and-request-isolation) for canonical and language URLs.
+
 ## License
 
 Prelude is released under the [MIT License](LICENSE).
