@@ -100,8 +100,13 @@ export interface McpEndpointOptions<TContext> {
   // demo:end
 }
 
-function toolError(message: string, code = "INTERNAL_SERVER_ERROR"): CallToolResult {
-  return { isError: true, content: [{ type: "text", text: JSON.stringify({ code, message }) }] };
+function toolError(
+  message: string,
+  code = "INTERNAL_SERVER_ERROR",
+  data?: unknown,
+): CallToolResult {
+  const body = data === undefined ? { code, message } : { code, message, data };
+  return { isError: true, content: [{ type: "text", text: JSON.stringify(body) }] };
 }
 
 async function executeTool<TContext>(
@@ -128,7 +133,9 @@ async function executeTool<TContext>(
       const error: unknown = await response.json();
       if (error !== null && typeof error === "object" && "message" in error) {
         const code = "code" in error && typeof error.code === "string" ? error.code : "API_ERROR";
-        if (typeof error.message === "string") return toolError(error.message, code);
+        // Keep the details REST also returns, such as which input field failed and why.
+        const data = "data" in error ? error.data : undefined;
+        if (typeof error.message === "string") return toolError(error.message, code, data);
       }
       return toolError("The API rejected the request.", "API_ERROR");
     }
