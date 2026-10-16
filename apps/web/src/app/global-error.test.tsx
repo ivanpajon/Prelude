@@ -18,7 +18,8 @@ describe("global error page", () => {
   it("shows the digest as a reference code and retries on request", async () => {
     const retry = vi.fn();
     const error = Object.assign(new Error("private cause"), { digest: "4096" });
-    render(<GlobalError error={error} retry={retry} />);
+    // The page renders its own <html>, so it mounts on the document rather than in a <div>.
+    render(<GlobalError error={error} retry={retry} />, { container: document });
 
     expect(screen.getByRole("heading", { name: "Something went wrong." })).toBeVisible();
     expect(screen.getByText(/: 4096$/)).toHaveTextContent("Reference · Referencia: 4096");

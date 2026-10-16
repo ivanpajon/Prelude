@@ -27,6 +27,8 @@ export default defineConfig({
         test: {
           name: "dom",
           environment: "jsdom",
+          // CPU-limited containers can slow jsdom tests past Vitest's 5 s default.
+          testTimeout: 30_000,
           server: { deps: { inline: ["next-intl"] } },
           include: ["packages/**/*.test.tsx", "apps/**/*.test.tsx"],
           setupFiles: ["./tests/setup-dom.ts"],

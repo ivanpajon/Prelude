@@ -205,7 +205,9 @@ describe("local Inspector wrapper", () => {
     expect(
       await handleInspectorRequest(request({}, "HEAD"), { NODE_ENV: "development" }).text(),
     ).toBe("");
-    for (const port of ["0", "65536", "6274/path", '6274" onload="alert(1)']) {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const ports = ["0", "65536", "6274/path", '6274" onload="alert(1)'];
+    for (const port of ports) {
       expect(
         handleInspectorRequest(request({}, "GET"), {
           NODE_ENV: "development",
@@ -213,5 +215,6 @@ describe("local Inspector wrapper", () => {
         }).status,
       ).toBe(500);
     }
+    expect(logged).toHaveBeenCalledTimes(ports.length);
   });
 });
