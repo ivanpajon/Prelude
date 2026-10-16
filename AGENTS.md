@@ -23,6 +23,7 @@ Run from the repository root with the Node version in `.node-version` and the pn
 - `pnpm test:stack`: the Docker production and development stacks (5-15 minutes, needs Docker). `pnpm test:stack --part builds|runtime|development|rebuild` runs one part (2-3 minutes). `pnpm test:stack:quick` checks only the production stack (about 2 minutes).
 - `pnpm mcp:check`: list the tools of a running MCP endpoint.
 - `pnpm customize`: rename the root package and the workspace scope.
+- `pnpm --silent react-doctor:json`: React diagnostics as JSON (see [diagnostics](docs/diagnostics.md)).
 <!-- demo:start -->
 - `pnpm remove-demo`: delete the task demo and keep the infrastructure.
 <!-- demo:end -->
@@ -40,6 +41,7 @@ CI has a fast lane (`.github/workflows/ci.yml`, parallel jobs of about 2 minutes
 - Workspace packages share one private scope (`@repo` in the template; `pnpm customize` renames it). Import across packages by package name, such as `@repo/ui/components/button`.
 - Put user-facing text in every catalog of `@repo/i18n` (English and Spanish in the template), in natural language for each locale. Do not add a language that `locales` in `packages/i18n/src/index.ts` does not list.
 - Add an API feature as a contract in `@repo/contracts` and a procedure in `@repo/api`; OpenAPI and MCP pick it up. See [OpenAPI](docs/openapi.md#add-or-change-a-procedure).
+- A new server environment variable goes in `apps/web/src/env.ts`, both `.env.example` files, the `environment:` maps of `compose.yaml` and `compose.dev.yaml`, and `tasks.build.env` in `turbo.json` if the build needs it. See [configuration](docs/architecture.md#errors-logs-and-configuration).
 
 ## Generated files
 
@@ -55,10 +57,10 @@ Do not edit these by hand:
 
 ## Documentation
 
-`README.md` covers setup and the "Make it yours" checklist. The guides live in `docs/`: [architecture](docs/architecture.md), [OpenAPI](docs/openapi.md), [MCP](docs/mcp.md), [localization](docs/i18n.md), [Docker](docs/docker.md), [verification](docs/verification.md), and [customization](docs/customization.md).
+`README.md` covers setup and the "Make it yours" checklist. The guides live in `docs/`: [architecture](docs/architecture.md), [OpenAPI](docs/openapi.md), [MCP](docs/mcp.md), [localization](docs/i18n.md), [Docker](docs/docker.md), [verification](docs/verification.md), [React diagnostics](docs/diagnostics.md), [dates and times](docs/temporal.md), [animation](docs/motion.md), [requirements](docs/requirements.md), and [customization](docs/customization.md).
 
 <!-- demo:start -->
 ## Demo
 
-The task list, `/playground`, the MCP App, and their tests are a demo. Demo-only code in shared files sits between `demo:start` and `demo:end` comments; keep each pair balanced. `pnpm remove-demo` deletes the demo; see [Remove the demo](docs/remove-demo.md).
+The task list, `/playground`, the MCP App, and their tests are a demo. Demo-only code in shared files sits between `demo:start` and `demo:end` comments; keep each pair balanced. `pnpm remove-demo` deletes the demo; see [Remove the demo](docs/remove-demo.md). The MCP App has its own guide, [MCP Apps](docs/mcp-apps.md).
 <!-- demo:end -->

@@ -1,3 +1,4 @@
+// New variables also go in the files listed in docs/architecture.md#errors-logs-and-configuration.
 import "server-only";
 
 /** Runtime variables read by the server. They apply without rebuilding. */
