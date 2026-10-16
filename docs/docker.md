@@ -10,7 +10,7 @@ The task repository remains shared, process-local demo data. Rebuilding or resta
 
 ## Prerequisites and commands
 
-Use a current Docker Desktop with Linux containers, or Docker Engine with BuildKit and the Compose plugin **5.5.1 or later**. The development stack's `initial_sync` watch option fails validation before Compose 2.39.4 and skips files older than the image before 5.5.1. The Dockerfile uses the current stable Dockerfile frontend, including `COPY --parents`. Start the Docker engine before running these commands. The `pnpm` shortcuts use the pnpm version pinned in `packageManager`; the images install their own dependencies with the Node 26 release pinned in the `Dockerfile`. A host dependency installation is not needed just to start a stack.
+Use a current Docker Desktop with Linux containers, or Docker Engine with BuildKit and the Compose plugin **5.5.1 or later**. The development stack's `initial_sync` watch option fails validation before Compose 2.39.4 and skips files older than the image before 5.5.1. The Dockerfile uses the current stable Dockerfile frontend, including `COPY --parents`; its `syntax` line pins that frontend by digest, and Renovate keeps the digest current. Start the Docker engine before running these commands. The `pnpm` shortcuts use the pnpm version pinned in `packageManager`; the images install their own dependencies with the Node 26 release pinned in the `Dockerfile`. A host dependency installation is not needed just to start a stack.
 
 From the repository root:
 
