@@ -18,7 +18,7 @@ import { logUnexpectedApiError, logUnexpectedHandlerErrors } from "./api-errors"
 import { apiInfo, scalarScriptUrl } from "./api-info";
 import { plainRequest } from "./plain-request";
 
-/** oRPC 1.15.4's converter does not select the input/output side of ArkType morphs. */
+/** oRPC 1.15.6's converter does not select the input/output side of ArkType morphs. */
 export class DirectionalArkTypeConverter extends ArkTypeToJsonSchemaConverter {
   override condition(schema: AnySchema | undefined) {
     // Claim every defined schema so oRPC cannot silently fall back to an empty schema.
@@ -33,7 +33,7 @@ export class DirectionalArkTypeConverter extends ArkTypeToJsonSchemaConverter {
 }
 
 /**
- * The top-level key of a bracket-notation key, as oRPC 1.15.4 decodes it: `id[0]` and `\id[0]`
+ * The top-level key of a bracket-notation key, as oRPC 1.15.6 decodes it: `id[0]` and `\id[0]`
  * both become `id`, because a backslash escapes the next character before the first bracket.
  * A key without an unescaped `[` stays as written.
  */
@@ -75,9 +75,10 @@ async function readBody(read: () => Promise<unknown>) {
 /**
  * Creates the REST adapter and OpenAPI document for a router.
  *
- * oRPC's compact inputs merge path parameters with the query (GET) or the body (other methods),
- * so a repeated key would replace the value from the URL. Requests that repeat a path parameter
- * in the query or body return 400, even when the values match.
+ * oRPC's compact inputs merge path parameters with the query (GET) or the body (other methods).
+ * Since oRPC 1.15.5 the value from the URL wins, so a repeated key would be dropped silently.
+ * Requests that repeat a path parameter in the query or body return 400 instead, even when the
+ * values match.
  */
 export function createOpenApi<TRouter extends AnyRouter>(
   apiRouter: TRouter,
