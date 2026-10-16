@@ -22,6 +22,7 @@ describe("global error page", () => {
     render(<GlobalError error={error} retry={retry} />, { container: document });
 
     expect(screen.getByRole("heading", { name: "Something went wrong." })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Something went wrong." })).toHaveFocus();
     // Patterns, so a project can add its own languages to the page.
     expect(screen.getByText(/: 4096$/)).toHaveTextContent(/^Reference · Referencia.*: 4096$/);
     await userEvent.click(screen.getByRole("button", { name: /^Try again · Reintentar/ }));

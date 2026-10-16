@@ -20,6 +20,7 @@ describe("segment error page", () => {
   it("shows the digest as a translated reference code", () => {
     renderError("en", "1234567890");
     expect(screen.getByText("Reference: 1234567890")).toBeVisible();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveFocus();
     expect(screen.queryByText(/private cause/)).toBeNull();
   });
 
