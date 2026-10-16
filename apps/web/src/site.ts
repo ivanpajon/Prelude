@@ -25,6 +25,9 @@ export const site: SiteIdentity = {
   name: "Prelude",
   slug: "prelude",
   repositoryUrl: "https://github.com/ivanpajon/Prelude",
-  logo: { src: "/branding/logo.png", width: 2027, height: 776 },
+  logo: { src: "/branding/logo.png", width: 360, height: 138 },
   colors: { theme: "#20382a", background: "#f8f8f4" },
 };
+
+/** Page icons under `apps/web/public/icons`, for the localized pages and the offline page. */
+export const siteIcons = { icon: "/icons/icon.svg", apple: "/icons/apple-touch-icon.png" };
