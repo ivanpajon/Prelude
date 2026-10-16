@@ -143,6 +143,24 @@ describe("routing preference controls", () => {
       expect(location.reload).toHaveBeenCalledTimes(1);
     },
   );
+
+  it("reloads only once and then shows the error when the reloaded page still does not know the action", async () => {
+    mocks.save.mockRejectedValue(new UnrecognizedActionError("Server Action was not found"));
+    const location = stubPageLoads();
+    const { unmount } = render(<Controls />);
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Language" }), "es");
+    await waitFor(() => expect(location.reload).toHaveBeenCalledTimes(1));
+    unmount();
+
+    // The reloaded page still holds stale action IDs, so the retry fails the same way.
+    render(<Controls />);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Couldn’t update your language preferences",
+    );
+    expect(mocks.save).toHaveBeenCalledTimes(2);
+    expect(location.reload).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.length).toBe(0);
+  });
 });
 
 // `routingSettings.demoEnabled: false` removes the switch from the header, so these cases have
