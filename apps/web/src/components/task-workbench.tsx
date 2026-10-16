@@ -177,6 +177,12 @@ export function TaskWorkbench() {
     }
   }
 
+  /** Focuses the new-task field when a row leaves, unless the user has moved focus meanwhile. */
+  function focusAfterRowLeaves(button: HTMLElement) {
+    const focused = document.activeElement;
+    if (focused === button || focused === document.body) newTaskInput.current?.focus();
+  }
+
   function cancelEdit() {
     if (store.getState().changing) return;
     setEditing(undefined);
@@ -344,15 +350,16 @@ export function TaskWorkbench() {
                   focusableWhenDisabled={!editing}
                   className="data-disabled:opacity-50"
                   disabled={taskChangePending || Boolean(editing)}
-                  onClick={() =>
+                  onClick={(event) => {
+                    const button = event.currentTarget;
                     void changeTask(
                       () => setCompleted.mutateAsync({ id: task.id, completed: !task.completed }),
                       "completionFailed",
                     ).then((changed) => {
                       // A filtered list drops the row, and its button with it.
-                      if (changed && status !== "all") newTaskInput.current?.focus();
-                    })
-                  }
+                      if (changed && status !== "all") focusAfterRowLeaves(button);
+                    });
+                  }}
                 >
                   {task.completed && <CheckIcon aria-hidden="true" />}
                 </Button>
@@ -411,14 +418,15 @@ export function TaskWorkbench() {
                   title={t("deleteTask", { title: task.title })}
                   focusableWhenDisabled={!editing}
                   disabled={taskChangePending || Boolean(editing)}
-                  onClick={() =>
+                  onClick={(event) => {
+                    const button = event.currentTarget;
                     void changeTask(
                       () => deleteTask.mutateAsync({ id: task.id }),
                       "deleteFailed",
                     ).then((deleted) => {
-                      if (deleted) newTaskInput.current?.focus();
-                    })
-                  }
+                      if (deleted) focusAfterRowLeaves(button);
+                    });
+                  }}
                 >
                   <Trash2Icon aria-hidden="true" />
                 </Button>

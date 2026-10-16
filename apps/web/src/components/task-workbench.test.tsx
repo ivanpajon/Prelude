@@ -188,3 +188,22 @@ it("keeps keyboard focus on a busy task button and moves it to the new-task fiel
   await act(async () => finish());
   await waitFor(() => expect(screen.getByRole("textbox", { name: "New task" })).toHaveFocus());
 });
+
+it("leaves focus where the user moved it while a delete runs", async () => {
+  const user = userEvent.setup();
+  let finish!: () => void;
+  const remove = vi.fn(
+    () =>
+      new Promise<typeof task>((resolve) => {
+        finish = () => resolve(task);
+      }),
+  );
+  vi.spyOn(orpc.tasks.delete, "mutationOptions").mockReturnValue({ mutationFn: remove });
+  fixture();
+  screen.getByRole("button", { name: `Delete ${task.title}` }).focus();
+  await user.keyboard("{Enter}");
+  const compact = screen.getByRole("button", { name: "Compact view" });
+  compact.focus();
+  await act(async () => finish());
+  expect(compact).toHaveFocus();
+});
