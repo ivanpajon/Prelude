@@ -104,7 +104,7 @@ The builder rejects unresolved imports, extra chunks, external CSS assets, and u
 
 Turbo includes `.generated/mcp-apps/**` in build outputs and the builder script in cache inputs. `pnpm test:cache` removes only the known generated widget/worker files, restores the build cache, and compares their bytes. Next.js explicitly traces the widget HTML for `/api/mcp`, allowing the standalone Docker image to carry it without shipping the compiler or source tree.
 
-The server loads HTML only when a client reads the resource. Production memoizes successful reads for the process lifetime; development reads the current rebuilt file each time. A missing or malformed asset returns a generic resource error while JSON tools remain usable. Rebuild and restart production after changing the widget. Task data and MCP responses are not cached with the HTML; all `/api/` traffic bypasses the service worker.
+The server loads HTML only when a client reads the resource. Production memoizes successful reads for the process lifetime; development reads the current rebuilt file each time. A missing or malformed asset returns a generic resource error while JSON tools remain usable. Rebuild and restart production after changing the widget. Some hosts, such as ChatGPT, cache the widget by its resource URI; after a breaking widget change or a tool rename, also change `mcpAppResourceUri` in `apps/web/src/lib/mcp-app-resource.ts` (for example to `ui://prelude/tasks-v2.html`) and in the tests that name it, so they load the new HTML. Task data and MCP responses are not cached with the HTML; all `/api/` traffic bypasses the service worker.
 
 ## Replace or remove the example
 
