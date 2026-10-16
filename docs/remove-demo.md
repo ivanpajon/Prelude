@@ -31,7 +31,7 @@ The command uses Node built-ins only and works on Windows and Linux. It never co
 - The task contract and procedures and the in-memory repository in `packages/contracts` and `packages/api`.
 - The `/playground` page with the task workbench and the MCP explorer, with their components, stores, Server Actions, and helpers in `apps/web`.
 - The task MCP App: `apps/web/src/mcp-apps`, its MCP resource, its build script `scripts/build-mcp-apps.mjs`, and the [MCP Apps guide](mcp-apps.md).
-- The task, MCP explorer, and widget message catalogs in English and Spanish.
+- The task, MCP explorer, and widget message catalogs in every language under `packages/i18n/src/messages`.
 - The demo tests: `*.tasks.test.ts` files and the `tests/demo/`, `tests/e2e/demo/`, `tests/dev/demo/`, and `tests/stack/demo/` folders.
 - Its own tooling: `scripts/remove-demo.mjs` and its test, the `remove-demo` script in `package.json`, the **Demo removal (quick)** job in `.github/workflows/ci.yml`, the **Demo removal** jobs in `.github/workflows/docker.yml`, and this guide.
 

@@ -46,7 +46,8 @@ describe("static offline fallback", () => {
   });
 
   it("falls back to the default language for unsupported browser languages", () => {
-    vi.spyOn(navigator, "languages", "get").mockReturnValue(["fr-FR"]);
+    // A private-use language code, so it stays unsupported whatever languages the site adds.
+    vi.spyOn(navigator, "languages", "get").mockReturnValue(["qaa-QM"]);
     render(<OfflineContent />);
     expect(screen.getByRole("heading", { name: fallback.offlineTitle })).toBeVisible();
     expect(document.documentElement.lang).toBe(defaultLocale);
