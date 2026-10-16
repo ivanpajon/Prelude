@@ -4,12 +4,13 @@ import { Switch } from "@repo/ui/components/switch";
 import { useTranslations } from "next-intl";
 import { useId } from "react";
 import { ROUTING_DEMO_ENABLED } from "@/i18n/routing";
-import { useRoutingPreference } from "@/i18n/routing-preference-provider";
+import { useFocusAfterChange, useRoutingPreference } from "@/i18n/routing-preference-provider";
 
 export function RoutingModeSwitch() {
   const t = useTranslations("Common");
   const { mode, disabled, pending, failure, changeMode } = useRoutingPreference();
   const switchId = useId();
+  const focusRef = useFocusAfterChange("mode");
   if (!ROUTING_DEMO_ENABLED) return null;
   return (
     <div className="flex flex-col items-end gap-1">
@@ -18,6 +19,7 @@ export function RoutingModeSwitch() {
           {t("languageInUrl")}
         </label>
         <Switch
+          ref={focusRef}
           id={switchId}
           aria-label={t("languageInUrl")}
           checked={mode === "always"}
