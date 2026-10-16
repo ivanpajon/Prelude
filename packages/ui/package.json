@@ -24,13 +24,13 @@
     "morphicons": "1.7.1"
   },
   "peerDependencies": {
-    "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
   },
   "devDependencies": {
     "typescript": "6.0.3",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "vitest": "5.0.2",

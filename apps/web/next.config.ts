@@ -22,7 +22,7 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   poweredByHeader: false,
   // Preserve next-intl's internal rewrite origin when binding to loopback IPs.
-  // Next.js 16.4.0 still normalizes them asymmetrically: vercel/next.js#94745.
+  // Next.js 16.4 still normalizes them asymmetrically: vercel/next.js#94745.
   skipProxyUrlNormalize: true,
   // demo:start
   outputFileTracingIncludes: { "/api/mcp": ["./.generated/mcp-apps/tasks.html"] },
