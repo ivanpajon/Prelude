@@ -261,12 +261,16 @@ describe.skipIf(!ROUTING_DEMO_ENABLED)(
       const language = screen.getByRole("combobox", { name: "Language" });
       fireEvent.click(control);
       fireEvent.click(control);
-      expect(language).toBeDisabled();
+      // Both stay focusable while saving, so keyboard focus is not lost.
+      expect(language).toHaveAttribute("aria-disabled", "true");
+      expect(language).toBeEnabled();
       expect(control).toHaveAttribute("aria-disabled", "true");
+      fireEvent.change(language, { target: { value: "es" } });
+      expect(language).toHaveValue("en");
       expect(mocks.save).toHaveBeenCalledTimes(1);
       expect(mocks.replace).not.toHaveBeenCalled();
       await act(async () => finish());
-      await waitFor(() => expect(language).toBeEnabled());
+      await waitFor(() => expect(language).not.toHaveAttribute("aria-disabled"));
       expect(mocks.replace).toHaveBeenCalledTimes(1);
     });
 
