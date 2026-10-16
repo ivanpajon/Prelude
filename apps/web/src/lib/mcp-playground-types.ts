@@ -26,6 +26,7 @@ export type McpPlaygroundErrorCode =
   | "errorDisabled"
   | "errorTimeout"
   | "errorRequestFailed"
+  | "errorOutdated"
   | "errorInvalidToolArguments"
   | "errorToolUnavailable"
   | "errorInvalidJson"

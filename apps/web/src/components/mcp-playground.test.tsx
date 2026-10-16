@@ -3,6 +3,7 @@ import { getMessages } from "@repo/i18n/messages";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { UnrecognizedActionError } from "next/dist/client/components/unrecognized-action-error";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { McpPlaygroundExecution } from "@/lib/mcp-playground-types";
@@ -161,4 +162,16 @@ it("keeps pending execution and its result across locale remounts without duplic
   expect(
     client.getMutationCache().findAll({ mutationKey: ["mcp-playground", "execution"] }),
   ).toHaveLength(1);
+});
+
+it("asks for a reload when a deploy has replaced the Server Actions", async () => {
+  const user = userEvent.setup();
+  actions.discoverMcpTools.mockRejectedValue(
+    new UnrecognizedActionError("Server Action was not found"),
+  );
+  fixture();
+  await user.click(screen.getByRole("button", { name: "Discover tools" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "This page is out of date. Reload it to use the latest version.",
+  );
 });

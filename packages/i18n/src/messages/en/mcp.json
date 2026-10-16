@@ -33,6 +33,7 @@
   "errorDisabled": "MCP is disabled for this application.",
   "errorTimeout": "MCP took too long to respond. Try again.",
   "errorRequestFailed": "Could not complete the MCP request. Try again.",
+  "errorOutdated": "This page is out of date. Reload it to use the latest version.",
   "errorInvalidToolArguments": "Choose a tool and provide a JSON object for its arguments.",
   "errorToolUnavailable": "This tool is unavailable. Discover tools again.",
   "errorInvalidJson": "Enter valid JSON, for example {example}.",
