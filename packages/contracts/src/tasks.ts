@@ -1,15 +1,21 @@
 import { type OpenAPI, oc } from "@orpc/contract";
-import { type } from "arktype";
+import { scope, type } from "arktype";
 import { titleMaxLength } from "./limits";
 
 export const taskStatuses = ["all", "active", "completed"] as const;
 export const taskStatusSchema = type.enumerated(...taskStatuses);
 export type TaskStatus = typeof taskStatusSchema.infer;
 
-// Normalize at the API boundary, then validate the title the application stores.
-export const titleSchema = type("string.trim").to(`1 <= string <= ${titleMaxLength}`);
+// ArkType deep-clones the whole input before it runs a morph such as string.trim. A deeply nested
+// extra key then overflows the stack and the request fails with a 500. Schemas with a morph use
+// this scope, which validates the input in place. Request input is freshly parsed, so that is
+// safe. Pass a copy when you validate an object that you still use, such as React state.
+const $ = scope({}, { clone: false });
 
-export const taskSchema = type({
+// Normalize at the API boundary, then validate the title the application stores.
+export const titleSchema = $.type("string.trim").to(`1 <= string <= ${titleMaxLength}`);
+
+export const taskSchema = $.type({
   id: "string > 0",
   title: titleSchema,
   completed: "boolean",
@@ -17,9 +23,9 @@ export const taskSchema = type({
 export type Task = typeof taskSchema.infer;
 
 export const listTasksInput = type({ status: taskStatusSchema });
-export const createTaskInput = type({ title: titleSchema });
+export const createTaskInput = $.type({ title: titleSchema });
 export const setCompletedInput = type({ id: "string > 0", completed: "boolean" });
-export const updateTaskTitleInput = type({ id: "string > 0", title: titleSchema });
+export const updateTaskTitleInput = $.type({ id: "string > 0", title: titleSchema });
 export const deleteTaskInput = type({ id: "string > 0" });
 
 // Extend the generated body without replacing its schema or validation constraints.

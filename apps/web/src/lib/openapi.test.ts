@@ -568,6 +568,28 @@ describe("body limits", () => {
     expect(target.store.list("all")).toEqual([note]);
   });
 
+  it("accepts deeply nested extra keys within the limit without a stack overflow", async () => {
+    const target = context(createNoteStore([]));
+    // About 60 KB. A schema with a morph would deep-clone it and overflow the stack.
+    const deep = `{"text":" Deep ","z":${"[".repeat(30_000)}1${"]".repeat(30_000)}}`;
+    const post = (url: string, body: string) =>
+      new Request(url, { method: "POST", headers: { "Content-Type": "application/json" }, body });
+
+    const rest = await openApi.handle(
+      nextRequest(post("http://localhost/api/notes", deep)),
+      target,
+    );
+    const rpc = await handleRpc(
+      nextRequest(post("http://localhost/api/rpc/notes/create", `{"json":${deep}}`)),
+      target,
+    );
+
+    expect([rest.status, rpc.status]).toEqual([201, 200]);
+    const notes = [await rest.json(), (await rpc.json()).json];
+    expect(notes).toMatchObject([{ text: "Deep" }, { text: "Deep" }]);
+    expect(target.store.list("all")).toEqual(notes);
+  });
+
   it("returns a non-cacheable 404 for an unknown RPC procedure", async () => {
     const response = await handleRpc(
       new Request("http://localhost/api/rpc/unknown", { method: "POST" }),

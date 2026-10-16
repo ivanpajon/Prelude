@@ -182,7 +182,8 @@ export function TaskWorkbench() {
     if (!editing || store.getState().changing) return;
     setEditError(undefined);
     updateTitle.reset();
-    const input = updateTaskTitleInput(editing);
+    // Validate a copy: the schema trims the title in place.
+    const input = updateTaskTitleInput({ ...editing });
     if (input instanceof type.errors) {
       setEditError("invalidTitle");
       return;

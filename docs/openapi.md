@@ -56,6 +56,8 @@ The converter in the web package adapts oRPC's ArkType integration, as written f
 
 All oRPC packages are pinned to the same 1.x version (see `apps/web/package.json`). Use the matching [stable OpenAPI guide](https://v1.orpc.dev/docs/openapi/openapi-specification) and [reference-plugin documentation](https://v1.orpc.dev/docs/openapi/plugins/openapi-reference) when extending or upgrading the integration.
 
+A schema with a morph, such as `string.trim`, makes ArkType deep-clone the whole input before it validates. A deeply nested extra key can then overflow the stack and return a 500. Build such schemas from a scope that turns cloning off, as the fixture does: `const $ = scope({}, { clone: false })`, then `$.type(...)`. The schema then changes its input in place, so pass a copy when you validate an object that you still use.
+
 ## Call a procedure from the app
 
 Pages and components call procedures by their router names, with types from the contract and no fetch code. The examples below assume a `projects` contract with `list` and `create` procedures, added as `projects: projectsContract` to `contract` in `@repo/contracts`.

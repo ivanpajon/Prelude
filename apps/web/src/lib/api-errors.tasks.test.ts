@@ -126,4 +126,38 @@ describe("unexpected task API error logging", () => {
     expect(responses.map((response) => response.status)).toEqual([400, 404, 400, 400, 400]);
     expect(logged).not.toHaveBeenCalled();
   });
+
+  it("accepts deeply nested extra keys without a server error or storing them", async () => {
+    const logged = captureLogs();
+    const repository = createDemoRepository([]);
+    const rpcRepository = createDemoRepository([]);
+    vi.spyOn(demoRepository, "create").mockImplementation((title) => rpcRepository.create(title));
+    // Each body is about 60 KB, under the 64 KB limit. Deep cloning it would overflow the stack.
+    const deepJson = `{"title":" x ","z":${"[".repeat(30_000)}1${"]".repeat(30_000)}}`;
+    const deepForm = `title=x&z${"[a]".repeat(20_000)}=1`;
+
+    const responses = await Promise.all([
+      rest(repository, "/v1/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: deepJson,
+      }),
+      rest(repository, "/v1/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: deepForm,
+      }),
+      rpc("tasks/create", `{"json":${deepJson}}`),
+    ]);
+
+    expect(responses.map((response) => response.status)).toEqual([201, 201, 200]);
+    const [json, form, { json: viaRpc }] = await Promise.all(
+      responses.map((response) => response.json()),
+    );
+    const created = { id: expect.any(String), title: "x", completed: false };
+    expect([json, form, viaRpc]).toEqual([created, created, created]);
+    expect(repository.list("all")).toEqual([json, form]);
+    expect(rpcRepository.list("all")).toEqual([viaRpc]);
+    expect(logged).not.toHaveBeenCalled();
+  });
 });

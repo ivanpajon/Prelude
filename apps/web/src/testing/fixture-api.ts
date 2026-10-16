@@ -1,6 +1,6 @@
 import { oc } from "@orpc/contract";
 import { implement } from "@orpc/server";
-import { type } from "arktype";
+import { scope, type } from "arktype";
 
 /**
  * A tiny test-only API. Infrastructure tests use it so they do not depend on the project's own
@@ -9,8 +9,10 @@ import { type } from "arktype";
  */
 export const noteTextMaxLength = 20;
 
-const textSchema = type("string.trim").to(`1 <= string <= ${noteTextMaxLength}`);
-export const noteSchema = type({ id: "string > 0", text: textSchema, pinned: "boolean" });
+// Like the task schemas: a morph without input cloning, so deeply nested extra keys stay safe.
+const $ = scope({}, { clone: false });
+const textSchema = $.type("string.trim").to(`1 <= string <= ${noteTextMaxLength}`);
+export const noteSchema = $.type({ id: "string > 0", text: textSchema, pinned: "boolean" });
 export type Note = typeof noteSchema.infer;
 export type NoteFilter = "all" | "pinned";
 
@@ -42,7 +44,7 @@ export const fixtureContract = {
         successStatus: 201,
         successDescription: "Note created",
       })
-      .input(type({ text: textSchema }))
+      .input($.type({ text: textSchema }))
       .output(noteSchema),
     update: oc
       .route({
@@ -51,7 +53,7 @@ export const fixtureContract = {
         operationId: "updateNote",
         summary: "Update a note",
       })
-      .input(type({ id: "string > 0", "text?": textSchema, "pinned?": "boolean" }))
+      .input($.type({ id: "string > 0", "text?": textSchema, "pinned?": "boolean" }))
       .output(noteSchema)
       .errors({ NOT_FOUND: { message: "Note not found" } }),
     delete: oc
