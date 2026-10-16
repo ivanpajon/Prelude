@@ -51,7 +51,8 @@ function stubPageLoads() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.save.mockResolvedValue(undefined);
+  // Reset, not just clear: a failed test must not leave queued rejections for the next one.
+  mocks.save.mockReset().mockResolvedValue(undefined);
   window.history.replaceState(null, "", "/en");
 });
 
@@ -160,6 +161,31 @@ describe("routing preference controls", () => {
     expect(mocks.save).toHaveBeenCalledTimes(2);
     expect(location.reload).toHaveBeenCalledTimes(1);
     expect(sessionStorage.length).toBe(0);
+  });
+
+  it("reloads again for a later change after a failed retry", async () => {
+    mocks.save
+      .mockRejectedValueOnce(new UnrecognizedActionError("Server Action was not found"))
+      .mockRejectedValueOnce(new Error("Network failure"))
+      .mockRejectedValueOnce(new UnrecognizedActionError("Server Action was not found"));
+    const location = stubPageLoads();
+    const { unmount } = render(<Controls />);
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Language" }), "es");
+    await waitFor(() => expect(location.reload).toHaveBeenCalledTimes(1));
+    unmount();
+
+    // The retry on the reloaded page fails for another reason, and the tab stays open.
+    render(<Controls />);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Couldn’t update your language preferences",
+    );
+
+    // Another deploy ships before the visitor chooses again, so this change reloads once more.
+    const select = screen.getByRole("combobox", { name: "Language" });
+    await waitFor(() => expect(select).toBeEnabled());
+    await userEvent.selectOptions(select, "es");
+    await waitFor(() => expect(location.reload).toHaveBeenCalledTimes(2));
+    expect(mocks.save).toHaveBeenCalledTimes(3);
   });
 });
 

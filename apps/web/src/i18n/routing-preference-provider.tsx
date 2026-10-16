@@ -55,6 +55,9 @@ export function RoutingPreferenceProvider({
   if (!isLocale(locale)) throw new Error("Unsupported language");
 
   function change(selectedLocale: Locale, selectedMode: RoutingMode) {
+    // Only the automatic retry after a reload may not reload again; later changes may.
+    const isRetry = retried.current;
+    retried.current = false;
     if (submitting.current || pending || (selectedMode === mode && selectedLocale === locale)) {
       return;
     }
@@ -83,9 +86,9 @@ export function RoutingPreferenceProvider({
         }
       } catch (error) {
         // A tab opened before a deploy still holds the old build's action IDs. Reload to get the
-        // new build, then apply the choice there once (see the effect below). If the retry fails
+        // new build, then apply the choice there once (see the effect below). If that retry fails
         // the same way, the reloaded page is still stale, so show the error instead of looping.
-        if (unstable_isUnrecognizedActionError(error) && !retried.current) {
+        if (unstable_isUnrecognizedActionError(error) && !isRetry) {
           try {
             sessionStorage.setItem(
               RETRY_KEY,
