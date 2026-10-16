@@ -130,6 +130,13 @@ export function TaskWorkbench() {
     changing || setCompleted.isPending || deleteTask.isPending || updateTitle.isPending;
 
   useEffect(() => {
+    // Text typed before hydration, or restored by the browser after a reload, is in the field
+    // but not in state. Adopt it, or the next submit would validate and clear an empty title.
+    const typed = newTaskInput.current?.value;
+    if (typed && typed !== store.getState().title) store.getState().setDraft({ title: typed });
+  }, [store]);
+
+  useEffect(() => {
     if (!editing && editTrigger.current) {
       if (editTrigger.current.isConnected) editTrigger.current.focus();
       else newTaskInput.current?.focus();
@@ -168,6 +175,12 @@ export function TaskWorkbench() {
     } finally {
       store.getState().finish("changing");
     }
+  }
+
+  /** Focuses the new-task field when a row leaves, unless the user has moved focus meanwhile. */
+  function focusAfterRowLeaves(button: HTMLElement) {
+    const focused = document.activeElement;
+    if (focused === button || focused === document.body) newTaskInput.current?.focus();
   }
 
   function cancelEdit() {
@@ -333,13 +346,20 @@ export function TaskWorkbench() {
                     title: task.title,
                   })}
                   aria-pressed={task.completed}
+                  // Keep keyboard focus on the button while its request runs.
+                  focusableWhenDisabled={!editing}
+                  className="data-disabled:opacity-50"
                   disabled={taskChangePending || Boolean(editing)}
-                  onClick={() =>
+                  onClick={(event) => {
+                    const button = event.currentTarget;
                     void changeTask(
                       () => setCompleted.mutateAsync({ id: task.id, completed: !task.completed }),
                       "completionFailed",
-                    )
-                  }
+                    ).then((changed) => {
+                      // A filtered list drops the row, and its button with it.
+                      if (changed && status !== "all") focusAfterRowLeaves(button);
+                    });
+                  }}
                 >
                   {task.completed && <CheckIcon aria-hidden="true" />}
                 </Button>
@@ -391,15 +411,22 @@ export function TaskWorkbench() {
                   size={compact ? "icon-xs" : "icon-sm"}
                   variant="ghost"
                   className={cn(
-                    "text-muted-foreground hover:bg-destructive/10 hover:text-destructive",
+                    "text-muted-foreground hover:bg-destructive/10 hover:text-destructive data-disabled:opacity-50",
                     editing?.id === task.id && "hidden",
                   )}
                   aria-label={t("deleteTask", { title: task.title })}
                   title={t("deleteTask", { title: task.title })}
+                  focusableWhenDisabled={!editing}
                   disabled={taskChangePending || Boolean(editing)}
-                  onClick={() =>
-                    void changeTask(() => deleteTask.mutateAsync({ id: task.id }), "deleteFailed")
-                  }
+                  onClick={(event) => {
+                    const button = event.currentTarget;
+                    void changeTask(
+                      () => deleteTask.mutateAsync({ id: task.id }),
+                      "deleteFailed",
+                    ).then((deleted) => {
+                      if (deleted) focusAfterRowLeaves(button);
+                    });
+                  }}
                 >
                   <Trash2Icon aria-hidden="true" />
                 </Button>

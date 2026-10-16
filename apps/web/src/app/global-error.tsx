@@ -2,6 +2,7 @@
 
 import "@repo/ui/styles/globals.css";
 import { Button } from "@repo/ui/components/button";
+import { useEffect, useRef } from "react";
 
 /**
  * Replaces a root layout that failed to render, so no translation provider is available.
@@ -14,6 +15,11 @@ export default function GlobalError({
   error: Error & { digest?: string };
   retry: () => void;
 }) {
+  const heading = useRef<HTMLHeadingElement>(null);
+  // Announce the error page: keyboard focus would otherwise fall to the page body.
+  useEffect(() => {
+    heading.current?.focus();
+  }, []);
   return (
     <html lang="en">
       <body className="min-h-screen bg-background text-foreground antialiased">
@@ -22,7 +28,13 @@ export default function GlobalError({
           id="main-content"
           className="mx-auto flex min-h-screen max-w-xl flex-col items-start justify-center px-6 py-16"
         >
-          <h1 className="text-4xl font-medium tracking-tight">Something went wrong.</h1>
+          <h1
+            ref={heading}
+            tabIndex={-1}
+            className="text-4xl font-medium tracking-tight outline-none"
+          >
+            Something went wrong.
+          </h1>
           <p lang="es" className="mt-2 text-2xl font-medium tracking-tight text-muted-foreground">
             Algo salió mal.
           </p>

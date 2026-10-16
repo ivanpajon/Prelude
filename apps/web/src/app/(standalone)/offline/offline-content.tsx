@@ -37,9 +37,17 @@ export function OfflineContent() {
       <p className="mt-5 text-base leading-relaxed text-muted-foreground">
         {messages.offlineDescription}
       </p>
+      {/* The worker serves this page at the address that failed, so reload that address. */}
       <a
         href="/"
-        className="mt-8 rounded-lg bg-primary px-5 py-3 text-sm font-medium text-primary-foreground hover:opacity-90"
+        onClick={(event) => {
+          // Modified clicks keep the link, and the /offline address itself has nothing to retry.
+          const modified = event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
+          if (event.button !== 0 || modified || window.location.pathname === "/offline") return;
+          event.preventDefault();
+          window.location.reload();
+        }}
+        className="mt-8 rounded-lg bg-primary px-5 py-3 text-sm font-medium text-primary-foreground hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
       >
         {messages.offlineAction}
       </a>

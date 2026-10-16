@@ -6,6 +6,7 @@ import { Card, CardContent } from "@repo/ui/components/card";
 import { cn } from "@repo/ui/lib/utils";
 import { useMutation, useMutationState, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRightIcon, CheckIcon, CodeIcon, PlayIcon, TerminalIcon } from "lucide-react";
+import { unstable_isUnrecognizedActionError } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useStore } from "zustand";
@@ -64,8 +65,13 @@ export function McpPlayground({ store: injectedStore }: { store?: McpPlaygroundS
   const currentExecution = executionVisible ? executionStates.at(-1) : undefined;
   const executionPending = running || currentExecution?.status === "pending";
   const draft = tool ? (drafts[tool.name] ?? starterArguments(tool.inputSchema)) : "";
+  // After a deploy, an open page calls Server Action IDs the new build no longer has.
   const errorCode = (error: Error) =>
-    error instanceof McpPlaygroundError ? error.code : "errorRequestFailed";
+    error instanceof McpPlaygroundError
+      ? error.code
+      : unstable_isUnrecognizedActionError(error)
+        ? "errorOutdated"
+        : "errorRequestFailed";
   const error =
     inputError ?? (currentExecution?.error ? errorCode(currentExecution.error) : undefined);
 

@@ -33,6 +33,7 @@
   "errorDisabled": "MCP está desactivado en esta aplicación.",
   "errorTimeout": "MCP ha tardado demasiado en responder. Inténtalo de nuevo.",
   "errorRequestFailed": "No se ha podido completar la solicitud MCP. Inténtalo de nuevo.",
+  "errorOutdated": "Esta página está desactualizada. Recárgala para usar la versión más reciente.",
   "errorInvalidToolArguments": "Elige una herramienta e introduce un objeto JSON como argumentos.",
   "errorToolUnavailable": "Esta herramienta no está disponible. Vuelve a descubrir las herramientas.",
   "errorInvalidJson": "Introduce un JSON válido, por ejemplo {example}.",

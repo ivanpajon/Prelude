@@ -6,6 +6,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { NuqsTestingAdapter } from "nuqs/adapters/testing";
+import { renderToString } from "react-dom/server";
 import { afterEach, expect, it, vi } from "vitest";
 import { orpc } from "@/lib/orpc";
 import { createWorkbenchStore } from "@/stores/workbench-store";
@@ -23,9 +24,9 @@ vi.mock("@/lib/orpc", async (importOriginal) => {
         key: tasks.key,
         list: tasks.list,
         create: { mutationOptions: tasks.create.mutationOptions },
-        setCompleted: tasks.setCompleted,
+        setCompleted: { mutationOptions: tasks.setCompleted.mutationOptions },
         updateTitle: tasks.updateTitle,
-        delete: tasks.delete,
+        delete: { mutationOptions: tasks.delete.mutationOptions },
       },
     },
   };
@@ -34,7 +35,7 @@ vi.mock("@/lib/orpc", async (importOriginal) => {
 const clients: QueryClient[] = [];
 const task = { id: "demo-task", title: "Keep the user's words", completed: false };
 
-function fixture() {
+function fixture({ beforeHydration }: { beforeHydration?: (container: HTMLElement) => void } = {}) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   });
@@ -59,7 +60,16 @@ function fixture() {
       </NuqsTestingAdapter>
     </NextIntlClientProvider>
   );
-  const rendered = render(view("en"));
+  let rendered: ReturnType<typeof render>;
+  if (beforeHydration) {
+    // Server HTML that the visitor changes before React hydrates it.
+    const container = document.body.appendChild(document.createElement("div"));
+    container.innerHTML = renderToString(view("en"));
+    beforeHydration(container);
+    rendered = render(view("en"), { container, hydrate: true });
+  } else {
+    rendered = render(view("en"));
+  }
   return {
     ...rendered,
     client,
@@ -137,4 +147,63 @@ it("retains pending creation across a locale remount and preserves a newer draft
   await act(async () => complete({ ...task, id: "created", title: "First draft" }));
   await waitFor(() => expect(screen.getByRole("button", { name: "Añadir tarea" })).toBeEnabled());
   expect(input).toHaveValue("Keep this newer draft");
+});
+
+it("submits a new-task draft typed before hydration", async () => {
+  const user = userEvent.setup();
+  const create = vi.fn(async (input: { title: string }) => ({ ...task, id: "created", ...input }));
+  vi.spyOn(orpc.tasks.create, "mutationOptions").mockReturnValue({ mutationFn: create });
+  fixture({
+    beforeHydration: (container) => {
+      const input = container.querySelector<HTMLInputElement>("#task-title");
+      if (input) input.value = "Typed early";
+    },
+  });
+  expect(screen.getByRole("textbox", { name: "New task" })).toHaveValue("Typed early");
+  await user.click(screen.getByRole("button", { name: "Add task" }));
+  expect(create).toHaveBeenCalledOnce();
+  expect(create.mock.calls[0]?.[0]).toEqual({ title: "Typed early" });
+  expect(screen.queryByText("Enter a task between 1 and 120 characters.")).toBeNull();
+});
+
+it("keeps keyboard focus on a busy task button and moves it to the new-task field after a delete", async () => {
+  const user = userEvent.setup();
+  let finish!: () => void;
+  const remove = vi.fn(
+    () =>
+      new Promise<typeof task>((resolve) => {
+        finish = () => resolve(task);
+      }),
+  );
+  vi.spyOn(orpc.tasks.delete, "mutationOptions").mockReturnValue({ mutationFn: remove });
+  fixture();
+  const button = screen.getByRole("button", { name: `Delete ${task.title}` });
+  button.focus();
+  await user.keyboard("{Enter}");
+  expect(remove).toHaveBeenCalledOnce();
+  // The native disabled attribute would move focus to the page body.
+  expect(button).toHaveAttribute("aria-disabled", "true");
+  expect(button).not.toHaveAttribute("disabled");
+  expect(button).toHaveFocus();
+  await act(async () => finish());
+  await waitFor(() => expect(screen.getByRole("textbox", { name: "New task" })).toHaveFocus());
+});
+
+it("leaves focus where the user moved it while a delete runs", async () => {
+  const user = userEvent.setup();
+  let finish!: () => void;
+  const remove = vi.fn(
+    () =>
+      new Promise<typeof task>((resolve) => {
+        finish = () => resolve(task);
+      }),
+  );
+  vi.spyOn(orpc.tasks.delete, "mutationOptions").mockReturnValue({ mutationFn: remove });
+  fixture();
+  screen.getByRole("button", { name: `Delete ${task.title}` }).focus();
+  await user.keyboard("{Enter}");
+  const compact = screen.getByRole("button", { name: "Compact view" });
+  compact.focus();
+  await act(async () => finish());
+  expect(compact).toHaveFocus();
 });

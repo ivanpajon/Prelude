@@ -282,6 +282,13 @@ describe.each(["modern", "legacy"] as const)("MCP %s HTTP compatibility", (era) 
     for (const args of [{}, { text: 42 }, { text: "   " }, { text: "x".repeat(21) }]) {
       expect((await client.callTool({ name: "createNote", arguments: args })).isError).toBe(true);
     }
+    // A rule beyond the JSON Schema keeps the REST details, so the model can fix its input.
+    const blank = await client.callTool({ name: "createNote", arguments: { text: "   " } });
+    const [blankContent] = blank.content as Array<{ text: string }>;
+    expect(JSON.parse(blankContent?.text ?? "")).toMatchObject({
+      code: "BAD_REQUEST",
+      data: { issues: [expect.objectContaining({ path: ["text"] })] },
+    });
     const invalidFilter = await client.callTool({ name: "listNotes", arguments: { filter: "x" } });
     expect(invalidFilter.isError).toBe(true);
     for (const args of [{}, { id: "" }, { id: 42 }, { id: "missing" }]) {

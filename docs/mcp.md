@@ -84,7 +84,7 @@ The endpoint is **enabled by default**, including in production. No token, OAuth
 | Variable | Behavior |
 | --- | --- |
 | `MCP_ENABLED=false` | Return 404 from the MCP endpoint. Other API transports are unchanged. |
-| `MCP_ALLOWED_ORIGINS` | Comma-separated production browser origins, such as `https://app.example.com,https://agent.example.com`. Each origin must match exactly, including scheme and port; wildcards are not accepted. |
+| `MCP_ALLOWED_ORIGINS` | Comma-separated production browser origins, such as `https://app.example.com`. Each origin must match exactly, including scheme and port; wildcards are not accepted. The endpoint sends no CORS headers, so a browser page on another origin can call it only through a reverse proxy that answers the preflight and adds CORS headers; this list then decides which origins reach the app. |
 | `MCP_INSPECTOR_PORT` | Local Inspector UI port; defaults to `6274`. |
 | `MCP_SANDBOX_PORT` | Local Inspector App sandbox port; defaults to `6275`. Choose a different free port from Next.js and Inspector. |
 
@@ -100,7 +100,7 @@ Stdio serving, prompts, a general resource framework, filesystem tools, authenti
 The task widget is the only supplied MCP resource. Update its identity together with the server metadata when customizing the demo.
 <!-- demo:end -->
 
-Modern clients negotiate protocol `2026-07-28`; legacy clients can use the earlier initialize handshake. The SDK preserves natural JSON output for modern clients. For a list result, legacy clients receive structured content as `{ "result": [...] }` with a matching output schema; the text content still contains the original JSON array. Object results retain their natural shape. Application errors set the MCP tool result's `isError` flag, while malformed protocol requests and unknown tools use protocol errors. Unexpected server failures return a generic error without repository details or stack traces, and the server logs them with the stack. A request that its own client aborted, after a timeout or a disconnect, is not a server failure and is not logged.
+Modern clients negotiate protocol `2026-07-28`; legacy clients can use the earlier initialize handshake. The SDK preserves natural JSON output for modern clients. For a list result, legacy clients receive structured content as `{ "result": [...] }` with a matching output schema; the text content still contains the original JSON array. Object results retain their natural shape. Application errors set the MCP tool result's `isError` flag and carry the REST error's code, message, and details, such as which input failed validation, while malformed protocol requests and unknown tools use protocol errors. Unexpected server failures return a generic error without repository details or stack traces, and the server logs them with the stack. A request that its own client aborted, after a timeout or a disconnect, is not a server failure and is not logged.
 
 ## Add, change, or remove tools
 

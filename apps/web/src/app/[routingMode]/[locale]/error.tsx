@@ -2,6 +2,7 @@
 
 import { Button } from "@repo/ui/components/button";
 import { useTranslations } from "next-intl";
+import { useEffect, useRef } from "react";
 
 export default function ErrorPage({
   error,
@@ -11,6 +12,11 @@ export default function ErrorPage({
   retry: () => void;
 }) {
   const t = useTranslations("Errors");
+  const heading = useRef<HTMLHeadingElement>(null);
+  // Announce the error page: keyboard focus would otherwise fall to the page body.
+  useEffect(() => {
+    heading.current?.focus();
+  }, []);
   return (
     <main
       id="main-content"
@@ -19,7 +25,13 @@ export default function ErrorPage({
       <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">
         {t("eyebrow")}
       </p>
-      <h1 className="mt-4 text-4xl font-medium tracking-tight">{t("title")}</h1>
+      <h1
+        ref={heading}
+        tabIndex={-1}
+        className="mt-4 text-4xl font-medium tracking-tight outline-none"
+      >
+        {t("title")}
+      </h1>
       <p className="mt-4 text-base leading-relaxed text-muted-foreground">{t("description")}</p>
       {/* The digest matches the server log entry for this error, without exposing its cause. */}
       {error.digest ? (

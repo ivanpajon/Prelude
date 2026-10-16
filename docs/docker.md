@@ -105,7 +105,7 @@ The managed launcher waits for Next.js to bind its fixed port, and then starts I
 
 The root `.env` configures Docker Compose. Native development uses the application's environment, such as `apps/web/.env.local`; those local files are excluded from the Docker build context. Do not put secrets in Docker build arguments, image layers, or committed environment files.
 
-`MCP_ENABLED` and `MCP_ALLOWED_ORIGINS` are read at runtime: the same production image can run with different values. An invalid value stops the server at startup with an error that names the variable; read it with `docker compose logs`. Origin checks do not provide authentication. See [MCP configuration](mcp.md) for native clients, direct browser clients, and authorization boundaries.
+`MCP_ENABLED` and `MCP_ALLOWED_ORIGINS` are read at runtime: the same production image can run with different values. An invalid value stops the server at startup with an error that names the variable; read it with `docker compose logs`. Origin checks do not provide authentication. See [MCP configuration](mcp.md) for native clients, browser origins, and authorization boundaries.
 
 <!-- demo:start -->
 The managed launcher builds the demo widget before starting Next.js. `MCP_ENABLED=false` also turns off the playground's MCP actions. The playground's same-origin action bridge works without adding its own origin to the HTTP endpoint's allowlist. A compatible MCP Apps host proxies widget tool calls through its existing MCP connection. See [MCP Apps](mcp-apps.md).
