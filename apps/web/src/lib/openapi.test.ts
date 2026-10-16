@@ -16,8 +16,8 @@ import {
   type NoteStore,
   noteTextMaxLength,
 } from "@/testing/fixture-api";
-import { apiInfo, scalarScriptUrl } from "./api-info";
-import { createOpenApi, DirectionalArkTypeConverter } from "./openapi";
+import { apiInfo, scalarScriptIntegrity, scalarScriptUrl } from "./api-info";
+import { createOpenApi, DirectionalArkTypeConverter, hardenDocsHtml } from "./openapi";
 import { createRpc } from "./rpc";
 
 const openApi = createOpenApi(fixtureRouter, fixtureSpecOptions);
@@ -219,7 +219,10 @@ describe("OpenAPI HTTP adapter", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     const html = await response.text();
     expect(html).toContain(`<title>${apiInfo.title} Reference</title>`);
-    expect(html).toContain(`src="${scalarScriptUrl}"`);
+    expect(html).toContain('<html lang="en">');
+    expect(html).toContain(
+      `<script src="${scalarScriptUrl}" integrity="${scalarScriptIntegrity}" crossorigin="anonymous">`,
+    );
     expect(html).toContain('"withDefaultFonts":false');
     expect(html).toContain('"telemetry":false');
     expect(html).toContain('"agent":{"disabled":true}');
@@ -227,6 +230,12 @@ describe("OpenAPI HTTP adapter", () => {
       expect(html).toContain(operationId);
     }
     expect(html).not.toContain("proxy.scalar.com");
+  });
+
+  it("refuses reference HTML without the expected Scalar script tag", () => {
+    expect(() =>
+      hardenDocsHtml(`<html><script src="${scalarScriptUrl}" defer></script></html>`),
+    ).toThrow("Unexpected API reference HTML");
   });
 
   it("serves a valid document and Scalar for a contract without procedures", async () => {

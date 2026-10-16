@@ -15,7 +15,7 @@ import { BodyLimitPlugin } from "@orpc/server/fetch";
 import { router } from "@repo/api";
 import type { Type } from "arktype";
 import { logUnexpectedApiError, logUnexpectedHandlerErrors } from "./api-errors";
-import { apiInfo, scalarScriptUrl } from "./api-info";
+import { apiInfo, scalarScriptIntegrity, scalarScriptUrl } from "./api-info";
 import { plainRequest } from "./plain-request";
 
 /** oRPC 1.15.6's converter does not select the input/output side of ArkType morphs. */
@@ -92,13 +92,14 @@ export function createOpenApi<TRouter extends AnyRouter>(
   const matcher = new StandardOpenAPIMatcher();
   matcher.init(apiRouter);
   const logging = logUnexpectedHandlerErrors<InferRouterInitialContext<TRouter>>("rest");
+  const docsPath = "/docs";
   const handler = new OpenAPIHandler(apiRouter, {
     plugins: [
       new BodyLimitPlugin({ maxBodySize: 64 * 1024 }),
       new OpenAPIReferencePlugin({
         schemaConverters,
         specGenerateOptions: generateOptions,
-        docsPath: "/docs",
+        docsPath,
         specPath: "/openapi.json",
         docsProvider: "scalar",
         docsTitle: `${apiInfo.title} Reference`,
@@ -136,6 +137,19 @@ export function createOpenApi<TRouter extends AnyRouter>(
         }
         return next();
       },
+      async ({ request, prefix, next }) => {
+        const result = await next();
+        const { response } = result;
+        // The reference plugin answers its docs path with an HTML file, unless a procedure
+        // takes that path first.
+        const docs = request.url.pathname.replace(/\/$/, "") === `${prefix ?? ""}${docsPath}`;
+        if (!docs || !(response?.body instanceof Blob) || response.body.type !== "text/html") {
+          return result;
+        }
+        const html = hardenDocsHtml(await response.body.text());
+        const body = new File([html], "api-reference.html", { type: "text/html" });
+        return { matched: true, response: { ...response, body } };
+      },
     ],
     // Wraps only the procedure call: malformed requests fail earlier and return 4xx quietly.
     // MCP tools dispatch through this handler, so their failures are logged here once. A 5xx
@@ -154,6 +168,26 @@ export function createOpenApi<TRouter extends AnyRouter>(
       return result;
     },
   };
+}
+
+/**
+ * Adds the Scalar script's integrity hash and the page language to the reference page that
+ * oRPC renders. This keeps oRPC's own renderer, which escapes the embedded document. If an
+ * oRPC update changes the expected tags, this throws instead of serving the page without them.
+ */
+export function hardenDocsHtml(html: string) {
+  const script = `<script src="${scalarScriptUrl}">`;
+  if (!html.includes(script) || !html.includes("<html>")) {
+    throw new Error(
+      "Unexpected API reference HTML from oRPC; update hardenDocsHtml in openapi.ts.",
+    );
+  }
+  return html
+    .replace(
+      script,
+      `<script src="${scalarScriptUrl}" integrity="${scalarScriptIntegrity}" crossorigin="anonymous">`,
+    )
+    .replace("<html>", '<html lang="en">');
 }
 
 const openApi = createOpenApi(router, {

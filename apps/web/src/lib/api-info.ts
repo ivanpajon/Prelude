@@ -12,4 +12,12 @@ export const apiInfo = { title: `${site.name} API`, version: "1.0.0" };
  * pin this asset, so the version lives here, and Renovate updates it in this one place.
  */
 export const scalarScriptUrl =
-  "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.72.1/dist/browser/standalone.js";
+  "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.74.0/dist/browser/standalone.js";
+
+/**
+ * Subresource Integrity hash of the file at `scalarScriptUrl`. The browser refuses the script
+ * if the file changes. Renovate cannot update it: after a version bump, compute the new value
+ * with the command in docs/openapi.md (Scalar renderer and caching).
+ */
+export const scalarScriptIntegrity =
+  "sha384-VXnKAz61Xwc3tbw1P+KKrUP7YbcsSl1Ik4is5UnogJyw9XEYZ5Ay/T1i0zPYtSZH";

@@ -111,9 +111,15 @@ To render the first data on the server and reuse it after hydration, fill `getSe
 
 ## Scalar renderer and caching
 
-`scalarScriptUrl` in `apps/web/src/lib/api-info.ts` pins Scalar's standalone browser bundle on jsDelivr by an exact `@scalar/api-reference` version. `createOpenApi` passes it to the reference plugin as `docsScriptUrl`.
+`scalarScriptUrl` in `apps/web/src/lib/api-info.ts` pins Scalar's standalone browser bundle on jsDelivr by an exact `@scalar/api-reference` version. `createOpenApi` passes it to the reference plugin as `docsScriptUrl`. `scalarScriptIntegrity` next to it holds the file's Subresource Integrity hash. `createOpenApi` adds it to the script tag with `crossorigin="anonymous"`, so the browser blocks the script if jsDelivr ever serves a different file. It also adds `lang="en"` to the page.
 
-There is no local `@scalar/api-reference` dependency, bundle-copy script, or generated Scalar asset. Loading the interactive reference requires access to jsDelivr; the JSON specification and REST API do not depend on that CDN. Upgrading oRPC does not change the renderer version. Renovate updates the version in `scalarScriptUrl`. To upgrade Scalar by hand, change the version there and run `pnpm verify`; the unit and browser tests import the URL, so they need no edits. Follow Scalar's [renderer-pinning guidance](https://scalar.com/products/api-references/integrations/nextjs#pin-the-browser-renderer).
+There is no local `@scalar/api-reference` dependency, bundle-copy script, or generated Scalar asset. Loading the interactive reference requires access to jsDelivr; the JSON specification and REST API do not depend on that CDN. Upgrading oRPC does not change the renderer version. Renovate updates the version in `scalarScriptUrl`, but not the hash: its pull request shows the command to run, and the browser tests fail until you update `scalarScriptIntegrity`. To upgrade Scalar by hand, change the version, set the hash to the output of this command, and run `pnpm verify`. Replace `SCALAR_SCRIPT_URL` with the new value of `scalarScriptUrl`; the command works in Bash, PowerShell, and Command Prompt:
+
+```sh
+node -e "fetch(process.argv[1]).then((r) => r.arrayBuffer()).then((b) => console.log('sha384-' + require('crypto').createHash('sha384').update(Buffer.from(b)).digest('base64')))" SCALAR_SCRIPT_URL
+```
+
+The unit and browser tests import the URL and the hash, so they need no edits. Follow Scalar's [renderer-pinning guidance](https://scalar.com/products/api-references/integrations/nextjs#pin-the-browser-renderer).
 
 Scalar uses its responsive layout and hash navigation with the API title followed by **Reference**, such as **My App API Reference**. External fonts, telemetry, and Scalar Agent are disabled. Requests go directly to the application's origin; no request proxy or cross-origin API configuration is provided.
 
