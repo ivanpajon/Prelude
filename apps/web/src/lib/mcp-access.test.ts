@@ -132,7 +132,7 @@ describe("MCP request access", () => {
   });
 
   it("does not expose internal failures and preserves SDK response headers", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const failure = await handleMcpRequest(
       request(),
       async () => {
@@ -142,6 +142,12 @@ describe("MCP request access", () => {
     );
     expect(failure.status).toBe(500);
     expect(await failure.text()).not.toContain("private implementation detail");
+    expect(logged).toHaveBeenCalledOnce();
+    expect(JSON.parse(String(logged.mock.calls[0]?.[0]))).toMatchObject({
+      level: "error",
+      message: "MCP request failed",
+      error: { message: "private implementation detail", stack: expect.any(String) },
+    });
     const success = await handleMcpRequest(
       request(),
       async () =>
@@ -149,6 +155,23 @@ describe("MCP request access", () => {
       {},
     );
     expect(success.headers.get("content-type")).toBe("text/event-stream");
+  });
+
+  it("does not log a request that its own client aborted", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const controller = new AbortController();
+    const aborted = new Request(request(), { signal: controller.signal });
+    const result = await handleMcpRequest(
+      aborted,
+      async (incoming) => {
+        controller.abort();
+        throw incoming.signal.reason;
+      },
+      {},
+    );
+    expect(result.status).toBe(500);
+    expect(result.headers.get("cache-control")).toBe("no-store");
+    expect(logged).not.toHaveBeenCalled();
   });
 });
 

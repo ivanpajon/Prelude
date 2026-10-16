@@ -55,10 +55,14 @@ export async function handleMcpRequest(
   try {
     return withoutMcpCache(rejectMcpRequest(request, environment) ?? (await fetch(request)));
   } catch (error) {
-    logServerError("MCP request failed", error, {
-      method: request.method,
-      path: new URL(request.url).pathname,
-    });
+    // A client that times out or disconnects aborts its own request. That is not a server
+    // failure, so only other errors are logged.
+    if (!request.signal.aborted) {
+      logServerError("MCP request failed", error, {
+        method: request.method,
+        path: new URL(request.url).pathname,
+      });
+    }
     return withoutMcpCache(
       new Response("MCP request failed. Check the server logs.", { status: 500 }),
     );
