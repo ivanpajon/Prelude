@@ -17,6 +17,7 @@ import {
   OpenAPIToolGenerator,
 } from "mcp-from-openapi";
 import { site } from "@/site";
+import { apiInfo } from "./api-info";
 import { logServerError } from "./server-log";
 // demo:start
 
@@ -191,7 +192,7 @@ export function createMcpEndpoint<TContext>({
     // Declare tools up front: the SDK adds the capability only when a tool is registered, so an
     // API without operations would answer tools/list with "Method not found".
     const server = new McpServer(
-      { name: site.slug, version: "1.0.0" },
+      { name: site.slug, version: apiInfo.version },
       { capabilities: { tools: {} } },
     );
     // demo:start
