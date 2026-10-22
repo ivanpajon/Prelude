@@ -3,7 +3,7 @@
 
 @source "./**/*.{ts,tsx}";
 /* List each shared component the widget imports; unlisted components render unstyled. */
-@source "../../../../../packages/ui/src/components/{button,input}.tsx";
+@source "../../../../../packages/ui/src/components/{alert,button,empty,input}.tsx";
 
 :root {
   --background: var(--color-background-primary, oklch(1 0 0));

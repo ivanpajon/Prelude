@@ -72,9 +72,9 @@ async function StackOverview() {
       <CardContent>
         <dl className="divide-y divide-border">
           {stack.map(([name, purpose]) => (
-            <div key={name} className="flex flex-wrap items-center justify-between gap-2 py-4">
-              <dt className="text-sm font-medium">{name}</dt>
-              <dd className="text-xs text-muted-foreground">{purpose}</dd>
+            <div key={name} className="flex flex-wrap items-center justify-between gap-2.5 py-2.5">
+              <dt className="font-medium">{name}</dt>
+              <dd className="text-muted-foreground">{purpose}</dd>
             </div>
           ))}
         </dl>
@@ -82,7 +82,7 @@ async function StackOverview() {
           href="/api/docs"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex flex-wrap items-center justify-between gap-2 rounded-sm border-t border-border py-4 text-sm font-medium transition-colors underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+          className="flex flex-wrap items-center justify-between gap-2.5 rounded-sm border-t border-border py-2.5 font-medium transition-colors underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
         >
           <span>OpenAPI + Scalar</span>
           <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
@@ -92,9 +92,9 @@ async function StackOverview() {
           </span>
         </a>
         <dl className="border-t border-border">
-          <div className="flex flex-wrap items-center justify-between gap-3 py-4">
-            <dt className="text-sm font-medium">i18n · next-intl</dt>
-            <dd className="text-xs text-muted-foreground">English · Español</dd>
+          <div className="flex flex-wrap items-center justify-between gap-2.5 py-2.5">
+            <dt className="font-medium">i18n · next-intl</dt>
+            <dd className="text-muted-foreground">English · Español</dd>
           </div>
         </dl>
       </CardContent>

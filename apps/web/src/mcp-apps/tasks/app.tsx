@@ -3,7 +3,9 @@ import type { Task, TaskStatus } from "@repo/contracts";
 import { titleMaxLength } from "@repo/contracts/limits";
 import { type Locale, resolveLocale } from "@repo/i18n";
 import { getWidgetMessages } from "@repo/i18n/widget";
+import { Alert, AlertDescription } from "@repo/ui/components/alert";
 import { Button } from "@repo/ui/components/button";
+import { Empty, EmptyDescription, EmptyHeader } from "@repo/ui/components/empty";
 import { Input } from "@repo/ui/components/input";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { CheckIcon, PencilIcon, PlusIcon, RefreshCwIcon, Trash2Icon } from "lucide-react";
@@ -56,7 +58,11 @@ export function WidgetIntlProvider({ locale, children }: { locale: Locale; child
 
 export function WidgetStartupError() {
   const t = useTranslations("Widget");
-  return <p role="alert">{t("errorStartupFailed")}</p>;
+  return (
+    <Alert variant="destructive" className="m-4">
+      <AlertDescription>{t("errorStartupFailed")}</AlertDescription>
+    </Alert>
+  );
 }
 
 function TaskTitleEditor({
@@ -143,7 +149,7 @@ function TaskTitleEditor({
           }}
         />
         {error && (
-          <p id={`${fieldId}-error`} className="mt-1 text-xs text-destructive" role="alert">
+          <p id={`${fieldId}-error`} className="mt-1 text-xs/relaxed text-destructive" role="alert">
             {t(error.code, error.values)}
           </p>
         )}
@@ -261,7 +267,11 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
             {t("addTask")}
           </Button>
           {titleError && (
-            <p id="task-title-error" className="basis-full text-xs text-destructive" role="alert">
+            <p
+              id="task-title-error"
+              className="basis-full text-xs/relaxed text-destructive"
+              role="alert"
+            >
               {t(titleError.code, titleError.values)}
             </p>
           )}
@@ -288,12 +298,9 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
             : t("taskCount", { count: tasks.data?.length ?? 0 })}
       </div>
       {state.error && (
-        <div
-          className="mt-3 rounded-lg border border-destructive/30 p-3 text-sm text-destructive"
-          role="alert"
-        >
-          {t(state.error.code, state.error.values)}
-        </div>
+        <Alert variant="destructive" className="mt-3">
+          <AlertDescription>{t(state.error.code, state.error.values)}</AlertDescription>
+        </Alert>
       )}
       <ul
         className="mt-3 divide-y border-y"
@@ -304,13 +311,16 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
           <li key={task.id} className="flex items-center gap-3 py-3">
             {session.tools.setTaskCompleted ? (
               <Button
-                size="icon"
-                variant={task.completed ? "default" : "outline"}
+                size={null}
+                variant={null}
                 disabled={busy || editing}
                 aria-label={t(task.completed ? "markActive" : "markCompleted", {
                   title: task.title,
                 })}
                 aria-pressed={task.completed}
+                // Looks like shadcn's Checkbox but stays an aria-pressed button.
+                // biome-ignore lint/nursery/noTailwindArbitraryValue: the Checkbox's 4px radius has no named utility, and the haspopup variant must match Button's to cancel its press nudge.
+                className="relative size-4 rounded-[4px] border-input transition-shadow active:not-aria-[haspopup]:translate-y-0 after:absolute after:-inset-x-3 after:-inset-y-2 aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground dark:bg-input/30"
                 onClick={() =>
                   void session.mutate("setTaskCompleted", {
                     id: task.id,
@@ -318,7 +328,7 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
                   })
                 }
               >
-                {task.completed && <CheckIcon aria-hidden="true" />}
+                {task.completed && <CheckIcon aria-hidden="true" className="size-3.5" />}
               </Button>
             ) : (
               <span className="text-xs text-muted-foreground">
@@ -351,7 +361,6 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
                 }}
                 size="icon"
                 variant="ghost"
-                className="text-muted-foreground"
                 disabled={busy || editing}
                 aria-label={t("editLabel", { title: task.title })}
                 title={t("editTitle")}
@@ -366,8 +375,7 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
             {session.tools.deleteTask && editingId !== task.id && (
               <Button
                 size="icon"
-                variant="ghost"
-                className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                variant="destructive"
                 disabled={busy || editing}
                 aria-label={t("deleteLabel", { title: task.title })}
                 title={t("deleteTitle")}
@@ -380,7 +388,11 @@ export function TaskAppView({ session }: { session: TaskAppSession }) {
         ))}
       </ul>
       {!state.loading && !state.error && !tasks.data?.length && (
-        <p className="py-5 text-sm text-muted-foreground">{t("empty")}</p>
+        <Empty>
+          <EmptyHeader>
+            <EmptyDescription>{t("empty")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )}
       <p className="mt-4 text-xs text-muted-foreground">{t("demoNote")}</p>
     </main>

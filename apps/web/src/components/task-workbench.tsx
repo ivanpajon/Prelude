@@ -2,7 +2,7 @@
 
 import { createTaskInput, taskStatuses, updateTaskTitleInput } from "@repo/contracts";
 import { titleMaxLength } from "@repo/contracts/limits";
-import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
+import { Alert, AlertAction, AlertTitle } from "@repo/ui/components/alert";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import {
@@ -328,11 +328,11 @@ export function TaskWorkbench() {
         {tasks.isError && (
           <Alert variant="destructive" className="mt-4">
             <AlertTitle>{t(tasks.data ? "refreshFailed" : "loadFailed")}</AlertTitle>
-            <AlertDescription>
+            <AlertAction>
               <Button variant="outline" size="xs" onClick={() => void tasks.refetch()}>
                 {t("tryAgain")}
               </Button>
-            </AlertDescription>
+            </AlertAction>
           </Alert>
         )}
         {tasks.isPending ? (
@@ -357,18 +357,20 @@ export function TaskWorkbench() {
                 key={task.id}
                 layout="position"
                 initial={false}
-                className={cn("flex items-center", compact ? "gap-2 py-1" : "gap-4 py-6")}
+                className={cn("flex items-center", compact ? "gap-3 py-1" : "gap-4 py-6")}
               >
                 <Button
-                  size={compact ? "icon-xs" : "icon-sm"}
-                  variant={task.completed ? "default" : "outline"}
+                  size={null}
+                  variant={null}
                   aria-label={t(task.completed ? "markActive" : "markCompleted", {
                     title: task.title,
                   })}
                   aria-pressed={task.completed}
                   // Keep keyboard focus on the button while its request runs.
                   focusableWhenDisabled={!editing}
-                  className="data-disabled:opacity-50"
+                  // Looks like shadcn's Checkbox but stays an aria-pressed button.
+                  // biome-ignore lint/nursery/noTailwindArbitraryValue: the Checkbox's 4px radius has no named utility, and the haspopup variant must match Button's to cancel its press nudge.
+                  className="relative size-4 rounded-[4px] border-input transition-shadow active:not-aria-[haspopup]:translate-y-0 after:absolute after:-inset-x-3 after:-inset-y-2 aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground data-disabled:opacity-50 dark:bg-input/30"
                   disabled={taskChangePending || Boolean(editing)}
                   onClick={(event) => {
                     const button = event.currentTarget;
@@ -381,7 +383,7 @@ export function TaskWorkbench() {
                     });
                   }}
                 >
-                  {task.completed && <CheckIcon aria-hidden="true" />}
+                  {task.completed && <CheckIcon aria-hidden="true" className="size-3.5" />}
                 </Button>
                 {editing?.id === task.id ? (
                   <TaskTitleEditor
@@ -396,7 +398,6 @@ export function TaskWorkbench() {
                   <span
                     className={cn(
                       "min-w-0 flex-1 wrap-anywhere",
-                      compact ? "text-xs" : "text-base",
                       task.completed && "text-muted-foreground line-through",
                     )}
                   >

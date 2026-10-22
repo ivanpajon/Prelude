@@ -190,7 +190,7 @@ export function McpPlayground({ store: injectedStore }: { store?: McpPlaygroundS
                     variant={entry.name === tool.name ? "default" : "outline"}
                     aria-pressed={entry.name === tool.name}
                     disabled={executionPending}
-                    className="max-w-full font-mono text-xs"
+                    className="max-w-full font-mono"
                     onClick={() => {
                       if (store.getState().running) return;
                       setDraft({ selectedName: entry.name });
@@ -233,7 +233,7 @@ export function McpPlayground({ store: injectedStore }: { store?: McpPlaygroundS
                 </Field>
                 <div className="min-w-0">
                   <div className="mb-3 flex items-center justify-between gap-3">
-                    <h4 id="mcp-result-heading" className="text-sm font-medium">
+                    <h4 id="mcp-result-heading" className="text-xs/relaxed font-medium">
                       {t("response")}
                     </h4>
                     <span role="status" className="text-xs text-muted-foreground">
