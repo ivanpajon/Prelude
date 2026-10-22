@@ -7,10 +7,10 @@ This repository is a Next.js 16 starter in a pnpm and Turborepo workspace. One o
 A project created from this template starts with every optional feature. Before you do anything else in the first session, set it up with the user:
 
 1. Ask which optional features to keep. List every feature in [optional features](docs/features.md#features) with its one-line summary, and wait for the answer.
-2. Remove the others in the order the guide gives, following its steps, then run the checks it names.
-3. Delete this section from `AGENTS.md`, so later sessions don't ask again. Report what you removed; commit only if the user asks.
+2. Remove the others in the order the guide gives, following its steps. Then follow its [Finish](docs/features.md#finish) steps, which run the checks and delete this section, so later sessions don't ask again.
+3. Report what you removed. Commit only if the user asks.
 
-If the user keeps everything, only delete this section. Skip it when the `origin` remote points to the `ivanpajon/Prelude` repository, which is the template itself, or when the user says they are working on the template.
+If the user keeps everything, only delete this section and the first-session sentences that Finish names. Skip it when the `origin` remote points to the `ivanpajon/Prelude` repository, which is the template itself, or when the user says they are working on the template.
 
 ## Packages
 
