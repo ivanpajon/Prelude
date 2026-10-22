@@ -2,11 +2,26 @@
 
 import { createTaskInput, taskStatuses, updateTaskTitleInput } from "@repo/contracts";
 import { titleMaxLength } from "@repo/contracts/limits";
+import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
-import { Card, CardContent } from "@repo/ui/components/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@repo/ui/components/card";
+import { Empty, EmptyDescription, EmptyHeader } from "@repo/ui/components/empty";
+import { FieldError } from "@repo/ui/components/field";
 import { Input } from "@repo/ui/components/input";
+import { Label } from "@repo/ui/components/label";
 import { MorphIcon } from "@repo/ui/components/morph-icon";
+import { Separator } from "@repo/ui/components/separator";
+import { Skeleton } from "@repo/ui/components/skeleton";
+import { Toggle } from "@repo/ui/components/toggle";
 import { cn } from "@repo/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type } from "arktype";
@@ -55,9 +70,9 @@ function TaskTitleEditor({
 
   return (
     <form className="flex min-w-0 flex-1 flex-wrap gap-2" onSubmit={onSubmit}>
-      <label htmlFor="task-edit-title" className="sr-only">
+      <Label htmlFor="task-edit-title" className="sr-only">
         {t("taskTitle")}
-      </label>
+      </Label>
       <Input
         ref={input}
         id="task-edit-title"
@@ -81,11 +96,9 @@ function TaskTitleEditor({
       <Button type="button" variant="outline" disabled={pending} onClick={onCancel}>
         {t("cancel")}
       </Button>
-      {error && (
-        <p id="task-edit-feedback" role="alert" className="w-full text-sm text-destructive">
-          {error}
-        </p>
-      )}
+      <FieldError id="task-edit-feedback" className="w-full">
+        {error}
+      </FieldError>
     </form>
   );
 }
@@ -240,24 +253,21 @@ export function TaskWorkbench() {
     code === "invalidTitle" ? t(code, { min: 1, max: titleMaxLength }) : t(code);
 
   return (
-    <Card className="overflow-hidden bg-card shadow-none">
-      <CardContent className={compact ? "p-4" : "p-6 sm:p-8"}>
-        <div
-          className={cn(
-            "flex flex-wrap items-start justify-between gap-4",
-            compact ? "mb-3" : "mb-6",
-          )}
-        >
-          <div>
-            <h3 className="text-lg font-medium">{t("title")}</h3>
-            <p className="mt-2 text-sm text-muted-foreground">{t("description")}</p>
-          </div>
+    <Card size={compact ? "sm" : "default"}>
+      <CardHeader>
+        <CardTitle>
+          <h3>{t("title")}</h3>
+        </CardTitle>
+        <CardDescription>{t("description")}</CardDescription>
+        <CardAction>
           <Badge variant="secondary">{t("liveDemo")}</Badge>
-        </div>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
         <form onSubmit={submitTask} className="flex flex-col gap-3 sm:flex-row">
-          <label htmlFor="task-title" className="sr-only">
+          <Label htmlFor="task-title" className="sr-only">
             {t("newTask")}
-          </label>
+          </Label>
           <Input
             ref={newTaskInput}
             id="task-title"
@@ -279,7 +289,7 @@ export function TaskWorkbench() {
         <div
           id="task-feedback"
           aria-live="polite"
-          className="mt-2 min-h-5 text-sm text-destructive"
+          className="mt-2 min-h-5 text-xs/relaxed text-destructive"
         >
           {error && errorMessage(error)}
         </div>
@@ -294,7 +304,7 @@ export function TaskWorkbench() {
                   ? t("deletedTask", { title: deleteTask.data.title })
                   : ""}
         </span>
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-b pb-4">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
           <fieldset className="flex flex-wrap gap-1">
             <legend className="sr-only">{t("filterTasks")}</legend>
             {taskStatuses.map((filter) => (
@@ -309,27 +319,37 @@ export function TaskWorkbench() {
               </Button>
             ))}
           </fieldset>
-          <Button variant="ghost" onClick={toggleCompact} aria-pressed={compact}>
+          <Toggle variant="outline" pressed={compact} onPressedChange={toggleCompact}>
             <MorphIcon icon={compact ? List : LayoutList} />
             {t("compactView")}
-          </Button>
+          </Toggle>
         </div>
+        <Separator className="mt-4" />
         {tasks.isError && (
-          <div role="alert" className="flex items-center justify-between gap-4 py-8">
-            <p className="text-sm text-destructive">
-              {t(tasks.data ? "refreshFailed" : "loadFailed")}
-            </p>
-            <Button variant="outline" onClick={() => void tasks.refetch()}>
-              {t("tryAgain")}
-            </Button>
-          </div>
+          <Alert variant="destructive" className="mt-4">
+            <AlertTitle>{t(tasks.data ? "refreshFailed" : "loadFailed")}</AlertTitle>
+            <AlertDescription>
+              <Button variant="outline" size="xs" onClick={() => void tasks.refetch()}>
+                {t("tryAgain")}
+              </Button>
+            </AlertDescription>
+          </Alert>
         )}
         {tasks.isPending ? (
-          <p role="status" className="py-8 text-sm text-muted-foreground">
-            {t("loading")}
-          </p>
+          <div className="flex flex-col gap-2 py-4">
+            <span role="status" className="sr-only">
+              {t("loading")}
+            </span>
+            {[0, 1, 2].map((row) => (
+              <Skeleton key={row} className="h-6" />
+            ))}
+          </div>
         ) : !tasks.data ? null : tasks.data.length === 0 ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">{t("empty")}</p>
+          <Empty>
+            <EmptyHeader>
+              <EmptyDescription>{t("empty")}</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <ul aria-label={t("listLabel")} className="divide-y">
             {tasks.data.map((task) => (
@@ -389,7 +409,7 @@ export function TaskWorkbench() {
                   }}
                   size={compact ? "icon-xs" : "icon-sm"}
                   variant="ghost"
-                  className={editing?.id === task.id ? "hidden" : "text-muted-foreground"}
+                  className={cn(editing?.id === task.id && "hidden")}
                   aria-label={t("editTask", { title: task.title })}
                   title={t("editTask", { title: task.title })}
                   disabled={taskChangePending || (Boolean(editing) && editing?.id !== task.id)}
@@ -409,11 +429,9 @@ export function TaskWorkbench() {
                 </Button>
                 <Button
                   size={compact ? "icon-xs" : "icon-sm"}
-                  variant="ghost"
-                  className={cn(
-                    "text-muted-foreground hover:bg-destructive/10 hover:text-destructive data-disabled:opacity-50",
-                    editing?.id === task.id && "hidden",
-                  )}
+                  variant="destructive"
+                  // Base UI keeps a focusable disabled button enabled, so dim it by its data attribute.
+                  className={cn("data-disabled:opacity-50", editing?.id === task.id && "hidden")}
                   aria-label={t("deleteTask", { title: task.title })}
                   title={t("deleteTask", { title: task.title })}
                   focusableWhenDisabled={!editing}
@@ -434,11 +452,11 @@ export function TaskWorkbench() {
             ))}
           </ul>
         )}
-        <div className="mt-2 flex flex-wrap justify-between gap-2 border-t pt-4 text-xs text-muted-foreground">
-          <span role="status">{t("count", { count: tasks.data?.length ?? 0 })}</span>
-          <span>{t("sharedData")}</span>
-        </div>
       </CardContent>
+      <CardFooter className="flex-wrap justify-between gap-2 border-t text-muted-foreground">
+        <span role="status">{t("count", { count: tasks.data?.length ?? 0 })}</span>
+        <span>{t("sharedData")}</span>
+      </CardFooter>
     </Card>
   );
 }

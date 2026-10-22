@@ -1,5 +1,6 @@
 import "@repo/ui/styles/globals.css";
 import { locales } from "@repo/i18n";
+import { buttonVariants } from "@repo/ui/components/button";
 import { Toaster } from "@repo/ui/components/toast";
 import type { Metadata, Viewport } from "next";
 import { notFound } from "next/navigation";
@@ -9,6 +10,7 @@ import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 import { Providers } from "@/components/providers";
 import { PwaProvider } from "@/components/pwa-provider";
+import { ThemeProvider } from "@/components/theme-provider";
 import { isRoutingMode, routingModes } from "@/i18n/routing";
 import { RoutingPreferenceProvider } from "@/i18n/routing-preference-provider";
 import { site, siteIcons } from "@/site";
@@ -47,33 +49,38 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     // demo:end
   } = await getMessages();
   return (
-    <html lang={locale}>
-      <body className="min-h-screen bg-background text-foreground antialiased">
-        <a
-          href="#main-content"
-          className="sr-only rounded-md bg-primary px-4 py-2 text-primary-foreground focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50"
-        >
-          {t("skip")}
-        </a>
-        <NextIntlClientProvider
-          messages={{
-            Common,
-            Animation,
-            Pwa,
-            Errors,
-            // demo:start
-            Tasks,
-            Mcp,
-            // demo:end
-          }}
-        >
-          <RoutingPreferenceProvider mode={mode}>
-            <Toaster dismissLabel={pwa("toastClose")} regionLabel={pwa("toastRegion")} />
-            <PwaProvider>
-              <Providers>{children}</Providers>
-            </PwaProvider>
-          </RoutingPreferenceProvider>
-        </NextIntlClientProvider>
+    // next-themes sets data-theme on <html> before hydration.
+    <html lang={locale} suppressHydrationWarning>
+      <body className="min-h-screen">
+        <ThemeProvider>
+          <a
+            href="#main-content"
+            className={buttonVariants({
+              className: "not-focus:sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50",
+            })}
+          >
+            {t("skip")}
+          </a>
+          <NextIntlClientProvider
+            messages={{
+              Common,
+              Animation,
+              Pwa,
+              Errors,
+              // demo:start
+              Tasks,
+              Mcp,
+              // demo:end
+            }}
+          >
+            <RoutingPreferenceProvider mode={mode}>
+              <Toaster dismissLabel={pwa("toastClose")} regionLabel={pwa("toastRegion")} />
+              <PwaProvider>
+                <Providers>{children}</Providers>
+              </PwaProvider>
+            </RoutingPreferenceProvider>
+          </NextIntlClientProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

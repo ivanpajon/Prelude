@@ -13,7 +13,13 @@
     "skip": "Skip to content",
     "footer": "Made with ❤️ by Ivan Pajon",
     "repository": "{name} source code (opens in a new tab)",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "theme": {
+      "label": "Theme",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    }
   },
   "Home": {
     "metaTitle": "Prelude — Less setup. More building.",

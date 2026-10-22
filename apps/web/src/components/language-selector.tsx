@@ -1,6 +1,8 @@
 "use client";
 
 import { isLocale, type Locale, locales } from "@repo/i18n";
+import { FieldError } from "@repo/ui/components/field";
+import { NativeSelect, NativeSelectOption } from "@repo/ui/components/native-select";
 import { useTranslations } from "next-intl";
 import { useFocusAfterChange, useRoutingPreference } from "@/i18n/routing-preference-provider";
 
@@ -15,7 +17,7 @@ export function LanguageSelector() {
   if (locales.length < 2) return null;
   return (
     <div className="flex flex-col items-end gap-1">
-      <select
+      <NativeSelect
         ref={focusRef}
         aria-label={t("language")}
         value={locale}
@@ -23,28 +25,23 @@ export function LanguageSelector() {
         disabled={disabled && !pending}
         aria-disabled={pending || undefined}
         aria-busy={pending}
-        className="max-w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50 aria-disabled:opacity-50 sm:text-sm"
         onChange={(event) => {
           const selected = event.target.value;
           if (isLocale(selected)) changeLocale(selected);
         }}
       >
         {locales.map((option) => (
-          <option key={option} value={option} lang={option}>
+          <NativeSelectOption key={option} value={option} lang={option}>
             {languageNames[option]}
-          </option>
+          </NativeSelectOption>
         ))}
-      </select>
+      </NativeSelect>
       {pending && (
         <span className="sr-only" role="status">
           {t("preferenceSaving")}
         </span>
       )}
-      {failure === "locale" && (
-        <p role="alert" className="max-w-64 text-xs text-destructive">
-          {t("preferenceError")}
-        </p>
-      )}
+      {failure === "locale" && <FieldError className="max-w-64">{t("preferenceError")}</FieldError>}
     </div>
   );
 }

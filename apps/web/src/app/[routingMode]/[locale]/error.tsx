@@ -40,7 +40,7 @@ export default function ErrorPage({
         </p>
       ) : null}
       {/* retry() fetches the segment again from the server; reset() would only re-render it. */}
-      <Button className="mt-8" onClick={() => retry()}>
+      <Button size="lg" className="mt-8" onClick={() => retry()}>
         {t("retry")}
       </Button>
     </main>

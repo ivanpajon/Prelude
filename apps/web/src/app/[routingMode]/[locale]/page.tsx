@@ -1,6 +1,16 @@
 import { Badge } from "@repo/ui/components/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@repo/ui/components/card";
 import { MotionProvider } from "@repo/ui/components/motion-provider";
+import { Separator } from "@repo/ui/components/separator";
+import { Skeleton } from "@repo/ui/components/skeleton";
 import { ArrowUpRightIcon, CheckIcon } from "lucide-react";
 import { cacheLife } from "next/cache";
 import { getTranslations } from "next-intl/server";
@@ -10,6 +20,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 // demo:start
 
+import { buttonVariants } from "@repo/ui/components/button";
 import { ArrowRightIcon } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 
@@ -50,13 +61,13 @@ async function StackOverview() {
   ];
 
   return (
-    <Card className="h-full border-border bg-card shadow-none">
-      <CardHeader className="gap-4 border-b border-border">
-        <div className="flex items-center justify-between gap-4">
-          <CardTitle className="text-base font-medium">{t("stackTitle")}</CardTitle>
-          <span className="size-2 rounded-full bg-primary" aria-hidden="true" />
-        </div>
-        <p className="text-sm leading-relaxed text-muted-foreground">{t("stackDescription")}</p>
+    <Card className="h-full">
+      <CardHeader className="border-b">
+        <CardTitle>{t("stackTitle")}</CardTitle>
+        <CardDescription>{t("stackDescription")}</CardDescription>
+        <CardAction>
+          <span className="block size-2 rounded-full bg-primary" aria-hidden="true" />
+        </CardAction>
       </CardHeader>
       <CardContent>
         <dl className="divide-y divide-border">
@@ -71,7 +82,7 @@ async function StackOverview() {
           href="/api/docs"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex flex-wrap items-center justify-between gap-2 rounded-sm border-t border-border py-4 text-sm font-medium transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-sm border-t border-border py-4 text-sm font-medium transition-colors underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
         >
           <span>OpenAPI + Scalar</span>
           <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
@@ -86,11 +97,11 @@ async function StackOverview() {
             <dd className="text-xs text-muted-foreground">English · Español</dd>
           </div>
         </dl>
-        <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-          <CheckIcon className="size-3.5" aria-hidden="true" />
-          {t("cached")}
-        </div>
       </CardContent>
+      <CardFooter className="gap-2 text-xs text-muted-foreground">
+        <CheckIcon className="size-3.5" aria-hidden="true" />
+        {t("cached")}
+      </CardFooter>
     </Card>
   );
 }
@@ -107,7 +118,7 @@ export default async function HomePage() {
           aria-labelledby="hero-heading"
         >
           <div className="lg:col-span-3">
-            <Badge variant="secondary" className="mb-6 gap-2 rounded-full px-3 py-1.5 font-medium">
+            <Badge variant="secondary" className="mb-6">
               <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
               {t("eyebrow")}
             </Badge>
@@ -123,24 +134,15 @@ export default async function HomePage() {
               {t("intro")}
             </p>
             {/* demo:start */}
-            <Link
-              href="/playground"
-              className="mt-8 inline-flex items-center gap-3 rounded-full bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-            >
+            <Link href="/playground" className={buttonVariants({ size: "lg", className: "mt-8" })}>
               {t("openPlayground")}
-              <ArrowRightIcon className="size-4" aria-hidden="true" />
+              <ArrowRightIcon data-icon="inline-end" aria-hidden="true" />
             </Link>
             {/* demo:end */}
           </div>
           <div className="lg:col-span-2">
             <Suspense
-              fallback={
-                <div
-                  className="h-80 animate-pulse rounded-xl bg-muted"
-                  role="status"
-                  aria-label={t("stackLoading")}
-                />
-              }
+              fallback={<Skeleton className="h-80" role="status" aria-label={t("stackLoading")} />}
             >
               <StackOverview />
             </Suspense>
@@ -151,10 +153,8 @@ export default async function HomePage() {
           <AnimationExamples />
         </MotionProvider>
 
-        <section
-          className="mt-16 border-t border-border pt-10"
-          aria-labelledby="architecture-heading"
-        >
+        <Separator className="mt-16" />
+        <section className="pt-10" aria-labelledby="architecture-heading">
           <h2 id="architecture-heading" className="mb-8 text-sm font-medium text-muted-foreground">
             {t("architecture")}
           </h2>

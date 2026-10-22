@@ -2,6 +2,15 @@
 
 import { browserLocale, defaultLocale, type Locale } from "@repo/i18n";
 import { getPwaMessages } from "@repo/i18n/pwa";
+import { buttonVariants } from "@repo/ui/components/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@repo/ui/components/empty";
 import { WifiOffIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { site } from "@/site";
@@ -27,30 +36,36 @@ export function OfflineContent() {
   return (
     <main
       id="main-content"
-      className="mx-auto flex min-h-screen max-w-lg flex-col items-start justify-center px-8 py-16"
+      className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-8 py-16"
     >
-      <div className="mb-8 flex size-14 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
-        <WifiOffIcon className="size-6" aria-hidden="true" />
-      </div>
-      <p className="mb-3 font-mono text-xs text-muted-foreground uppercase">{site.name}</p>
-      <h1 className="text-4xl font-medium tracking-tight">{messages.offlineTitle}</h1>
-      <p className="mt-5 text-base leading-relaxed text-muted-foreground">
-        {messages.offlineDescription}
-      </p>
-      {/* The worker serves this page at the address that failed, so reload that address. */}
-      <a
-        href="/"
-        onClick={(event) => {
-          // Modified clicks keep the link, and the /offline address itself has nothing to retry.
-          const modified = event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
-          if (event.button !== 0 || modified || window.location.pathname === "/offline") return;
-          event.preventDefault();
-          window.location.reload();
-        }}
-        className="mt-8 rounded-lg bg-primary px-5 py-3 text-sm font-medium text-primary-foreground hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-      >
-        {messages.offlineAction}
-      </a>
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <WifiOffIcon aria-hidden="true" />
+          </EmptyMedia>
+          <p className="font-mono text-xs text-muted-foreground uppercase">{site.name}</p>
+          <EmptyTitle>
+            <h1>{messages.offlineTitle}</h1>
+          </EmptyTitle>
+          <EmptyDescription>{messages.offlineDescription}</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          {/* The worker serves this page at the address that failed, so reload that address. */}
+          <a
+            href="/"
+            onClick={(event) => {
+              // Modified clicks keep the link, and the /offline address itself has nothing to retry.
+              const modified = event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
+              if (event.button !== 0 || modified || window.location.pathname === "/offline") return;
+              event.preventDefault();
+              window.location.reload();
+            }}
+            className={buttonVariants()}
+          >
+            {messages.offlineAction}
+          </a>
+        </EmptyContent>
+      </Empty>
     </main>
   );
 }

@@ -1,5 +1,14 @@
 import { Badge } from "@repo/ui/components/badge";
-import { Card, CardContent } from "@repo/ui/components/card";
+import { buttonVariants } from "@repo/ui/components/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@repo/ui/components/card";
+import { Skeleton } from "@repo/ui/components/skeleton";
 import { ArrowUpRightIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
@@ -31,7 +40,7 @@ export default async function PlaygroundPage({
 
       <main id="main-content" className="pb-16">
         <section className="py-16 lg:py-20" aria-labelledby="playground-heading">
-          <Badge variant="secondary" className="mb-6 rounded-full px-3 py-1.5 font-medium">
+          <Badge variant="secondary" className="mb-6">
             {t("eyebrow")}
           </Badge>
           <h1 id="playground-heading" className="text-4xl font-medium tracking-tight sm:text-5xl">
@@ -49,7 +58,7 @@ export default async function PlaygroundPage({
               <a
                 key={href}
                 href={href}
-                className="rounded-full border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+                className={buttonVariants({ variant: "outline", size: "sm" })}
               >
                 {label}
               </a>
@@ -74,9 +83,12 @@ export default async function PlaygroundPage({
           </div>
           <Suspense
             fallback={
-              <p role="status" className="rounded-xl bg-card p-8 text-muted-foreground">
-                {t("loading")}
-              </p>
+              <div className="space-y-3">
+                <p role="status" className="text-sm text-muted-foreground">
+                  {t("loading")}
+                </p>
+                <Skeleton className="h-64" aria-hidden="true" />
+              </div>
             }
           >
             <TaskWorkbenchServer searchParams={searchParams} />
@@ -94,26 +106,32 @@ export default async function PlaygroundPage({
               {t("widgetHeading")}
             </h2>
           </div>
-          <Card className="bg-card shadow-none">
-            <CardContent className="p-6 sm:p-8">
-              <Badge variant="secondary">MCP App</Badge>
-              <h3 className="mt-4 text-lg font-medium">{t("widgetTitle")}</h3>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <h3>{t("widgetTitle")}</h3>
+              </CardTitle>
+              <CardDescription className="max-w-2xl">
                 {t.rich("widgetDescription", {
-                  endpoint: (chunks) => <code className="font-mono text-xs">{chunks}</code>,
-                  tool: (chunks) => <code className="font-mono text-xs">{chunks}</code>,
+                  endpoint: (chunks) => <code className="font-mono">{chunks}</code>,
+                  tool: (chunks) => <code className="font-mono">{chunks}</code>,
                 })}
-              </p>
+              </CardDescription>
+              <CardAction>
+                <Badge variant="secondary">MCP App</Badge>
+              </CardAction>
+            </CardHeader>
+            <CardContent>
               {process.env.NODE_ENV === "development" ? (
                 <>
                   <a
                     href="/api/mcp/inspector"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-6 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+                    className={buttonVariants()}
                   >
                     {t("openInspector")}
-                    <ArrowUpRightIcon className="size-4" aria-hidden="true" />
+                    <ArrowUpRightIcon data-icon="inline-end" aria-hidden="true" />
                     <span className="sr-only">{common("newTab")}</span>
                   </a>
                   <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
@@ -121,7 +139,7 @@ export default async function PlaygroundPage({
                   </p>
                 </>
               ) : (
-                <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+                <p className="text-xs leading-relaxed text-muted-foreground">
                   {t("connectionHelp")}
                 </p>
               )}
