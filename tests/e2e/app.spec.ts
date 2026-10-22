@@ -97,3 +97,14 @@ test("sends security headers and runs pages within their Content Security Policy
   }
   expect(violations).toEqual([]);
 });
+
+test("keeps the chosen color theme after a reload", async ({ page }) => {
+  await page.goto("/");
+  await waitForHydration(page);
+  await page.getByRole("button", { name: "Theme", exact: true }).click();
+  await page.getByRole("menuitemradio", { name: "Dark", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+});

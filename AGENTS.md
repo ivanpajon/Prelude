@@ -2,6 +2,16 @@
 
 This repository is a Next.js 16 starter in a pnpm and Turborepo workspace. One oRPC contract with ArkType schemas serves RPC, REST with an OpenAPI document and Scalar reference, and native MCP tools. The website is localized in English and Spanish with next-intl and works as a PWA with Serwist.
 
+## First session in a new project
+
+A project created from this template starts with every optional feature. Before you do anything else in the first session, set it up with the user:
+
+1. Ask which optional features to keep. List every feature in [optional features](docs/features.md#features) with its one-line summary, and wait for the answer.
+2. Remove the others in the order the guide gives, following its steps. Then follow its [Finish](docs/features.md#finish) steps, which run the checks and delete this section, so later sessions don't ask again.
+3. Report what you removed. Commit only if the user asks.
+
+If the user keeps everything, only delete this section and the first-session sentences that Finish names. Skip it when the `origin` remote points to the `ivanpajon/Prelude` repository, which is the template itself, or when the user says they are working on the template.
+
 ## Packages
 
 - `apps/web` (`@repo/web`): the Next.js App Router website and the API, OpenAPI, MCP, and health routes. `apps/web/src/site.ts` holds the site name and repository URL.
@@ -57,7 +67,7 @@ Do not edit these by hand:
 
 ## Documentation
 
-`README.md` covers setup and the "Make it yours" checklist. The guides live in `docs/`: [architecture](docs/architecture.md), [OpenAPI](docs/openapi.md), [MCP](docs/mcp.md), [localization](docs/i18n.md), [Docker](docs/docker.md), [verification](docs/verification.md), [React diagnostics](docs/diagnostics.md), [dates and times](docs/temporal.md), [animation](docs/motion.md), [requirements](docs/requirements.md), and [customization](docs/customization.md).
+`README.md` covers setup and the "Make it yours" checklist. The guides live in `docs/`: [architecture](docs/architecture.md), [OpenAPI](docs/openapi.md), [MCP](docs/mcp.md), [localization](docs/i18n.md), [Docker](docs/docker.md), [verification](docs/verification.md), [React diagnostics](docs/diagnostics.md), [dates and times](docs/temporal.md), [animation](docs/motion.md), [requirements](docs/requirements.md), [customization](docs/customization.md), and [optional features](docs/features.md).
 
 <!-- demo:start -->
 ## Demo

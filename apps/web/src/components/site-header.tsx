@@ -1,3 +1,4 @@
+import { buttonVariants } from "@repo/ui/components/button";
 import { ArrowUpRightIcon } from "lucide-react";
 import Image from "next/image";
 import { getTranslations } from "next-intl/server";
@@ -5,6 +6,7 @@ import { Link } from "@/i18n/navigation";
 import { site } from "@/site";
 import { LanguageSelector } from "./language-selector";
 import { RoutingModeSwitch } from "./routing-mode-switch";
+import { ThemeToggle } from "./theme-toggle";
 
 export async function SiteHeader(
   // demo:start
@@ -24,42 +26,43 @@ export async function SiteHeader(
           alt={site.name}
           width={site.logo.width}
           height={site.logo.height}
-          className="h-auto w-36 sm:w-44"
+          className="h-auto w-36 sm:w-44 dark:invert"
           unoptimized
           preload
         />
       </Link>
       <nav
         aria-label={t("navigation")}
-        className="flex basis-full flex-wrap items-center gap-x-4 gap-y-2 sm:flex-1 sm:basis-auto sm:justify-end sm:gap-x-6"
+        className="flex basis-full flex-wrap items-center gap-x-1 gap-y-2 sm:flex-1 sm:basis-auto sm:justify-end sm:gap-x-2"
       >
         {/* demo:start */}
         <Link
           href="/playground"
           aria-current={activePage === "playground" ? "page" : undefined}
-          className="rounded-sm py-1 text-xs whitespace-nowrap text-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring sm:text-sm"
+          className={buttonVariants({
+            variant: "ghost",
+            className: "aria-[current=page]:bg-muted",
+          })}
         >
           {t("playground")}
         </Link>
         {/* demo:end */}
-        <a
-          href="/api/docs"
-          className="rounded-sm py-1 text-xs whitespace-nowrap text-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring sm:text-sm"
-        >
+        <a href="/api/docs" className={buttonVariants({ variant: "ghost" })}>
           {t("apiDocs")}
         </a>
         <a
           href="https://nextjs.org/docs"
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-2 rounded-sm py-1 text-xs whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring sm:text-sm"
+          className={buttonVariants({ variant: "ghost" })}
         >
           {t("nextDocs")}
-          <ArrowUpRightIcon className="size-4" aria-hidden="true" />
+          <ArrowUpRightIcon data-icon="inline-end" aria-hidden="true" />
           <span className="sr-only">{t("newTab")}</span>
         </a>
         <LanguageSelector />
         <RoutingModeSwitch />
+        <ThemeToggle />
       </nav>
     </header>
   );

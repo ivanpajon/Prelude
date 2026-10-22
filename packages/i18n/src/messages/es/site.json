@@ -13,7 +13,13 @@
     "skip": "Saltar al contenido",
     "footer": "Hecho con ❤️ por Ivan Pajon",
     "repository": "Código fuente de {name} (se abre en una pestaña nueva)",
-    "loading": "Cargando…"
+    "loading": "Cargando…",
+    "theme": {
+      "label": "Tema",
+      "light": "Claro",
+      "dark": "Oscuro",
+      "system": "Sistema"
+    }
   },
   "Home": {
     "metaTitle": "Prelude — Menos configuración. Más creación.",

@@ -38,20 +38,20 @@ function ToastList({ dismissLabel, regionLabel }: Required<ToasterLabels>) {
               data-slot="toast"
               data-toast-id={notification.id}
               swipeDirection={["up", "right"]}
-              className="pointer-events-auto relative transform-[translate(var(--toast-swipe-movement-x),var(--toast-swipe-movement-y))] rounded-xl border border-border bg-card p-4 text-card-foreground shadow-lg outline-none transition-[opacity,transform] duration-150 focus-visible:ring-2 focus-visible:ring-ring data-ending-style:opacity-0 data-limited:hidden data-starting-style:opacity-0 data-swiping:transition-none motion-reduce:transition-none"
+              className="pointer-events-auto relative transform-[translate(var(--toast-swipe-movement-x),var(--toast-swipe-movement-y))] rounded-lg border border-border bg-popover p-4 text-popover-foreground shadow-lg outline-none transition-[opacity,transform] duration-150 focus-visible:ring-2 focus-visible:ring-ring data-ending-style:opacity-0 data-limited:hidden data-starting-style:opacity-0 data-swiping:transition-none motion-reduce:transition-none"
             >
-              <Toast.Content className="flex items-start gap-3 pr-7">
+              <Toast.Content className="flex items-start gap-2.5 pr-7">
                 <Icon
                   aria-hidden="true"
                   className={
                     notification.type === "loading"
-                      ? "mt-0.5 size-5 shrink-0 motion-safe:animate-spin"
-                      : "mt-0.5 size-5 shrink-0"
+                      ? "mt-0.5 size-4 shrink-0 motion-safe:animate-spin"
+                      : "mt-0.5 size-4 shrink-0"
                   }
                 />
                 <div className="min-w-0 flex-1">
-                  <Toast.Title className="text-sm font-semibold" />
-                  <Toast.Description className="mt-1 text-sm leading-relaxed text-muted-foreground" />
+                  <Toast.Title className="text-xs/relaxed font-medium" />
+                  <Toast.Description className="mt-0.5 text-xs/relaxed text-muted-foreground" />
                   <Toast.Action render={<Button size="sm" className="mt-3" />} />
                 </div>
               </Toast.Content>

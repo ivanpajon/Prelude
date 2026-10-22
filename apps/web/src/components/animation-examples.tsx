@@ -2,8 +2,16 @@
 
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
-import { Card, CardContent } from "@repo/ui/components/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@repo/ui/components/card";
 import { MorphIcon } from "@repo/ui/components/morph-icon";
+import { Toggle } from "@repo/ui/components/toggle";
 import { cn } from "@repo/ui/lib/utils";
 import { Bookmark, BookmarkCheck } from "lucide";
 import { ArrowRightIcon } from "lucide-react";
@@ -16,17 +24,21 @@ function MotionExample() {
   const [atEnd, setAtEnd] = useState(false);
 
   return (
-    <Card className="h-full bg-card shadow-none">
-      <CardContent className="p-6 sm:p-8">
-        <Badge variant="secondary">Motion</Badge>
-        <h3 className="mt-4 text-lg font-medium">{t("motionTitle")}</h3>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          {t("motionDescription")}
-        </p>
+    <Card className="h-full">
+      <CardHeader>
+        <CardTitle>
+          <h3>{t("motionTitle")}</h3>
+        </CardTitle>
+        <CardDescription>{t("motionDescription")}</CardDescription>
+        <CardAction>
+          <Badge variant="secondary">Motion</Badge>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
         <div
           aria-hidden="true"
           className={cn(
-            "my-6 flex h-32 items-center rounded-xl bg-muted px-5",
+            "mb-4 flex h-32 items-center rounded-md bg-muted px-5",
             atEnd ? "justify-end" : "justify-start",
           )}
         >
@@ -34,7 +46,7 @@ function MotionExample() {
             layout="position"
             initial={false}
             transition={{ type: "spring", stiffness: 240, damping: 24 }}
-            className="flex size-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground"
+            className="flex size-16 items-center justify-center rounded-lg bg-primary text-primary-foreground"
           >
             <ArrowRightIcon className="size-6" />
           </m.div>
@@ -55,19 +67,26 @@ function MorphiconsExample() {
   const [saved, setSaved] = useState(false);
 
   return (
-    <Card className="h-full bg-card shadow-none">
-      <CardContent className="p-6 sm:p-8">
-        <Badge variant="secondary">Morphicons</Badge>
-        <h3 className="mt-4 text-lg font-medium">{t("morphTitle")}</h3>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          {t("morphDescription")}
-        </p>
-        <div className="my-6 flex h-32 items-center justify-center rounded-xl bg-muted">
-          <MorphIcon icon={saved ? BookmarkCheck : Bookmark} className="size-12 text-primary" />
+    <Card className="h-full">
+      <CardHeader>
+        <CardTitle>
+          <h3>{t("morphTitle")}</h3>
+        </CardTitle>
+        <CardDescription>{t("morphDescription")}</CardDescription>
+        <CardAction>
+          <Badge variant="secondary">Morphicons</Badge>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        <div className="mb-4 flex h-32 items-center justify-center rounded-md bg-muted">
+          <MorphIcon
+            icon={saved ? BookmarkCheck : Bookmark}
+            className="size-12 text-primary dark:text-foreground"
+          />
         </div>
-        <Button variant="outline" aria-pressed={saved} onClick={() => setSaved(!saved)}>
+        <Toggle variant="outline" pressed={saved} onPressedChange={setSaved}>
           {t(saved ? "saved" : "save")}
-        </Button>
+        </Toggle>
         <p role="status" className="mt-3 text-xs text-muted-foreground">
           {t(saved ? "savedDescription" : "unsavedDescription")}
         </p>

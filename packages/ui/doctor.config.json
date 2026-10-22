@@ -3,7 +3,11 @@
   "ignore": {
     "overrides": [
       {
-        "files": ["src/components/button.tsx", "src/components/badge.tsx"],
+        "files": [
+          "src/components/button.tsx",
+          "src/components/badge.tsx",
+          "src/components/toggle.tsx"
+        ],
         "rules": ["react-doctor/only-export-components"]
       }
     ]

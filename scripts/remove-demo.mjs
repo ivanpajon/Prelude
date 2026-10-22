@@ -109,6 +109,7 @@ export const demo = {
     "docs/architecture.md",
     "docs/diagnostics.md",
     "docs/docker.md",
+    "docs/features.md",
     "docs/i18n.md",
     "docs/mcp.md",
     "docs/motion.md",

@@ -1,12 +1,12 @@
 {
   "$schema": "https://ui.shadcn.com/schema.json",
-  "style": "base-nova",
+  "style": "base-mira",
   "rsc": true,
   "tsx": true,
   "tailwind": {
     "config": "",
     "css": "src/styles/globals.css",
-    "baseColor": "neutral",
+    "baseColor": "zinc",
     "cssVariables": true
   },
   "iconLibrary": "lucide",
@@ -16,5 +16,7 @@
     "utils": "@repo/ui/lib/utils",
     "lib": "@repo/ui/lib",
     "hooks": "@repo/ui/hooks"
-  }
+  },
+  "menuColor": "default",
+  "menuAccent": "subtle"
 }

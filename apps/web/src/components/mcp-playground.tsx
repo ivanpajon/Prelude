@@ -1,8 +1,20 @@
 "use client";
 
+import { Alert, AlertDescription } from "@repo/ui/components/alert";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
-import { Card, CardContent } from "@repo/ui/components/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@repo/ui/components/card";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from "@repo/ui/components/empty";
+import { Field, FieldDescription, FieldError, FieldLabel } from "@repo/ui/components/field";
+import { Separator } from "@repo/ui/components/separator";
+import { Textarea } from "@repo/ui/components/textarea";
 import { cn } from "@repo/ui/lib/utils";
 import { useMutation, useMutationState, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRightIcon, CheckIcon, CodeIcon, PlayIcon, TerminalIcon } from "lucide-react";
@@ -117,19 +129,17 @@ export function McpPlayground({ store: injectedStore }: { store?: McpPlaygroundS
         </div>
         <span className="font-mono text-xs text-muted-foreground">/api/mcp</span>
       </div>
-      <Card className="bg-card shadow-none">
-        <CardContent className="p-6 sm:p-8">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <Badge variant="secondary" className="gap-1.5">
-                <TerminalIcon className="size-3" aria-hidden="true" />
-                {t("badge")}
-              </Badge>
-              <h3 className="mt-4 text-lg font-medium">{t("toolsTitle")}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                {t("description")}
-              </p>
-            </div>
+      <Card>
+        <CardHeader>
+          <Badge variant="secondary" className="mb-2">
+            <TerminalIcon aria-hidden="true" />
+            {t("badge")}
+          </Badge>
+          <CardTitle>
+            <h3>{t("toolsTitle")}</h3>
+          </CardTitle>
+          <CardDescription>{t("description")}</CardDescription>
+          <CardAction>
             <Button
               variant="outline"
               disabled={discovery.isFetching || executionPending}
@@ -148,8 +158,10 @@ export function McpPlayground({ store: injectedStore }: { store?: McpPlaygroundS
               )}
               <ArrowRightIcon aria-hidden="true" />
             </Button>
-          </div>
-          <p role="status" className="mt-4 text-xs text-muted-foreground">
+          </CardAction>
+        </CardHeader>
+        <CardContent>
+          <p role="status" className="text-xs text-muted-foreground">
             {discovery.isFetching
               ? t("discoveringStatus")
               : discovery.data
@@ -157,12 +169,16 @@ export function McpPlayground({ store: injectedStore }: { store?: McpPlaygroundS
                 : t("connectHint")}
           </p>
           {discovery.isError && (
-            <p role="alert" className="mt-3 text-sm text-destructive">
-              {t(errorCode(discovery.error))}
-            </p>
+            <Alert variant="destructive" className="mt-3">
+              <AlertDescription>{t(errorCode(discovery.error))}</AlertDescription>
+            </Alert>
           )}
           {discovery.data && tools.length === 0 && (
-            <p className="mt-4 text-sm text-muted-foreground">{t("empty")}</p>
+            <Empty className="mt-4">
+              <EmptyHeader>
+                <EmptyDescription>{t("empty")}</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           )}
           {tool && (
             <>
@@ -174,7 +190,7 @@ export function McpPlayground({ store: injectedStore }: { store?: McpPlaygroundS
                     variant={entry.name === tool.name ? "default" : "outline"}
                     aria-pressed={entry.name === tool.name}
                     disabled={executionPending}
-                    className="max-w-full font-mono text-xs"
+                    className="max-w-full font-mono"
                     onClick={() => {
                       if (store.getState().running) return;
                       setDraft({ selectedName: entry.name });
@@ -192,12 +208,11 @@ export function McpPlayground({ store: injectedStore }: { store?: McpPlaygroundS
                 <p className="text-sm leading-relaxed text-muted-foreground">{tool.description}</p>
               </div>
               <div className="mt-6 grid gap-6 md:grid-cols-2">
-                <div className="min-w-0">
-                  <label htmlFor="mcp-arguments" className="mb-3 block text-sm font-medium">
-                    {t("arguments")}{" "}
-                    <span className="font-mono text-xs text-muted-foreground">JSON</span>
-                  </label>
-                  <textarea
+                <Field className="min-w-0" data-invalid={Boolean(inputError)}>
+                  <FieldLabel htmlFor="mcp-arguments">
+                    {t("arguments")} <span className="font-mono text-muted-foreground">JSON</span>
+                  </FieldLabel>
+                  <Textarea
                     id="mcp-arguments"
                     aria-label={`${t("arguments")} JSON`}
                     value={draft}
@@ -212,15 +227,13 @@ export function McpPlayground({ store: injectedStore }: { store?: McpPlaygroundS
                     autoCorrect="off"
                     aria-invalid={Boolean(inputError)}
                     aria-describedby={inputError ? "mcp-input-error" : "mcp-arguments-help"}
-                    className="h-64 w-full resize-y rounded-xl border border-border bg-muted/50 p-4 font-mono text-sm leading-relaxed outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-60"
+                    className="h-64 resize-y font-mono"
                   />
-                  <p id="mcp-arguments-help" className="mt-2 text-xs text-muted-foreground">
-                    {t("argumentsHelp")}
-                  </p>
-                </div>
+                  <FieldDescription id="mcp-arguments-help">{t("argumentsHelp")}</FieldDescription>
+                </Field>
                 <div className="min-w-0">
                   <div className="mb-3 flex items-center justify-between gap-3">
-                    <h4 id="mcp-result-heading" className="text-sm font-medium">
+                    <h4 id="mcp-result-heading" className="text-xs/relaxed font-medium">
                       {t("response")}
                     </h4>
                     <span role="status" className="text-xs text-muted-foreground">
@@ -241,8 +254,8 @@ export function McpPlayground({ store: injectedStore }: { store?: McpPlaygroundS
                     // biome-ignore lint/a11y/noNoninteractiveTabindex: Keyboard users need to scroll long tool responses.
                     tabIndex={0}
                     className={cn(
-                      "h-64 overflow-auto rounded-xl border border-border bg-muted/50 p-4 outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-                      currentExecution?.data?.isError && "border-destructive/40",
+                      "h-64 overflow-auto rounded-md border bg-muted/50 p-4 outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30",
+                      currentExecution?.data?.isError && "border-destructive",
                     )}
                   >
                     {currentExecution?.data ? (
@@ -250,18 +263,22 @@ export function McpPlayground({ store: injectedStore }: { store?: McpPlaygroundS
                         {mcpResultText(currentExecution.data)}
                       </pre>
                     ) : (
-                      <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-muted-foreground">
-                        <CodeIcon className="size-6" aria-hidden="true" />
-                        <p className="text-sm">{t("responsePlaceholder")}</p>
-                      </div>
+                      <Empty className="h-full">
+                        <EmptyHeader>
+                          <EmptyMedia variant="icon">
+                            <CodeIcon aria-hidden="true" />
+                          </EmptyMedia>
+                          <EmptyDescription>{t("responsePlaceholder")}</EmptyDescription>
+                        </EmptyHeader>
+                      </Empty>
                     )}
                   </section>
                 </div>
               </div>
               {error && (
-                <p id="mcp-input-error" role="alert" className="mt-3 text-sm text-destructive">
+                <FieldError id="mcp-input-error" className="mt-3">
                   {t(error, { example: '{ "status": "all" }' })}
-                </p>
+                </FieldError>
               )}
               <div className="mt-5 flex flex-wrap items-center gap-3">
                 <Button
@@ -279,11 +296,12 @@ export function McpPlayground({ store: injectedStore }: { store?: McpPlaygroundS
                   {t(tool.annotations?.readOnlyHint ? "readOnlyHint" : "mutationHint")}
                 </p>
               </div>
-              <details className="mt-6 border-t border-border pt-4">
+              <Separator className="mt-6" />
+              <details className="pt-4">
                 <summary className="w-fit cursor-pointer rounded-sm text-xs text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">
                   {t("viewSchemas")}
                 </summary>
-                <pre className="mt-4 rounded-lg bg-muted/50 p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap wrap-anywhere">
+                <pre className="mt-4 rounded-md bg-muted/50 p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap wrap-anywhere">
                   {JSON.stringify({ input: tool.inputSchema, output: tool.outputSchema }, null, 2)}
                 </pre>
               </details>

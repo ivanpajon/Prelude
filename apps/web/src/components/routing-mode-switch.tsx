@@ -1,5 +1,6 @@
 "use client";
 
+import { Field, FieldError, FieldLabel } from "@repo/ui/components/field";
 import { Switch } from "@repo/ui/components/switch";
 import { useTranslations } from "next-intl";
 import { useId } from "react";
@@ -14,10 +15,10 @@ export function RoutingModeSwitch() {
   if (!ROUTING_DEMO_ENABLED) return null;
   return (
     <div className="flex flex-col items-end gap-1">
-      <div className="flex items-center gap-2 text-xs whitespace-nowrap text-foreground sm:text-sm">
-        <label htmlFor={switchId} className="cursor-pointer py-1">
+      <Field orientation="horizontal" className="w-auto">
+        <FieldLabel htmlFor={switchId} className="whitespace-nowrap">
           {t("languageInUrl")}
-        </label>
+        </FieldLabel>
         <Switch
           ref={focusRef}
           id={switchId}
@@ -27,12 +28,8 @@ export function RoutingModeSwitch() {
           aria-busy={pending}
           onCheckedChange={(checked) => changeMode(checked ? "always" : "never")}
         />
-      </div>
-      {failure === "mode" && (
-        <p role="alert" className="max-w-56 text-xs text-destructive">
-          {t("preferenceError")}
-        </p>
-      )}
+      </Field>
+      {failure === "mode" && <FieldError className="max-w-56">{t("preferenceError")}</FieldError>}
     </div>
   );
 }

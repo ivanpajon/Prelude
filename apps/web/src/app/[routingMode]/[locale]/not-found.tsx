@@ -1,3 +1,4 @@
+import { buttonVariants } from "@repo/ui/components/button";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
@@ -22,10 +23,7 @@ export default async function NotFound() {
       <p className="mt-4 text-base leading-relaxed text-muted-foreground">
         {t("notFoundDescription")}
       </p>
-      <Link
-        href="/"
-        className="mt-8 rounded-lg bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-      >
+      <Link href="/" className={buttonVariants({ size: "lg", className: "mt-8" })}>
         {t("home")}
       </Link>
     </main>

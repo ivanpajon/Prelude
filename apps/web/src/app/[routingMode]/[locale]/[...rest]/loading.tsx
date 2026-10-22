@@ -1,3 +1,4 @@
+import { Skeleton } from "@repo/ui/components/skeleton";
 import { getTranslations } from "next-intl/server";
 
 export default async function Loading() {
@@ -11,9 +12,9 @@ export default async function Loading() {
       <p role="status" className="text-sm text-muted-foreground">
         {t("loading")}
       </p>
-      <div className="h-16 max-w-xl animate-pulse rounded-xl bg-muted" aria-hidden="true" />
-      <div className="h-8 max-w-md animate-pulse rounded-xl bg-muted" aria-hidden="true" />
-      <div className="h-64 animate-pulse rounded-xl bg-muted" aria-hidden="true" />
+      <Skeleton className="h-16 max-w-xl" aria-hidden="true" />
+      <Skeleton className="h-8 max-w-md" aria-hidden="true" />
+      <Skeleton className="h-64" aria-hidden="true" />
     </main>
   );
 }
