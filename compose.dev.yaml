@@ -42,7 +42,8 @@ services:
         # On Windows a change directly inside a folder also reports the folder, and Compose (5.6.1)
         # then copies the whole folder without .dockerignore or `ignore`. So sync paths are folders
         # that never hold build output (.next, node_modules, sw.js): a new package's src or a new
-        # top-level file or folder in public/ needs its own rule.
+        # top-level file or folder in public/ needs its own rule, and a deleted one must lose its
+        # rule, because Watch does not start when a sync path is missing.
         - { action: sync, path: apps/web/src, target: /app/apps/web/src, initial_sync: true }
         - { action: sync, path: apps/web/public/branding, target: /app/apps/web/public/branding, initial_sync: true }
         - { action: sync, path: apps/web/public/icons, target: /app/apps/web/public/icons, initial_sync: true }
