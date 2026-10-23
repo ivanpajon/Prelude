@@ -51,7 +51,7 @@ CI has a fast lane (`.github/workflows/ci.yml`, parallel jobs of about 2 minutes
 - Workspace packages share one private scope (`@repo` in the template; `pnpm customize` renames it). Import across packages by package name, such as `@repo/ui/components/button`.
 - Put user-facing text in every catalog of `@repo/i18n` (English and Spanish in the template), in natural language for each locale. Do not add a language that `locales` in `packages/i18n/src/index.ts` does not list.
 - Add an API feature as a contract in `@repo/contracts` and a procedure in `@repo/api`; OpenAPI and MCP pick it up. See [OpenAPI](docs/openapi.md#add-or-change-a-procedure).
-- A new workspace package needs a Compose Watch sync rule for its `src` in `compose.dev.yaml`, and so does a new top-level entry of `apps/web/public`. See [Docker](docs/docker.md#development-and-watch).
+- A new workspace package needs a Compose Watch sync rule for its `src` in `compose.dev.yaml`, and so does a new top-level entry of `apps/web/public`. Delete the rule when you delete the package or entry: Watch does not start when a sync path is missing. See [Docker](docs/docker.md#development-and-watch).
 - A new server environment variable goes in `apps/web/src/env.ts`, the expected objects in `apps/web/src/env.test.ts`, both `.env.example` files, the `environment:` maps of `compose.yaml` and `compose.dev.yaml`, and `tasks.build.env` in `turbo.json` if the build needs it. See [configuration](docs/architecture.md#errors-logs-and-configuration).
 
 ## Generated files
