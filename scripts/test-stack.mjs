@@ -559,6 +559,50 @@ async function rss(id, target) {
   return Number((await docker(["exec", id, nodeBin(target), "-e", source])).output.trim());
 }
 
+// Host build output next to the synced folders must stay out of the container. On Windows a change
+// directly inside a folder also reports the folder, and Compose then copies the whole folder; only
+// Windows runs exercise that path, while Linux runs show that no rule covers apps/web or public/.
+async function checkWatchSkipsBuildOutput(id) {
+  const tag = `watch-probe-${randomUUID().slice(0, 8)}.txt`;
+  const kept = ["apps/web", "apps/web/.next", "apps/web/public", "apps/web/node_modules"].map(
+    (folder) => `${folder}/${tag}`,
+  );
+  const synced = `apps/web/src/${tag}`;
+  const present = async (file) =>
+    (
+      await docker([
+        "exec",
+        id,
+        nodeBin("development"),
+        "-p",
+        `require('node:fs').existsSync('/app/${file}')`,
+      ])
+    ).output.trim() === "true";
+  try {
+    for (const file of kept) {
+      await mkdir(path.dirname(path.join(context, file)), { recursive: true });
+      await writeFile(path.join(context, file), tag);
+    }
+    await writeFile(path.join(context, synced), tag);
+    const started = performance.now();
+    while (!(await present(synced))) {
+      controller.signal.throwIfAborted();
+      assert(
+        performance.now() - started < 30_000,
+        "Compose Watch did not sync apps/web/src in 30 s",
+      );
+      await delay(500);
+    }
+    // A whole-folder copy can land after the single synced file.
+    await delay(3000);
+    const leaked = [];
+    for (const file of kept) if (await present(file)) leaked.push(file);
+    assert.deepEqual(leaked, [], "Compose Watch copied host build output into the container");
+  } finally {
+    for (const file of [...kept, synced]) await rm(path.join(context, file), { force: true });
+  }
+}
+
 async function load(origin) {
   const routes = report.methodology.requests.routes;
   for (let index = 0; index < 6; index++)
@@ -804,6 +848,8 @@ try {
         };
         // demo:end
       }
+      await checkWatchSkipsBuildOutput(ready.id);
+      report.acceptance.developmentWatchSkipsBuildOutput = "passed";
       await checkpoint();
     }
     if (runs("rebuild")) {

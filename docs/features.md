@@ -56,7 +56,7 @@ The app doesn't need Docker: `pnpm build` and `pnpm start` run natively. The dev
 8. In `scripts/customize.mjs`, delete the BuildKit `cacheIds` block, the `Dockerfile` exception in the file filter, and the `details` output, and drop `docs/docker-measurements.md` from `untouched`. In `scripts/customize.test.mjs`, delete the Docker cache id test and the `docs/docker-measurements.md` entry.
 9. Docs:
    - `README.md`: the Docker paragraph under "Start locally", the `stack:*` and `test:stack*` rows, the Docker CI sentences, and the Docker notes in "Make it yours". In **Deploy**, drop the Docker image advice and link to `docs/architecture.md#deploying-on-a-server`.
-   - `AGENTS.md`: the `pnpm test:stack` command and rule, and the Docker lane and guide. The environment-variable rule names only `apps/web/.env.example`, without the Compose `environment:` maps.
+   - `AGENTS.md`: the `pnpm test:stack` command and rule, the Docker lane and guide, and the Compose Watch sync-rule convention. The environment-variable rule names only `apps/web/.env.example`, without the Compose `environment:` maps.
    - `docs/architecture.md`: the configuration paragraph names only `apps/web/.env.example`, without the Compose variables.
    - `docs/verification.md`: the `test:stack` rows, "Docker stacks", the stack results row, the **Docker smoke** row, and the `docker.yml` lane. Rewrite the CI paragraphs for one workflow.
    - The other mentions of Docker, Compose, `test:stack`, `docker.yml`, and `docker-measurements.md` in `docs/customization.md` ("Three files" becomes "Two files"), `docs/requirements.md`, `docs/i18n.md`, `docs/mcp.md`, `docs/mcp-apps.md`, `docs/motion.md`, and `docs/remove-demo.md`. In `docs/verification-history.md`, remove only the link to `docker-measurements.md`.
@@ -223,7 +223,7 @@ Search: `git grep -n -E "MotionProvider|MorphIcon|motion-features|morphicons|mot
 
 1. Check that nothing imports it: `git grep -n "@repo/temporal" -- apps packages tests scripts` lists only `apps/web/package.json`, `apps/web/next.config.ts`, and `packages/temporal/package.json`.
 2. Run `pnpm --filter @repo/web remove @repo/temporal`, delete the whole `packages/temporal` folder (with its ignored `node_modules` and `.turbo`) and `docs/temporal.md`, then run `pnpm install`.
-3. Remove `"@repo/temporal"` from `transpilePackages` in `apps/web/next.config.ts`.
+3. Remove `"@repo/temporal"` from `transpilePackages` in `apps/web/next.config.ts`, and the `packages/temporal/src` sync rule from `compose.dev.yaml`.
 4. Docs: the `packages/temporal` line and the guide link in `AGENTS.md`, `@repo/temporal` in the README's "Then build on the starter", and the mentions in `docs/architecture.md`, `docs/requirements.md`, `docs/i18n.md`, and `docs/verification.md`. Keep the native Temporal checks in `scripts/test-stack.mjs`, and the runtime's Temporal in `docs/docker.md` and the `runtime` row of `docs/verification.md`: they test the Node.js runtime.
 
 Search: `git grep -n -i temporal`.
