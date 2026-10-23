@@ -39,29 +39,24 @@ services:
       retries: 5
     develop:
       watch:
-        # .dockerignore also excludes host dependencies, caches and secrets.
-        - action: sync
-          path: .
-          target: /app
-          initial_sync: true
-          ignore:
-            - "**/package.json"
-            - pnpm-lock.yaml
-            - pnpm-workspace.yaml
-            - Dockerfile
-            - .dockerignore
-            - "compose*.yaml"
-            - "scripts/dev-*.mjs"
-            # demo:start
-            - scripts/build-mcp-apps.mjs
-            # demo:end
-            - "apps/*/next.config.*"
-            - "apps/*/postcss.config.*"
-            - "**/tsconfig*.json"
+        # On Windows a change directly inside a folder also reports the folder, and Compose (5.6.1)
+        # then copies the whole folder without .dockerignore or `ignore`. So sync paths are folders
+        # that never hold build output (.next, node_modules, sw.js): a new package's src or a new
+        # top-level file or folder in public/ needs its own rule.
+        - { action: sync, path: apps/web/src, target: /app/apps/web/src, initial_sync: true }
+        - { action: sync, path: apps/web/public/branding, target: /app/apps/web/public/branding, initial_sync: true }
+        - { action: sync, path: apps/web/public/icons, target: /app/apps/web/public/icons, initial_sync: true }
+        - { action: sync, path: apps/web/public/favicon.ico, target: /app/apps/web/public/favicon.ico, initial_sync: true }
+        - { action: sync, path: packages/api/src, target: /app/packages/api/src, initial_sync: true }
+        - { action: sync, path: packages/contracts/src, target: /app/packages/contracts/src, initial_sync: true }
+        - { action: sync, path: packages/i18n/src, target: /app/packages/i18n/src, initial_sync: true }
+        - { action: sync, path: packages/temporal/src, target: /app/packages/temporal/src, initial_sync: true }
+        - { action: sync, path: packages/ui/src, target: /app/packages/ui/src, initial_sync: true }
+        # No folder matches these patterns, so `.` is safe here. No initial_sync: it skips `include`
+        # and would copy the whole tree; `up --build` puts these files in the image instead.
         - action: sync+restart
           path: .
           target: /app
-          initial_sync: true
           include:
             - "scripts/dev-*.mjs"
             # demo:start

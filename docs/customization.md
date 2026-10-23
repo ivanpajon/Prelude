@@ -22,7 +22,7 @@ Use the Node and pnpm versions pinned by the project, and complete the initial `
 
 Omitting `--scope` keeps the current scope, initially `@repo`. Omitting `--name` keeps the root package name. For example, `pnpm customize --name my-app` keeps imports such as `@repo/ui/components/button` intact. Quote scope arguments as shown so the command also works in PowerShell.
 
-The command discovers scoped, private packages under `apps/*` and `packages/*`, matching the template's workspace boundaries. All must share one scope. If you change that architecture, update the customizer before using it.
+The command discovers scoped, private packages under `apps/*` and `packages/*`, matching the template's workspace boundaries. All must share one scope. If you change that architecture, update the customizer before using it. A new package under `packages/` also needs a sync rule for its `src` in `compose.dev.yaml`; see [Docker](docker.md#development-and-watch).
 
 ## What changes
 
