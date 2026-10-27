@@ -466,8 +466,8 @@ importers:
         specifier: 1.48.0
         version: 1.48.0(react@19.3.1)
       morphicons:
-        specifier: 1.7.1
-        version: 1.7.1(react@19.3.1)
+        specifier: 2.0.2
+        version: 2.0.2(react@19.3.1)
       motion:
         specifier: 13.4.4
         version: 13.4.4(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -4542,8 +4542,8 @@ packages:
   module-details-from-path@1.0.4:
     resolution: {integrity: sha512-EGWKgxALGMgzvxYF1UyGTy0HXX/2vHLkw6+NvDKW2jypWbHpjQuj4UMcqQWXHERJhVGKikolT06G3bcKe4fi7w==}
 
-  morphicons@1.7.1:
-    resolution: {integrity: sha512-q5ylxy5/d7vBg0OAzanlooXf05PekovMYDuuQVpr6vAQZxl99lrJbaIi+jJ32PXQf9WEEaDO2pbNBsx1ZhEnFQ==}
+  morphicons@2.0.2:
+    resolution: {integrity: sha512-/GFSrsZDuyZ3a2QK8wXnVpsHzrVIZ8eLhg0QbGxeeOPyOZmtKUC8i0z3QQ3bbIX5DV/LOLYpp/8unJMWQU0Qgw==}
     peerDependencies:
       react: '>=18'
       react-native: '>=0.71'
@@ -9394,7 +9394,7 @@ snapshots:
 
   module-details-from-path@1.0.4: {}
 
-  morphicons@1.7.1(react@19.3.1):
+  morphicons@2.0.2(react@19.3.1):
     optionalDependencies:
       react: 19.3.1
 
