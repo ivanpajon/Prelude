@@ -38,7 +38,7 @@
     "verify": "pnpm check && pnpm test:coverage && pnpm test:dev && pnpm test:e2e && pnpm test:cache"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.15",
+    "@biomejs/biome": "2.6.3",
     "@commitlint/cli": "21.2.3",
     "@commitlint/config-conventional": "21.2.3",
     "@modelcontextprotocol/client": "2.3.0",
