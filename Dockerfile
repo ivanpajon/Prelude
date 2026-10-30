@@ -5,7 +5,7 @@ ARG RUNTIME_IMAGE=gcr.io/distroless/nodejs26-debian13:nonroot@sha256:afc6657a4b6
 
 FROM ${NODE_IMAGE} AS base
 ENV HUSKY=0 NEXT_TELEMETRY_DISABLED=1
-RUN npm install --global pnpm@12.11.2 --no-audit --no-fund
+RUN npm install --global pnpm@12.16.1 --no-audit --no-fund
 WORKDIR /app
 RUN chown node:node /app
 USER node
