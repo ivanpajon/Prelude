@@ -28,13 +28,13 @@ engineStrict: true
 overrides:
   # @serwist/next 9.5.12 pins browserslist 4.28.6 (GHSA-c83g-rgw3-j3cx, GHSA-73wf-gq98-2v4g).
   # 9.5.13 depends on ^4.29.3, so delete this override in the Serwist update pull request.
-  '@serwist/next@9.5.12>browserslist': 4.29.3
+  '@serwist/next@9.5.12>browserslist': 4.29.5
   # Serwist pins zod exactly (9.5.12 pins 4.4.3, 9.5.13 pins 4.6.5), below the GHSA-mrhx-c7xc-m3w5
   # fix in 4.6.6. Delete these overrides when the Serwist release in use pins zod 4.6.6 or later.
-  '@serwist/build>zod': 4.6.6
-  '@serwist/cli>zod': 4.6.6
-  '@serwist/next>zod': 4.6.6
-  '@serwist/webpack-plugin>zod': 4.6.6
+  '@serwist/build>zod': 4.6.7
+  '@serwist/cli>zod': 4.6.7
+  '@serwist/next>zod': 4.6.7
+  '@serwist/webpack-plugin>zod': 4.6.7
 
 permissions:
   # Do not link the Inspector's agent skills, so installs under a coding agent do not ask for them.
