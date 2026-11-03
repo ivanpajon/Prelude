@@ -26,7 +26,7 @@
     "@repo/i18n": "workspace:*",
     "@repo/temporal": "workspace:*",
     "@repo/ui": "workspace:*",
-    "@serwist/next": "9.5.12",
+    "@serwist/next": "9.5.13",
     "@tanstack/react-query": "5.103.2",
     "arktype": "2.2.5",
     "lucide": "1.48.0",
@@ -45,7 +45,7 @@
     "zustand": "5.0.15"
   },
   "devDependencies": {
-    "@serwist/cli": "9.5.12",
+    "@serwist/cli": "9.5.13",
     "@tailwindcss/cli": "4.3.3",
     "@tailwindcss/postcss": "4.3.3",
     "@testing-library/dom": "10.4.2",
@@ -56,7 +56,7 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "esbuild": "0.28.2",
-    "serwist": "9.5.12",
+    "serwist": "9.5.13",
     "tailwindcss": "4.3.3",
     "tsdown": "0.23.0",
     "typescript": "6.0.3",
