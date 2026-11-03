@@ -91,14 +91,14 @@ Next.js explicitly allows `127.0.0.1` as a development origin so browser HMR con
 
 No environment file is required. For optional Compose configuration, copy the root `.env.example` to `.env` and edit the values you need. Compose reads this file for interpolation; only variables explicitly passed by the Compose configuration reach the application. Host shell variables take precedence.
 
-| Variable | Default and purpose |
-| --- | --- |
-| `PROD_PORT` | `3001`; production port published on the host. |
-| `PROD_HOST` | `127.0.0.1`; interface used to publish the production port. |
-| `DEV_PORT` | `3000`; development application port. |
-| `MCP_INSPECTOR_PORT` | `6274`; development Inspector UI port. |
-| `MCP_SANDBOX_PORT` | `6275`; development Inspector App sandbox port. |
-| `MCP_ENABLED` | Enabled unless set to `false`; turns the MCP endpoint on or off at runtime. |
+| Variable              | Default and purpose                                                                                  |
+| --------------------- | ---------------------------------------------------------------------------------------------------- |
+| `PROD_PORT`           | `3001`; production port published on the host.                                                       |
+| `PROD_HOST`           | `127.0.0.1`; interface used to publish the production port.                                          |
+| `DEV_PORT`            | `3000`; development application port.                                                                |
+| `MCP_INSPECTOR_PORT`  | `6274`; development Inspector UI port.                                                               |
+| `MCP_SANDBOX_PORT`    | `6275`; development Inspector App sandbox port.                                                      |
+| `MCP_ENABLED`         | Enabled unless set to `false`; turns the MCP endpoint on or off at runtime.                          |
 | `MCP_ALLOWED_ORIGINS` | Empty by default; comma-separated exact browser origins allowed at the production MCP HTTP endpoint. |
 
 Choose three distinct free application, Inspector, and sandbox ports. All are published only on host loopback and retain the same numbers inside and outside the container, keeping target and sandbox URLs reachable by both the browser and Inspector. The additional internal app-origin helper remains dynamically allocated and unpublished. Update browser bookmarks and external MCP client URLs when changing ports. Production publishes only the application port and runs no Inspector or sandbox service.

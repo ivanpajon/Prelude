@@ -54,29 +54,29 @@ With Docker running, `pnpm stack:prod` serves production at [localhost:3001](htt
 
 ## Commands
 
-| Command | Purpose |
-| --- | --- |
-| `pnpm dev` | Start Next.js with Turbopack and the managed local MCP Inspector. |
-| `pnpm dev:app` | Same as `pnpm dev` without the MCP Inspector: only the Next.js port must be free. |
-| `pnpm mcp:check` | Check the running MCP endpoint with the pinned Inspector CLI; supports `--url`. |
-| `pnpm build` | Build Next.js, then generate the Serwist worker. |
-| `pnpm start` | Serve an existing production build. |
-| `pnpm stack:prod` | Build and start the production Docker Compose stack, and wait until it is healthy. |
-| `pnpm stack:dev` | Start the development Docker Compose stack with Watch and MCP Inspector. |
-| `pnpm check` | Check Biome and strict TypeScript. |
-| `pnpm fix` | Apply formatting and supported lint fixes. |
-| `pnpm test` | Run Vitest unit and component tests. |
-| `pnpm test:coverage` | Run tests with V8 coverage reports. |
-| `pnpm test:ui` | Open Vitest's local test explorer in watch mode. |
-| `pnpm test:dev` | Check development rendering and the embedded MCP Inspector. |
-| `pnpm test:e2e` | Build, then run production browser and MCP protocol scenarios with Playwright. |
-| `pnpm test:cache` | Verify generated build artifacts restore from Turbo cache. |
-| `pnpm verify` | Run the complete native verification sequence. |
-| `pnpm test:stack` | Verify the Docker stacks and report image, build, and runtime measurements. |
-| `pnpm test:stack:quick` | Build the production image once and check the running container. |
-| `pnpm customize` | Rename the root package and workspace scope, reinstall, and validate. |
-| `pnpm react-doctor` | Run optional React diagnostics with file locations. |
-| `pnpm --silent react-doctor:json` | Print a structured diagnostic report for agents. |
+| Command                           | Purpose                                                                            |
+| --------------------------------- | ---------------------------------------------------------------------------------- |
+| `pnpm dev`                        | Start Next.js with Turbopack and the managed local MCP Inspector.                  |
+| `pnpm dev:app`                    | Same as `pnpm dev` without the MCP Inspector: only the Next.js port must be free.  |
+| `pnpm mcp:check`                  | Check the running MCP endpoint with the pinned Inspector CLI; supports `--url`.    |
+| `pnpm build`                      | Build Next.js, then generate the Serwist worker.                                   |
+| `pnpm start`                      | Serve an existing production build.                                                |
+| `pnpm stack:prod`                 | Build and start the production Docker Compose stack, and wait until it is healthy. |
+| `pnpm stack:dev`                  | Start the development Docker Compose stack with Watch and MCP Inspector.           |
+| `pnpm check`                      | Check Biome and strict TypeScript.                                                 |
+| `pnpm fix`                        | Apply formatting and supported lint fixes.                                         |
+| `pnpm test`                       | Run Vitest unit and component tests.                                               |
+| `pnpm test:coverage`              | Run tests with V8 coverage reports.                                                |
+| `pnpm test:ui`                    | Open Vitest's local test explorer in watch mode.                                   |
+| `pnpm test:dev`                   | Check development rendering and the embedded MCP Inspector.                        |
+| `pnpm test:e2e`                   | Build, then run production browser and MCP protocol scenarios with Playwright.     |
+| `pnpm test:cache`                 | Verify generated build artifacts restore from Turbo cache.                         |
+| `pnpm verify`                     | Run the complete native verification sequence.                                     |
+| `pnpm test:stack`                 | Verify the Docker stacks and report image, build, and runtime measurements.        |
+| `pnpm test:stack:quick`           | Build the production image once and check the running container.                   |
+| `pnpm customize`                  | Rename the root package and workspace scope, reinstall, and validate.              |
+| `pnpm react-doctor`               | Run optional React diagnostics with file locations.                                |
+| `pnpm --silent react-doctor:json` | Print a structured diagnostic report for agents.                                   |
 
 <!-- demo:start -->
 `pnpm remove-demo` deletes the task demo and keeps the infrastructure; `--dry-run` previews the changes. It removes itself when it succeeds.

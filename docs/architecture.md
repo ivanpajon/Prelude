@@ -2,14 +2,14 @@
 
 ## Boundaries
 
-| Package | Owns |
-| --- | --- |
-| `@repo/web` | Next.js routes, rendering, providers, RPC/REST/MCP adapters, OpenAPI/Scalar configuration, development MCP Inspector wrapper, framework caching, and PWA. |
-| `@repo/contracts` | Browser-safe ArkType input/output schemas, oRPC contracts, OpenAPI route metadata, and client types. |
-| `@repo/api` | Server-only procedures, request context, and data access, such as repositories. |
-| `@repo/ui` | Shared Base UI components, Tailwind tokens, Motion/Morphicons wrappers, and the `cn` re-export. |
-| `@repo/temporal` | Browser-safe standard Temporal API with native selection and polyfill fallback. |
-| `@repo/i18n` | Browser-safe locale policy, typed English/Spanish catalogs, and website/PWA catalog boundaries. |
+| Package           | Owns                                                                                                                                                      |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@repo/web`       | Next.js routes, rendering, providers, RPC/REST/MCP adapters, OpenAPI/Scalar configuration, development MCP Inspector wrapper, framework caching, and PWA. |
+| `@repo/contracts` | Browser-safe ArkType input/output schemas, oRPC contracts, OpenAPI route metadata, and client types.                                                      |
+| `@repo/api`       | Server-only procedures, request context, and data access, such as repositories.                                                                           |
+| `@repo/ui`        | Shared Base UI components, Tailwind tokens, Motion/Morphicons wrappers, and the `cn` re-export.                                                           |
+| `@repo/temporal`  | Browser-safe standard Temporal API with native selection and polyfill fallback.                                                                           |
+| `@repo/i18n`      | Browser-safe locale policy, typed English/Spanish catalogs, and website/PWA catalog boundaries.                                                           |
 
 Next.js transpiles the private source packages directly. Dependencies are explicit and acyclic: shared packages do not import application code, and browser modules never import `@repo/api`.
 
