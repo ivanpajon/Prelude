@@ -20,4 +20,4 @@ export const scalarScriptUrl =
  * with the command in docs/openapi.md (Scalar renderer and caching).
  */
 export const scalarScriptIntegrity =
-  "sha384-VXnKAz61Xwc3tbw1P+KKrUP7YbcsSl1Ik4is5UnogJyw9XEYZ5Ay/T1i0zPYtSZH";
+  "sha384-hwB9WroDTpZaI38gr+u9CXA6ksz5gUYgD2GxXazKl/agT1L2GWUiRFWGJYNiFu4Q";
