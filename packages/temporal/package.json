@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "temporal-polyfill": "1.0.5"
+    "temporal-polyfill": "1.0.6"
   },
   "devDependencies": {
     "@types/node": "26.6.2",
