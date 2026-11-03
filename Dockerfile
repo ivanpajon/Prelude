@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
 
-ARG NODE_IMAGE=node:26.10.0-trixie-slim@sha256:ec7758ee051e457b468b32bde57b0879010b325bb9862718e9615225ce4aaae1
+ARG NODE_IMAGE=node:26.13.0-trixie-slim@sha256:e4db4c914bf8ad241bd24804fc25d272d89bad97e68cdc8a1414862790a02c39
 ARG RUNTIME_IMAGE=gcr.io/distroless/nodejs26-debian13:nonroot@sha256:afc6657a4b662f9cb69ca892b0596e55d6ef81a10e83ee8887b13f602877df89
 
 FROM ${NODE_IMAGE} AS base
 ENV HUSKY=0 NEXT_TELEMETRY_DISABLED=1
-RUN npm install --global pnpm@12.11.2 --no-audit --no-fund
+RUN npm install --global pnpm@12.16.1 --no-audit --no-fund
 WORKDIR /app
 RUN chown node:node /app
 USER node

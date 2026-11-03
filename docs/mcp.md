@@ -9,13 +9,13 @@ Each procedure in the router becomes one tool, named after its `operationId`. `m
 <!-- demo:start -->
 The task demo exposes five tools:
 
-| Tool | Input | Behavior |
-| --- | --- | --- |
-| `listTasks` | `{ "status": "all" }` | Read all tasks, or filter with `active` or `completed`. |
-| `createTask` | `{ "title": "Build a feature" }` | Create a task; trim its title before validating the 1–120-character limit. |
-| `setTaskCompleted` | `{ "id": "task-id", "completed": true }` | Change an existing task's completion state. |
-| `updateTaskTitle` | `{ "id": "task-id", "title": "Refine the feature" }` | Trim and validate a 1–120-character title; return the task with ID and completion unchanged. Missing IDs return `NOT_FOUND`. |
-| `deleteTask` | `{ "id": "task-id" }` | Remove a task and return its previous data; missing or already-deleted IDs return `NOT_FOUND`. |
+| Tool               | Input                                                | Behavior                                                                                                                     |
+| ------------------ | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `listTasks`        | `{ "status": "all" }`                                | Read all tasks, or filter with `active` or `completed`.                                                                      |
+| `createTask`       | `{ "title": "Build a feature" }`                     | Create a task; trim its title before validating the 1–120-character limit.                                                   |
+| `setTaskCompleted` | `{ "id": "task-id", "completed": true }`             | Change an existing task's completion state.                                                                                  |
+| `updateTaskTitle`  | `{ "id": "task-id", "title": "Refine the feature" }` | Trim and validate a 1–120-character title; return the task with ID and completion unchanged. Missing IDs return `NOT_FOUND`. |
+| `deleteTask`       | `{ "id": "task-id" }`                                | Remove a task and return its previous data; missing or already-deleted IDs return `NOT_FOUND`.                               |
 
 The tools execute real operations against the **public, shared, process-local demo repository**. All visitors and transports see the same data in one server process. Data resets on restart and is not synchronized across instances. The list keeps at most 100 tasks; each create beyond that evicts the oldest task. MCP mutations become visible through REST, RPC, and server rendering; an already-open workbench needs a refetch or reload.
 
@@ -23,13 +23,13 @@ The tools execute real operations against the **public, shared, process-local de
 
 Each task contract explicitly supplies these hints through its OpenAPI `x-mcp.annotations` metadata:
 
-| Tool | `readOnlyHint` | `destructiveHint` | `idempotentHint` | `openWorldHint` |
-| --- | --- | --- | --- | --- |
-| `listTasks` | `true` | `false` | `true` | `false` |
-| `createTask` | `false` | `false` | `false` | `false` |
-| `setTaskCompleted` | `false` | `true` | `true` | `false` |
-| `updateTaskTitle` | `false` | `true` | `true` | `false` |
-| `deleteTask` | `false` | `true` | `true` | `false` |
+| Tool               | `readOnlyHint` | `destructiveHint` | `idempotentHint` | `openWorldHint` |
+| ------------------ | -------------- | ----------------- | ---------------- | --------------- |
+| `listTasks`        | `true`         | `false`           | `true`           | `false`         |
+| `createTask`       | `false`        | `false`           | `false`          | `false`         |
+| `setTaskCompleted` | `false`        | `true`            | `true`           | `false`         |
+| `updateTaskTitle`  | `false`        | `true`            | `true`           | `false`         |
+| `deleteTask`       | `false`        | `true`            | `true`           | `false`         |
 
 Creation only adds data, but repeating it creates another task. Completion and title updates overwrite existing values, so they are destructive even though they do not delete a row. Repeating either update with identical arguments has the same effect. Deletion is also idempotent: a repeated call returns `NOT_FOUND`, but does not change the resulting task state. Idempotence describes effects, not identical responses. All tools operate within the closed domain of this local demo repository. MCP defines destructive and idempotent hints as relevant only to writable tools. See the [official annotation definitions](https://modelcontextprotocol.io/specification/2026-07-28/schema#toolannotations).
 
@@ -81,12 +81,12 @@ This invokes the pinned Inspector CLI to list tools without mutating application
 
 The endpoint is **enabled by default**, including in production. No token, OAuth provider, user identity, or authorization policy is supplied. Every procedure not excluded with `x-mcp`, including mutations, is available as a tool. Origin checks are transport protections, not authentication.
 
-| Variable | Behavior |
-| --- | --- |
-| `MCP_ENABLED=false` | Return 404 from the MCP endpoint. Other API transports are unchanged. |
+| Variable              | Behavior                                                                                                                                                                                                                                                                                                                                                                                     |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MCP_ENABLED=false`   | Return 404 from the MCP endpoint. Other API transports are unchanged.                                                                                                                                                                                                                                                                                                                        |
 | `MCP_ALLOWED_ORIGINS` | Comma-separated production browser origins, such as `https://app.example.com`. Each origin must match exactly, including scheme and port; wildcards are not accepted. The endpoint sends no CORS headers, so a browser page on another origin can call it only through a reverse proxy that answers the preflight and adds CORS headers; this list then decides which origins reach the app. |
-| `MCP_INSPECTOR_PORT` | Local Inspector UI port; defaults to `6274`. |
-| `MCP_SANDBOX_PORT` | Local Inspector App sandbox port; defaults to `6275`. Choose a different free port from Next.js and Inspector. |
+| `MCP_INSPECTOR_PORT`  | Local Inspector UI port; defaults to `6274`.                                                                                                                                                                                                                                                                                                                                                 |
+| `MCP_SANDBOX_PORT`    | Local Inspector App sandbox port; defaults to `6275`. Choose a different free port from Next.js and Inspector.                                                                                                                                                                                                                                                                               |
 
 Development accepts only loopback access and loopback browser origins. In production, native client requests without an `Origin` header are accepted. Requests with an `Origin` must match `MCP_ALLOWED_ORIGINS`; otherwise the endpoint returns 403. Do not treat an absent Origin header as a trusted user. Configure authentication and authorization in the shared request context/procedures before exposing private data, or disable MCP while that work is incomplete.
 

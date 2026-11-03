@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@orpc/server": "1.15.6",
+    "@orpc/server": "1.16.1",
     "@repo/contracts": "workspace:*",
     "server-only": "0.0.1"
   },

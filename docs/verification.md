@@ -14,20 +14,20 @@ On Debian or Ubuntu, install the browser with `pnpm exec playwright install --wi
 
 Times are rough figures from a Windows workstation; cold caches and CI runners take longer.
 
-| Command | Coverage | Time |
-| --- | --- | --- |
-| `pnpm check` | Biome and strict TypeScript. | under 1 min |
-| `pnpm test` | RPC/REST validation and procedure behavior, generated OpenAPI schemas and MCP tools, request isolation, Temporal behavior, Testing Library component scenarios, and the repository scripts. | 15–30 s |
-| `pnpm test:coverage` | The same suite with V8 coverage reports in `coverage/`. | 15–30 s |
-| `pnpm test:ui` | Local Vitest watch UI on `127.0.0.1`; exit with Ctrl+C. | |
-| `pnpm test:dev` | Fresh Turbopack development server, initial rendering, interactions, the embedded MCP Inspector, and reloads without console/overlay errors. | 1–3 min |
-| `pnpm build` | Production Turbopack compilation, Cache Components rendering, and Serwist generation. | 1 min |
-| `pnpm test:e2e` | Build, then check production hydration, security headers, Scalar docs and requests, MCP protocol access, offline fallback, and worker updates. | 2–4 min |
-| `pnpm test:cache` | Build, remove only known generated artifacts such as the service worker, then confirm a Turbo cache hit restores identical bytes. | 30 s |
-| `pnpm verify` | `check`, `test:coverage`, `test:dev`, `test:e2e`, and `test:cache`, in that order. | 4–10 min |
-| `pnpm test:stack` | The Docker production and development stacks; see [Docker stacks](#docker-stacks). | 5–15 min |
-| `pnpm test:stack --part <name>` | One part of `pnpm test:stack`: `builds`, `runtime`, `development`, or `rebuild`. | 2–3 min |
-| `pnpm test:stack:quick` | Only the production stack: one build, one runtime sample, and its browser checks. | 2 min |
+| Command                         | Coverage                                                                                                                                                                                    | Time        |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `pnpm check`                    | Biome and strict TypeScript.                                                                                                                                                                | under 1 min |
+| `pnpm test`                     | RPC/REST validation and procedure behavior, generated OpenAPI schemas and MCP tools, request isolation, Temporal behavior, Testing Library component scenarios, and the repository scripts. | 15–30 s     |
+| `pnpm test:coverage`            | The same suite with V8 coverage reports in `coverage/`.                                                                                                                                     | 15–30 s     |
+| `pnpm test:ui`                  | Local Vitest watch UI on `127.0.0.1`; exit with Ctrl+C.                                                                                                                                     |             |
+| `pnpm test:dev`                 | Fresh Turbopack development server, initial rendering, interactions, the embedded MCP Inspector, and reloads without console/overlay errors.                                                | 1–3 min     |
+| `pnpm build`                    | Production Turbopack compilation, Cache Components rendering, and Serwist generation.                                                                                                       | 1 min       |
+| `pnpm test:e2e`                 | Build, then check production hydration, security headers, Scalar docs and requests, MCP protocol access, offline fallback, and worker updates.                                              | 2–4 min     |
+| `pnpm test:cache`               | Build, remove only known generated artifacts such as the service worker, then confirm a Turbo cache hit restores identical bytes.                                                           | 30 s        |
+| `pnpm verify`                   | `check`, `test:coverage`, `test:dev`, `test:e2e`, and `test:cache`, in that order.                                                                                                          | 4–10 min    |
+| `pnpm test:stack`               | The Docker production and development stacks; see [Docker stacks](#docker-stacks).                                                                                                          | 5–15 min    |
+| `pnpm test:stack --part <name>` | One part of `pnpm test:stack`: `builds`, `runtime`, `development`, or `rebuild`.                                                                                                            | 2–3 min     |
+| `pnpm test:stack:quick`         | Only the production stack: one build, one runtime sample, and its browser checks.                                                                                                           | 2 min       |
 
 <!-- demo:start -->
 In the demo, `pnpm check` also compiles `packages/api/src/contract-types.ts`. It is never run: its `@ts-expect-error` lines prove that the task contract rejects wrong input types.
@@ -87,12 +87,12 @@ Run `pnpm test:stack` with Docker's Linux engine running and host dependencies i
 
 `pnpm test:stack` runs four parts in this order. Each part also runs alone with `--part`, for example `pnpm test:stack --part development`. It then makes its own disposable copy, Compose projects, and images, and cleans them up, so CI runs the parts as parallel jobs.
 
-| Part | What it checks |
-| --- | --- |
-| `builds` | Cold, unchanged, source-change, and restore builds of the production image on an empty builder that the part creates and removes, with the cache hits each one must show, and the image sizes. |
-| `runtime` | One production build in the selected builder (a full run reuses the image of the `builds` part instead), its runtime facts (non-root user, Intl, Temporal, sharp, no build tools, writable cache), three runtime samples (`--samples` changes the count), the production browser checks in the first sample, and the MCP toggle without a rebuild. |
+| Part          | What it checks                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `builds`      | Cold, unchanged, source-change, and restore builds of the production image on an empty builder that the part creates and removes, with the cache hits each one must show, and the image sizes.                                                                                                                                                                                                                               |
+| `runtime`     | One production build in the selected builder (a full run reuses the image of the `builds` part instead), its runtime facts (non-root user, Intl, Temporal, sharp, no build tools, writable cache), three runtime samples (`--samples` changes the count), the production browser checks in the first sample, and the MCP toggle without a rebuild.                                                                           |
 | `development` | The development image, Compose Watch, and the development browser checks in `tests/stack`, then a check that host build output next to the synced folders stays out of the container (`developmentWatchSkipsBuildOutput`). `--shard 1/2` and `--shard 2/2` each run half of the browser checks, a contiguous slice of their list; their report records the shard as `developmentBrowserShard` instead of each browser check. |
-| `rebuild` | The development image and Compose Watch, then a `package.json` change that must rebuild and replace the container, and a restart with `MCP_ENABLED=false`. |
+| `rebuild`     | The development image and Compose Watch, then a `package.json` change that must rebuild and replace the container, and a restart with `MCP_ENABLED=false`.                                                                                                                                                                                                                                                                   |
 
 The parts that edit the disposable copy (`builds`, `development`, and `rebuild`) also check that the checkout's source files did not change. The development image, and the production image of the `runtime` part on its own, build in the selected Buildx builder, by default the Docker engine's own one, which `docker compose watch` also uses. Only the `builds` part creates an empty builder, for its cache checks; see [Docker verification and measurements](docker.md#verification-and-measurements).
 
@@ -102,12 +102,12 @@ The run report is written to ignored `test-results/stack/report.json`. Inspect i
 
 ## Reading the results
 
-| Output | Contents |
-| --- | --- |
-| `coverage/` | V8 coverage from `pnpm test:coverage`: open `coverage/index.html`. |
-| `playwright-report/` | HTML report of the last `pnpm test:e2e` run: `pnpm exec playwright show-report`. |
+| Output                                                  | Contents                                                                                                                                                                                         |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `coverage/`                                             | V8 coverage from `pnpm test:coverage`: open `coverage/index.html`.                                                                                                                               |
+| `playwright-report/`                                    | HTML report of the last `pnpm test:e2e` run: `pnpm exec playwright show-report`.                                                                                                                 |
 | `test-results/production/`, `test-results/development/` | Traces and screenshots of failed browser cases, plus saved screenshots such as `update-toast.png` and `mcp-inspector.png`. Open a trace with `pnpm exec playwright show-trace <path>/trace.zip`. |
-| `test-results/stack/` | `report.json` from `pnpm test:stack`, with the parts it ran, and the container browser output. |
+| `test-results/stack/`                                   | `report.json` from `pnpm test:stack`, with the parts it ran, and the container browser output.                                                                                                   |
 
 All of these are ignored by Git. A new run replaces the previous output.
 
@@ -117,13 +117,13 @@ GitHub Actions runs two workflows. Both use Ubuntu, the Node version in `.node-v
 
 **CI** (`.github/workflows/ci.yml`) is the fast lane. It runs on pull requests, pushes to `main` or `develop`, manual dispatch, and a weekly schedule (Monday 06:00 UTC). Its jobs run in parallel, and each takes about 2 minutes:
 
-| Job | What it runs |
-| --- | --- |
-| **Audit** | `pnpm audit --prod --audit-level high`. The weekly run only audits. |
-| **Check** | `pnpm check` and `pnpm test:coverage`. |
-| **E2E (1/4)** to **E2E (4/4)** | `pnpm build`, then a quarter of the production browser tests with `playwright test --shard`. The first shard also runs `pnpm test:cache`. |
-| **Dev (1/2)** and **Dev (2/2)** | Half of `pnpm test:dev` each, split by single tests with `--fully-parallel`. |
-| **Docker smoke** | `pnpm test:stack:quick`. |
+| Job                             | What it runs                                                                                                                              |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Audit**                       | `pnpm audit --prod --audit-level high`. The weekly run only audits.                                                                       |
+| **Check**                       | `pnpm check` and `pnpm test:coverage`.                                                                                                    |
+| **E2E (1/4)** to **E2E (4/4)**  | `pnpm build`, then a quarter of the production browser tests with `playwright test --shard`. The first shard also runs `pnpm test:cache`. |
+| **Dev (1/2)** and **Dev (2/2)** | Half of `pnpm test:dev` each, split by single tests with `--fully-parallel`.                                                              |
+| **Docker smoke**                | `pnpm test:stack:quick`.                                                                                                                  |
 
 Together, Check, E2E, and Dev run everything in `pnpm verify`. Each shard starts its own server and runs its tests one at a time, like the local commands, because the tests of a suite share one server. A shard is a contiguous slice of the test list. E2E shards take whole spec files, so a shard can end up slow or empty after you add or move many tests; to see the split, run `pnpm exec playwright test --list --shard=1/4`, and change the shard list in `ci.yml` if needed. The Dev shards take single tests (`--fully-parallel`), about the same number in each, so both stay non-empty. Their time depends on the order of the list, so a new slow test can unbalance them; to see the split, run `pnpm exec playwright test --config playwright.dev.config.ts --list --fully-parallel --shard=1/2`.
 

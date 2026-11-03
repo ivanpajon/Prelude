@@ -45,13 +45,48 @@ services:
         # top-level file or folder in public/ needs its own rule, and a deleted one must lose its
         # rule, because Watch does not start when a sync path is missing.
         - { action: sync, path: apps/web/src, target: /app/apps/web/src, initial_sync: true }
-        - { action: sync, path: apps/web/public/branding, target: /app/apps/web/public/branding, initial_sync: true }
-        - { action: sync, path: apps/web/public/icons, target: /app/apps/web/public/icons, initial_sync: true }
-        - { action: sync, path: apps/web/public/favicon.ico, target: /app/apps/web/public/favicon.ico, initial_sync: true }
-        - { action: sync, path: packages/api/src, target: /app/packages/api/src, initial_sync: true }
-        - { action: sync, path: packages/contracts/src, target: /app/packages/contracts/src, initial_sync: true }
-        - { action: sync, path: packages/i18n/src, target: /app/packages/i18n/src, initial_sync: true }
-        - { action: sync, path: packages/temporal/src, target: /app/packages/temporal/src, initial_sync: true }
+        - {
+            action: sync,
+            path: apps/web/public/branding,
+            target: /app/apps/web/public/branding,
+            initial_sync: true,
+          }
+        - {
+            action: sync,
+            path: apps/web/public/icons,
+            target: /app/apps/web/public/icons,
+            initial_sync: true,
+          }
+        - {
+            action: sync,
+            path: apps/web/public/favicon.ico,
+            target: /app/apps/web/public/favicon.ico,
+            initial_sync: true,
+          }
+        - {
+            action: sync,
+            path: packages/api/src,
+            target: /app/packages/api/src,
+            initial_sync: true,
+          }
+        - {
+            action: sync,
+            path: packages/contracts/src,
+            target: /app/packages/contracts/src,
+            initial_sync: true,
+          }
+        - {
+            action: sync,
+            path: packages/i18n/src,
+            target: /app/packages/i18n/src,
+            initial_sync: true,
+          }
+        - {
+            action: sync,
+            path: packages/temporal/src,
+            target: /app/packages/temporal/src,
+            initial_sync: true,
+          }
         - { action: sync, path: packages/ui/src, target: /app/packages/ui/src, initial_sync: true }
         # No folder matches these patterns, so `.` is safe here. No initial_sync: it skips `include`
         # and would copy the whole tree; `up --build` puts these files in the image instead.

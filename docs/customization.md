@@ -13,12 +13,12 @@ Use the Node and pnpm versions pinned by the project, and complete the initial `
 
 ## Options
 
-| Option | Behavior |
-| --- | --- |
-| `--name my-app` | Change the root `package.json` name to an unscoped lowercase package name. |
+| Option          | Behavior                                                                            |
+| --------------- | ----------------------------------------------------------------------------------- |
+| `--name my-app` | Change the root `package.json` name to an unscoped lowercase package name.          |
 | `--scope @acme` | Change all private workspace packages to this lowercase npm scope. Include the `@`. |
-| `--dry-run` | Print proposed file changes without writing, installing, or validating. |
-| `--help` | Show usage. Calling `pnpm customize` without name/scope options also shows help. |
+| `--dry-run`     | Print proposed file changes without writing, installing, or validating.             |
+| `--help`        | Show usage. Calling `pnpm customize` without name/scope options also shows help.    |
 
 Omitting `--scope` keeps the current scope, initially `@repo`. Omitting `--name` keeps the root package name. For example, `pnpm customize --name my-app` keeps imports such as `@repo/ui/components/button` intact. Quote scope arguments as shown so the command also works in PowerShell.
 

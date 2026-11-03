@@ -32,11 +32,11 @@ Inspector is local development tooling. `/api/mcp/inspector` and its nested path
 
 The development defaults are three distinct ports:
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `PORT` natively / `DEV_PORT` in Compose | `3000` | Next.js and `/api/mcp`. |
-| `MCP_INSPECTOR_PORT` | `6274` | Authenticated Inspector interface. |
-| `MCP_SANDBOX_PORT` | `6275` | Inspector's browser-reachable MCP App sandbox. |
+| Variable                                | Default | Purpose                                        |
+| --------------------------------------- | ------- | ---------------------------------------------- |
+| `PORT` natively / `DEV_PORT` in Compose | `3000`  | Next.js and `/api/mcp`.                        |
+| `MCP_INSPECTOR_PORT`                    | `6274`  | Authenticated Inspector interface.             |
+| `MCP_SANDBOX_PORT`                      | `6275`  | Inspector's browser-reachable MCP App sandbox. |
 
 Set native values in the web application's environment, such as `apps/web/.env.local`. For Compose, use the optional root `.env` or shell environment. Select three free, different ports, and restart the managed workflow after changing them. Use separate values and Compose project names for concurrent development checkouts.
 

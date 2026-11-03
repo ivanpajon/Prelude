@@ -14,11 +14,11 @@ The successful `pnpm test:stack` run was `prelude-stack-39a77802`, from 23:50:56
 
 MB below means 1,000,000 bytes.
 
-| Measurement | Distroless production | Node slim baseline | Reduction |
-| --- | ---: | ---: | ---: |
-| Gzip-compressed OCI layers | 74.31 MB | 99.74 MB | 25.5% |
-| Unpacked filesystem | 232.17 MB | 316.41 MB | 26.6% |
-| Docker image-store accounting | 306.46 MB | 416.14 MB | 26.4% |
+| Measurement                   | Distroless production | Node slim baseline | Reduction |
+| ----------------------------- | --------------------: | -----------------: | --------: |
+| Gzip-compressed OCI layers    |              74.31 MB |           99.74 MB |     25.5% |
+| Unpacked filesystem           |             232.17 MB |          316.41 MB |     26.6% |
+| Docker image-store accounting |             306.46 MB |          416.14 MB |     26.4% |
 
 Compressed sizes sum unique gzip layers and exclude manifest/configuration metadata. They do not measure network transfer. Unpacked sizes were measured from fresh stopped containers as `SizeRootFs - SizeRw`: **232,165,376** and **316,407,808** bytes. The images remained unchanged during those probes.
 
@@ -26,15 +26,15 @@ Docker's containerd store retains compressed and unpacked data, so `docker image
 
 ## Build cache behavior
 
-| Build | Time | Dependency installation | Next.js compilation |
-| --- | ---: | --- | --- |
-| Cold production build | 75.09 s | Executed | Executed |
-| Unchanged production rebuild | 5.65 s | Cached | Cached |
-| Source-only production rebuild | 23.75 s | Cached | Executed |
-| Restore original production source | 5.90 s | Cached | Cached |
-| Slim runtime assembly after cold build | 10.70 s | Cached | Cached |
-| Unchanged slim rebuild | 6.82 s | Cached | Cached |
-| Slim assembly after source change | 10.18 s | Cached | Cached |
+| Build                                  |    Time | Dependency installation | Next.js compilation |
+| -------------------------------------- | ------: | ----------------------- | ------------------- |
+| Cold production build                  | 75.09 s | Executed                | Executed            |
+| Unchanged production rebuild           |  5.65 s | Cached                  | Cached              |
+| Source-only production rebuild         | 23.75 s | Cached                  | Executed            |
+| Restore original production source     |  5.90 s | Cached                  | Cached              |
+| Slim runtime assembly after cold build | 10.70 s | Cached                  | Cached              |
+| Unchanged slim rebuild                 |  6.82 s | Cached                  | Cached              |
+| Slim assembly after source change      | 10.18 s | Cached                  | Cached              |
 
 The cold build used a dedicated empty Buildx builder, including a fresh pnpm store and Next.js cache. It was not a fresh Docker Desktop installation or a network benchmark. The slim target reused the common application build; its assembly timings do not represent an independent cold compilation. Source-only changes reused dependency installation as required.
 
@@ -44,17 +44,17 @@ The development image built in **80.61 s** using the populated dependency layer.
 
 Each image was started three times. Each sample made six warm-up requests followed by 50 requests, split equally between `/` and `/api/v1/tasks?status=all`, at concurrency four. Tables report the median of the three per-run measurements; percentile ranges are included where useful. Other heavy test suites were stopped during measurement.
 
-| Measurement | Distroless production | Node slim baseline |
-| --- | ---: | ---: |
-| Compose command to first successful API response | 1.635 s | 1.491 s |
-| Container start to first successful API response | 1.137 s | 1.046 s |
-| First HTML request | 554.84 ms | 544.80 ms |
-| Idle application RSS after readiness and first HTML | 162.18 MiB | 163.14 MiB |
-| Application RSS after load | 175.18 MiB | 173.44 MiB |
-| HTML p50 | 67.78 ms | 64.60 ms |
-| HTML p95 | 127.29 ms | 121.21 ms |
-| API p50 | 13.17 ms | 13.90 ms |
-| API p95 | 32.32 ms | 43.53 ms |
+| Measurement                                         | Distroless production | Node slim baseline |
+| --------------------------------------------------- | --------------------: | -----------------: |
+| Compose command to first successful API response    |               1.635 s |            1.491 s |
+| Container start to first successful API response    |               1.137 s |            1.046 s |
+| First HTML request                                  |             554.84 ms |          544.80 ms |
+| Idle application RSS after readiness and first HTML |            162.18 MiB |         163.14 MiB |
+| Application RSS after load                          |            175.18 MiB |         173.44 MiB |
+| HTML p50                                            |              67.78 ms |           64.60 ms |
+| HTML p95                                            |             127.29 ms |          121.21 ms |
+| API p50                                             |              13.17 ms |           13.90 ms |
+| API p95                                             |              32.32 ms |           43.53 ms |
 
 HTML p95 ranged from 120.00–137.49 ms for Distroless and 104.66–130.13 ms for slim. API p95 ranged from 23.49–43.41 ms and 29.41–48.25 ms respectively. RSS sums application Node processes, excludes the measurement process, and is not a peak-memory measurement. The readiness probe ran every 100 ms, so differences around that interval need a finer follow-up before attributing them to the runtime image.
 
@@ -77,15 +77,15 @@ The full run and logs are generated locally in ignored `test-results/stack/`. Re
 
 Run `prelude-stack-a5b43edc` passed on 2026-09-29 using Docker Engine 29.8.1, Compose 5.5.1, Linux amd64, and Node 26.10.0. The same methodology and resource limits above were retained. Native verification and development processes were stopped during these measurements. Both runtime targets contained identical application artifacts, including the generated MCP App HTML; tsdown, Tailwind CLI, and Inspector were absent from both runtimes.
 
-| Measurement | Distroless production | Node slim baseline |
-| --- | ---: | ---: |
-| Gzip-compressed OCI layers | 74.42 MB | 99.86 MB |
-| Unpacked filesystem | 232.63 MB | 316.87 MB |
-| Median container start to API readiness | 1,036 ms | 1,037 ms |
-| Median idle application RSS | 127.30 MiB | 127.21 MiB |
-| Median application RSS after load | 132.84 MiB | 132.83 MiB |
-| Median per-run homepage p50 / p95 | 15.05 / 26.11 ms | 17.00 / 26.08 ms |
-| Median per-run API p50 / p95 | 6.85 / 14.09 ms | 6.83 / 16.94 ms |
+| Measurement                             | Distroless production | Node slim baseline |
+| --------------------------------------- | --------------------: | -----------------: |
+| Gzip-compressed OCI layers              |              74.42 MB |           99.86 MB |
+| Unpacked filesystem                     |             232.63 MB |          316.87 MB |
+| Median container start to API readiness |              1,036 ms |           1,037 ms |
+| Median idle application RSS             |            127.30 MiB |         127.21 MiB |
+| Median application RSS after load       |            132.84 MiB |         132.83 MiB |
+| Median per-run homepage p50 / p95       |      15.05 / 26.11 ms |   17.00 / 26.08 ms |
+| Median per-run API p50 / p95            |       6.85 / 14.09 ms |    6.83 / 16.94 ms |
 
 Three starts/load samples were recorded per runtime. These small local samples establish a footprint reduction without demonstrating a general runtime speed advantage. The homepage is now statically rendered, with the dynamic workbench moved to `/playground`; its latency and memory workload differ from the earlier baseline and must not be attributed to the runtime image or widget compiler.
 

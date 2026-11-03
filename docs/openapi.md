@@ -4,9 +4,9 @@ The same oRPC procedures serve the browser over RPC, direct Server Component cal
 
 ## Endpoints
 
-| Endpoint | Input and behavior |
-| --- | --- |
-| `GET /api/docs` | Public, interactive Scalar reference; linked from the shared header and homepage. |
+| Endpoint                | Input and behavior                                                                                                                                                            |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/docs`         | Public, interactive Scalar reference; linked from the shared header and homepage.                                                                                             |
 | `GET /api/openapi.json` | Generated specification, titled with the site name from `apps/web/src/site.ts` followed by **API**, version **1.0.0**. Both values are set in `apps/web/src/lib/api-info.ts`. |
 
 Each procedure adds its own endpoint under `/api`. Invalid inputs return 400; invalid procedure outputs return 500. REST and RPC request bodies larger than 64 KB are rejected with 413 before parsing. Path parameters belong only in the URL: on any route with a path parameter, such as `{id}`, and oRPC's default compact input, repeating that key in the query or body returns 400, even when the values match. This includes bracket keys such as `id[0]`. On those routes, a malformed body also returns 400 before any mutation. oRPC's compact input merges path parameters with the query or body, and since oRPC 1.15.5 the value from the URL wins. The guard in `createOpenApi` (`apps/web/src/lib/openapi.ts`) also rejects the request, so a repeated key is never dropped silently. Routes with `inputStructure: "detailed"` keep path parameters and the query apart, so the guard skips them.
@@ -14,13 +14,13 @@ Each procedure adds its own endpoint under `/api`. Invalid inputs return 400; in
 <!-- demo:start -->
 The task demo adds these endpoints:
 
-| Endpoint | Input and behavior |
-| --- | --- |
-| `GET /api/v1/tasks?status=all` | Required status: `all`, `active`, or `completed`; returns 200. |
-| `POST /api/v1/tasks` | JSON `{ "title": "Build a feature" }`; returns the new task with 201. |
-| `PATCH /api/v1/tasks/{id}` | JSON `{ "completed": true }`; returns the updated task with 200, or `NOT_FOUND` with 404. |
+| Endpoint                         | Input and behavior                                                                                                                  |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/v1/tasks?status=all`   | Required status: `all`, `active`, or `completed`; returns 200.                                                                      |
+| `POST /api/v1/tasks`             | JSON `{ "title": "Build a feature" }`; returns the new task with 201.                                                               |
+| `PATCH /api/v1/tasks/{id}`       | JSON `{ "completed": true }`; returns the updated task with 200, or `NOT_FOUND` with 404.                                           |
 | `PATCH /api/v1/tasks/{id}/title` | JSON `{ "title": "Refine the feature" }`; returns the updated task with 200, preserving ID and completion, or `NOT_FOUND` with 404. |
-| `DELETE /api/v1/tasks/{id}` | No body; returns the deleted task with 200, or `NOT_FOUND` with 404 if it no longer exists. |
+| `DELETE /api/v1/tasks/{id}`      | No body; returns the deleted task with 200, or `NOT_FOUND` with 404 if it no longer exists.                                         |
 
 Creation and title-editing inputs are trimmed before the normalized 1–120-character constraint is checked.
 
