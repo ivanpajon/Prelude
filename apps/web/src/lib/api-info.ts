@@ -12,7 +12,7 @@ export const apiInfo = { title: `${site.name} API`, version: "1.0.0" };
  * pin this asset, so the version lives here, and Renovate updates it in this one place.
  */
 export const scalarScriptUrl =
-  "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.76.4/dist/browser/standalone.js";
+  "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.78.0/dist/browser/standalone.js";
 
 /**
  * Subresource Integrity hash of the file at `scalarScriptUrl`. The browser refuses the script
