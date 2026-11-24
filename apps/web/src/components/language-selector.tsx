@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { useFocusAfterChange, useRoutingPreference } from "@/i18n/routing-preference-provider";
 
 /** Each language names itself, so visitors find theirs in any interface language. */
-const languageNames: Record<Locale, string> = { en: "English", es: "Español" };
+export const languageNames: Record<Locale, string> = { en: "English", es: "Español" };
 
 export function LanguageSelector() {
   const t = useTranslations("Common");

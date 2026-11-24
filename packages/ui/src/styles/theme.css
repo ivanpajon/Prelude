@@ -1,6 +1,17 @@
 /* shadcn preset b2CiqCc8O (Mira, Zinc, Teal, Montserrat). The site's theme toggle and MCP hosts set data-theme. */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+/* A sticky element that its children can ask whether it's stuck: `unstuck:` applies while it
+   sits in its place. Browsers without scroll-state queries never apply it. */
+@utility scroll-state-container {
+  container-type: scroll-state;
+}
+@custom-variant unstuck {
+  @container not scroll-state(stuck: top) {
+    @slot;
+  }
+}
+
 @theme inline {
   --font-sans: "Montserrat Variable", ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-sans);
