@@ -108,3 +108,27 @@ test("keeps the chosen color theme after a reload", async ({ page }) => {
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });
+
+test("frames the app page with a sidebar that collapses to icons", async ({ page }) => {
+  // Narrower than 768px the sidebar is a sheet, which other viewports don't collapse.
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/private");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Overview");
+  const sidebar = page.locator('[data-slot="sidebar"]');
+  await expect(sidebar).toHaveAttribute("data-state", "expanded");
+  await expect(page.getByRole("link", { name: "Overview" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  // The page has no language selector for waitForHydration, and a click before hydration is
+  // lost, so this clicks until the sidebar answers.
+  await expect(async () => {
+    if ((await sidebar.getAttribute("data-collapsible")) !== "icon") {
+      await page.getByRole("button", { name: "Toggle sidebar" }).first().click();
+    }
+    await expect(sidebar).toHaveAttribute("data-collapsible", "icon", { timeout: 1000 });
+  }).toPass();
+  await page.getByRole("button", { name: /Ada Lovelace/ }).click();
+  await expect(page.getByRole("menuitem", { name: "Language" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Theme" })).toBeVisible();
+});

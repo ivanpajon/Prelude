@@ -47,6 +47,9 @@ export async function SiteHeader(
           {t("playground")}
         </Link>
         {/* demo:end */}
+        <Link href="/private" className={buttonVariants({ variant: "ghost" })}>
+          {t("private")}
+        </Link>
         <a href="/api/docs" className={buttonVariants({ variant: "ghost" })}>
           {t("apiDocs")}
         </a>

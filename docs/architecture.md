@@ -25,6 +25,8 @@ The stateless Streamable HTTP MCP endpoint at `/api/mcp` derives its tools from 
 
 Keep context values above a streamed Suspense boundary the same after hydration. React can reveal streamed content up to 300 ms after it arrives, so the page may hydrate first. If a provider above the hidden boundary then changes its value, React renders the boundary again on the client and drops its server HTML. For this reason the language controls read their hydration flag themselves, and the Motion provider wraps each animated section instead of the whole application.
 
+`/private` is the layout example for app pages (a dashboard, an account area): `components/app-shell.tsx` frames a page with the inset sidebar of `@repo/ui/components/sidebar` and a bar that stays on top. The shell lists the sidebar's pages and passes the translated labels to the client sidebar. It has no sign-in; add your own check in the page before the shell. The sidebar opens expanded on every load, so the page stays static.
+
 <!-- demo:start -->
 The workbench parses URL state on the server, fetches its initial query, and passes dehydrated state to TanStack Query. Successful mutations invalidate the task query family.
 
