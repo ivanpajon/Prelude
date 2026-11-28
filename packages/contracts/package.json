@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@orpc/contract": "1.16.1",
-    "arktype": "2.2.9"
+    "arktype": "2.2.10"
   },
   "devDependencies": {
     "typescript": "6.0.3"
